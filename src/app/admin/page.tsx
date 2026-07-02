@@ -1,5 +1,10 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { db, subscribers, issues } from "@/lib/db";
+import {
+  SCHEDULE_DESCRIPTION,
+  formatSydneyDateTime,
+  nextSendAt,
+} from "@/lib/cadence";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +126,66 @@ export default async function AdminPage({
           {message}
         </div>
       )}
+
+      <section style={card}>
+        <h2 style={h2}>Next editions</h2>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          {CADENCES.map((c) => {
+            const next = nextSendAt(
+              c,
+              new Date(),
+              process.env.FORTNIGHT_ANCHOR ?? "2026-07-06",
+            );
+            return (
+              <div
+                key={c}
+                style={{
+                  flex: "1 1 220px",
+                  border: "2px solid var(--cta-ink)",
+                  borderRadius: 14,
+                  padding: "14px 18px",
+                  background: "var(--cta-cream-warm)",
+                  boxShadow: "3px 3px 0 var(--cta-ink)",
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    textTransform: "uppercase",
+                    fontSize: 22,
+                    lineHeight: 1,
+                    marginBottom: 4,
+                  }}
+                >
+                  {c}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginBottom: 8,
+                  }}
+                >
+                  {SCHEDULE_DESCRIPTION[c]}
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                  Next: {formatSydneyDateTime(next)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "var(--text-muted)",
+            margin: "14px 0 0",
+          }}
+        >
+          Issues go out with the morning pipeline run — 7:00 am Sydney time
+          during winter (AEST) and 8:00 am during daylight saving (AEDT).
+        </p>
+      </section>
 
       <section style={card}>
         <h2 style={h2}>Subscribers</h2>

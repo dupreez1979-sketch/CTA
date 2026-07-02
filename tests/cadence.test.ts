@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   cadencesDueNow,
+  formatSydneyDateTime,
   isFortnightlySendDay,
   isWeeklySendDay,
   issueWindow,
+  nextSendAt,
 } from "@/lib/cadence";
 
 // 21:00 UTC = 07:00 next day in Sydney (AEST, UTC+10)
@@ -76,5 +78,47 @@ describe("send days", () => {
 
   it("rejects an invalid anchor", () => {
     expect(() => isFortnightlySendDay(MONDAY_7AM_SYD, "not-a-date")).toThrow();
+  });
+});
+
+describe("nextSendAt", () => {
+  // Wednesday 1 Jul 2026 10:00 Sydney = 00:00 UTC
+  const WED_MORNING = new Date("2026-07-01T00:00:00Z");
+
+  it("daily is the next 21:00 UTC firing", () => {
+    expect(nextSendAt("daily", WED_MORNING, "2026-07-06").toISOString()).toBe(
+      "2026-07-01T21:00:00.000Z",
+    );
+    // Just after a firing → tomorrow's
+    const after = new Date("2026-07-01T21:30:00Z");
+    expect(nextSendAt("daily", after, "2026-07-06").toISOString()).toBe(
+      "2026-07-02T21:00:00.000Z",
+    );
+  });
+
+  it("weekly is the next firing that lands on a Sydney Monday", () => {
+    // 2026-07-05T21:00Z is Monday 6 Jul, 7am in Sydney
+    expect(nextSendAt("weekly", WED_MORNING, "2026-07-06").toISOString()).toBe(
+      "2026-07-05T21:00:00.000Z",
+    );
+  });
+
+  it("fortnightly respects the anchor parity", () => {
+    // Anchor Monday 6 Jul → next fortnightly is that Monday's firing
+    expect(
+      nextSendAt("fortnightly", WED_MORNING, "2026-07-06").toISOString(),
+    ).toBe("2026-07-05T21:00:00.000Z");
+    // Just after it → skips the off-week Monday (13 Jul) to 20 Jul's firing
+    const after = new Date("2026-07-05T21:30:00Z");
+    expect(
+      nextSendAt("fortnightly", after, "2026-07-06").toISOString(),
+    ).toBe("2026-07-19T21:00:00.000Z");
+  });
+
+  it("formats the send instant in Sydney time", () => {
+    const s = formatSydneyDateTime(new Date("2026-07-05T21:00:00Z"));
+    expect(s).toContain("Mon");
+    expect(s).toContain("6 Jul");
+    expect(s.toLowerCase()).toContain("7:00");
   });
 });

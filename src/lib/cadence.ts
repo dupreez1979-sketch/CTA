@@ -139,3 +139,66 @@ export function cadencesDueNow(now: Date, fortnightAnchor: string): Cadence[] {
   if (isFortnightlySendDay(now, fortnightAnchor)) due.push("fortnightly");
   return due;
 }
+
+/**
+ * The pipeline fires once a day at this UTC hour — keep in sync with the
+ * cron expression in netlify/functions/daily-pipeline.mts ("0 21 * * *").
+ * 21:00 UTC is 7am Sydney during AEST and 8am during AEDT.
+ */
+export const SEND_HOUR_UTC = 21;
+
+export const SCHEDULE_DESCRIPTION: Record<Cadence, string> = {
+  daily: "Every morning",
+  weekly: "Every Monday morning",
+  fortnightly: "Every second Monday morning",
+};
+
+/** The first pipeline firing strictly after `now`. */
+function nextPipelineRun(now: Date): Date {
+  const run = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      SEND_HOUR_UTC,
+    ),
+  );
+  if (run.getTime() <= now.getTime()) {
+    run.setUTCDate(run.getUTCDate() + 1);
+  }
+  return run;
+}
+
+/** The instant the next issue of a cadence goes out. */
+export function nextSendAt(
+  cadence: Cadence,
+  now: Date,
+  fortnightAnchor: string,
+): Date {
+  let run = nextPipelineRun(now);
+  for (let i = 0; i < 21; i++) {
+    if (
+      cadence === "daily" ||
+      (cadence === "weekly" && isWeeklySendDay(run)) ||
+      (cadence === "fortnightly" && isFortnightlySendDay(run, fortnightAnchor))
+    ) {
+      return run;
+    }
+    run = new Date(run.getTime() + 24 * 3600_000);
+  }
+  throw new Error("Could not find a next send day within 21 days");
+}
+
+/** e.g. "Fri, 3 Jul 2026, 7:00 am AEST". */
+export function formatSydneyDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: TIMEZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
