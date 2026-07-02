@@ -200,6 +200,19 @@ export default async function AdminPage({
       </section>
 
       <section style={card}>
+        <h2 style={h2}>Fetch new posts</h2>
+        <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 0 }}>
+          Runs the same feed-ingest step as the daily pipeline: new posts get
+          an AI headline and summary and appear in the previews below.
+        </p>
+        <form action="/api/admin/ingest" method="post">
+          <button type="submit" style={buttonStyle}>
+            Fetch new posts now
+          </button>
+        </form>
+      </section>
+
+      <section style={card}>
         <h2 style={h2}>Preview the next issue</h2>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {CADENCES.map((c) => (

@@ -3,14 +3,14 @@ import { ingestFeed } from "@/lib/ingest";
 import { cadencesDueNow, issueWindow } from "@/lib/cadence";
 import { sendIssue } from "@/lib/send";
 
-export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 /**
- * The daily pipeline, triggered by Vercel Cron (see vercel.json) each
- * morning Sydney time: ingest new feed items, then send whichever issues
- * are due — daily always, weekly on Mondays, fortnightly on alternate
- * Mondays (parity anchored by FORTNIGHT_ANCHOR).
+ * The daily pipeline, triggered by the Netlify scheduled function
+ * (netlify/functions/daily-pipeline.mts) each morning Sydney time:
+ * ingest new feed items, then send whichever issues are due — daily
+ * always, weekly on Mondays, fortnightly on alternate Mondays (parity
+ * anchored by FORTNIGHT_ANCHOR).
  */
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization");

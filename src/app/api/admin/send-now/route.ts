@@ -4,7 +4,6 @@ import { sendIssue } from "@/lib/send";
 import type { Cadence } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
 
 /**
  * Admin: manually send the current issue for a cadence to all its active

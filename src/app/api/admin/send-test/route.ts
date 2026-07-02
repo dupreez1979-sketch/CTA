@@ -4,7 +4,6 @@ import { sendTest } from "@/lib/send";
 import type { Cadence } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
 
 /** Admin: send the current issue for a cadence to a single test address. */
 export async function POST(request: NextRequest) {

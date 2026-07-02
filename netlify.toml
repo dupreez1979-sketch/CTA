@@ -1,0 +1,8 @@
+# Netlify configuration. The Next.js runtime is auto-detected; the build
+# command also applies any pending database migrations (drizzle/) to
+# DATABASE_URL before building, so deploys are self-contained.
+[build]
+  command = "npm run db:migrate && npm run build"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
