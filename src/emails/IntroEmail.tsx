@@ -312,6 +312,58 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
             </Link>
           </Section>
 
+          {/* Get involved — deliberately quiet */}
+          <Section className="px" style={{ padding: "22px 34px 8px" }}>
+            <table
+              role="presentation"
+              width="100%"
+              cellPadding={0}
+              cellSpacing={0}
+              style={{
+                borderCollapse: "separate",
+                backgroundColor: COLORS.creamWarm,
+                border: `2px solid ${INK}`,
+                borderRadius: 14,
+              }}
+            >
+              <tbody>
+                <tr>
+                  <td style={{ padding: "16px 20px" }}>
+                    <Text
+                      style={{ ...display(18, 1), margin: "0 0 6px" }}
+                    >
+                      Get involved?
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontSize: 13,
+                        lineHeight: 1.55,
+                        color: COLORS.textBody,
+                        margin: 0,
+                      }}
+                    >
+                      Do you create or present theatre for children?{" "}
+                      <Link
+                        href="mailto:kevin@childrenstheatre.com.au"
+                        style={{
+                          fontFamily: FONT_BODY,
+                          fontWeight: 700,
+                          fontSize: 13,
+                          color: INK,
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Get in touch
+                      </Link>{" "}
+                      to learn more.
+                    </Text>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </Section>
+
           {/* Footer */}
           <Section
             className="px"
