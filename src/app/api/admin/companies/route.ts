@@ -6,7 +6,7 @@ import { loadCompanies, slugify } from "@/lib/company-store";
 export const dynamic = "force-dynamic";
 
 /**
- * Admin: manage the member-company registry (add / update / delete).
+ * Admin: manage the registry of Alliance companies (add / update / delete).
  * `match` is a comma-separated list of lowercase fragments checked
  * against each feed post's page name, title and link.
  */

@@ -57,7 +57,7 @@ export async function generateCopy(
 ): Promise<AiCopy> {
   const attribution =
     companyDisplayName ??
-    "an Alliance member company (the exact company is not identified — take the company name from the post itself if it's mentioned, and never attribute the news to 'the Alliance' or 'Around the Alliance')";
+    "a company in the Alliance (the exact company is not identified — take the company name from the post itself if it's mentioned, and never attribute the news to 'the Alliance' or 'Around the Alliance')";
   const response = await client().messages.create({
     model: MODEL,
     max_tokens: 300,

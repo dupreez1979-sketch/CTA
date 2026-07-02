@@ -3,8 +3,8 @@ import { matchCompany, type Company } from "./companies";
 
 /**
  * Feed ingestion for the Alliance RSS feed (rss.app — aggregated Facebook
- * posts from member companies). Normalises each item to the fields the
- * pipeline needs and matches it to a member company.
+ * posts from Alliance companies). Normalises each item to the fields the
+ * pipeline needs and matches it to an Alliance company.
  */
 
 export interface NormalisedItem {

@@ -1,6 +1,6 @@
 # Children's Theatre Alliance — Newsletter App
 
-An automated email newsletter for the [Children's Theatre Alliance](https://www.childrenstheatrealliance.com.au/). It turns the Alliance's RSS feed (aggregated Facebook posts from member companies) into a branded email: every post gets an **AI-written headline and one-sentence summary**, posts are **grouped by company** — each in its own brand colour with a puzzle-shape sticker — and the newsletter ships in **three cadences** (Daily / Weekly / Fortnightly) from one template. People subscribe through a **sign-up popup** hosted here and embeddable on the Alliance website.
+An automated email newsletter for the [Children's Theatre Alliance](https://www.childrenstheatrealliance.com.au/). It turns the Alliance's RSS feed (aggregated Facebook posts from the Alliance's companies) into a branded email: every post gets an **AI-written headline and one-sentence summary**, posts are **grouped by company** — each in its own brand colour with a puzzle-shape sticker — and the newsletter ships in **three cadences** (Daily / Weekly / Fortnightly) from one template. People subscribe through a **sign-up popup** hosted here and embeddable on the Alliance website.
 
 Built from the design handoff in [`design/`](design/README.md). Runs on **Netlify** with **Supabase** (Postgres), **Resend** (email), **Netlify Blobs** (image hosting) and the **Anthropic API** (headlines/summaries).
 
@@ -97,7 +97,7 @@ tests/                      # vitest unit tests
 
 ## Operational notes
 
-- **Adding a member company**: use the "Member companies" section in `/admin` (name + comma-separated match words). The registry lives in the `companies` table, seeded from `DEFAULT_COMPANIES` in `src/lib/companies.ts` on first use. Unmatched posts fall into an "Around the Alliance" section rather than being dropped.
+- **Adding a company**: use the "Alliance companies" section in `/admin` (name + comma-separated match words). Note: the Alliance doesn't use the word "member" — keep it out of user-facing copy. The registry lives in the `companies` table, seeded from `DEFAULT_COMPANIES` in `src/lib/companies.ts` on first use. Unmatched posts fall into an "Around the Alliance" section rather than being dropped.
 - **Cadence timing** lives in `src/lib/cadence.ts`; weekly issues go out on Sydney Mondays, fortnightly on alternate Mondays anchored by `FORTNIGHT_ANCHOR`.
 - **Email fonts**: Impact doesn't load in most email clients by design — the fallback stack (`Haettenschweiler` / `Arial Narrow Bold`) is intentional per the design handoff.
 - **Big backlogs**: the first ingest of a full feed may need a few pipeline runs (or a few clicks of "Fetch new posts now") because of the per-run cap.

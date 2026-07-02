@@ -636,7 +636,7 @@ async function CompaniesTab() {
 
   return (
     <section className="admin-card">
-      <h2 style={h2}>Member companies</h2>
+      <h2 style={h2}>Alliance companies</h2>
       <p style={muted}>
         Posts are matched to a company when its page name, post title or link
         contains one of the <strong>match words</strong> (separate several
@@ -688,7 +688,7 @@ async function CompaniesTab() {
                     <input type="hidden" name="action" value="delete" />
                     <input type="hidden" name="id" value={c.id} />
                     <ConfirmSubmit
-                      message={`Remove ${c.name} from the member list? Their future posts will file under "Around the Alliance".`}
+                      message={`Remove ${c.name} from the Alliance's companies? Their future posts will file under "Around the Alliance".`}
                       style={dangerButton}
                     >
                       Remove

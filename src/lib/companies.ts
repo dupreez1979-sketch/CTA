@@ -2,7 +2,7 @@ import { COLORS } from "./tokens";
 import type { ShapeName } from "./shapes";
 
 /**
- * Member-company matching. The live registry is managed in the admin
+ * Alliance-company matching. The live registry is managed in the admin
  * console and stored in the `companies` table (see company-store.ts);
  * DEFAULT_COMPANIES below seeds it on first use. Feed items are matched
  * against `match` fragments (checked case-insensitively against the
@@ -19,7 +19,7 @@ export interface Company {
 export const FALLBACK_COMPANY_KEY = "around-the-alliance";
 export const FALLBACK_COMPANY_NAME = "Around the Alliance";
 
-/** Seed data for the companies table — the Alliance's confirmed member list. */
+/** Seed data for the companies table — the Alliance's confirmed companies. */
 export const DEFAULT_COMPANIES: Company[] = [
   { key: "arena-theatre", name: "Arena Theatre", match: ["arena theatre", "arenatheatre"] },
   { key: "barking-gecko", name: "Barking Gecko Arts", match: ["barking gecko", "barkinggecko"] },
