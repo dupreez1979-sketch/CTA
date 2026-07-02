@@ -19,33 +19,26 @@ export interface Company {
 export const FALLBACK_COMPANY_KEY = "around-the-alliance";
 export const FALLBACK_COMPANY_NAME = "Around the Alliance";
 
-/** Seed data for the companies table (from the design handoff + website). */
+/** Seed data for the companies table — the Alliance's confirmed member list. */
 export const DEFAULT_COMPANIES: Company[] = [
-  { key: "spare-parts", name: "Spare Parts Puppet Theatre", match: ["spare parts", "sparepartspuppets"] },
-  { key: "windmill", name: "Windmill", match: ["windmill"] },
-  { key: "shake-and-stir", name: "Shake & Stir", match: ["shake & stir", "shake and stir", "shakeandstir"] },
-  { key: "terrapin", name: "Terrapin", match: ["terrapin"] },
-  { key: "awesome-arts", name: "AWESOME Arts", match: ["awesome arts", "awesome festival", "awesomearts"] },
-  { key: "monkey-baa", name: "Monkey Baa", match: ["monkey baa", "monkeybaa"] },
-  { key: "patch-theatre", name: "Patch Theatre", match: ["patch theatre", "patchtheatre"] },
-  { key: "barking-gecko", name: "Barking Gecko", match: ["barking gecko", "barkinggecko"] },
-  { key: "slingsby", name: "Slingsby", match: ["slingsby"] },
-  { key: "polyglot", name: "Polyglot", match: ["polyglot"] },
-  { key: "playable-streets", name: "Playable Streets", match: ["playable streets", "playablestreets"] },
   { key: "arena-theatre", name: "Arena Theatre", match: ["arena theatre", "arenatheatre"] },
-  { key: "bighart", name: "Big hART", match: ["big hart", "bighart"] },
-  { key: "flying-fruit-fly", name: "Flying Fruit Fly Circus", match: ["fruit fly", "flyingfruitfly"] },
-  { key: "imaginary-theatre", name: "Imaginary Theatre", match: ["imaginary theatre"] },
-  { key: "little-wing", name: "Little Wing Puppets", match: ["little wing"] },
-  { key: "sensorium", name: "Sensorium Theatre", match: ["sensorium"] },
-  { key: "the-last-great-hunt", name: "The Last Great Hunt", match: ["last great hunt"] },
-  { key: "dead-puppet-society", name: "Dead Puppet Society", match: ["dead puppet"] },
-  { key: "cdp", name: "CDP Kids", match: ["cdp kids", "cdp theatre"] },
+  { key: "barking-gecko", name: "Barking Gecko Arts", match: ["barking gecko", "barkinggecko"] },
   { key: "brymore", name: "Brymore Productions", match: ["brymore"] },
-  { key: "bunk-puppets", name: "Bunk Puppets", match: ["bunk puppets", "bunkpuppets"] },
-  { key: "critical-stages", name: "Critical Stages Touring", match: ["critical stages"] },
-  { key: "little-match", name: "Little Match Productions", match: ["little match"] },
-  { key: "erth", name: "Erth Visual & Physical", match: ["erth visual", "erthphysical", "erth "] },
+  { key: "cdp", name: "CDP Theatre Producers", match: ["cdp theatre", "cdp kids", "cdptheatre"] },
+  { key: "dead-puppet-society", name: "Dead Puppet Society", match: ["dead puppet"] },
+  { key: "imaginary-theatre", name: "Imaginary Theatre", match: ["imaginary theatre"] },
+  { key: "monkey-baa", name: "Monkey Baa Theatre Co", match: ["monkey baa", "monkeybaa"] },
+  { key: "patch-theatre", name: "Patch Theatre", match: ["patch theatre", "patchtheatre"] },
+  { key: "playable-streets", name: "Playable Streets", match: ["playable streets", "playablestreets"] },
+  { key: "polyglot", name: "Polyglot", match: ["polyglot"] },
+  { key: "sensorium", name: "Sensorium Theatre", match: ["sensorium"] },
+  { key: "shake-and-stir", name: "Shake & Stir", match: ["shake & stir", "shake and stir", "shakeandstir"] },
+  { key: "slingsby", name: "Slingsby", match: ["slingsby"] },
+  { key: "spare-parts", name: "Spare Parts Puppet Theatre", match: ["spare parts", "sparepartspuppets"] },
+  { key: "terrapin", name: "Terrapin", match: ["terrapin"] },
+  { key: "the-listies", name: "The Listies", match: ["listies"] },
+  { key: "threshold", name: "Threshold", match: ["threshold"] },
+  { key: "windmill", name: "Windmill Production Co", match: ["windmill"] },
 ];
 
 /**

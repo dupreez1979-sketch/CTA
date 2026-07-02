@@ -14,7 +14,7 @@ describe("matchCompany", () => {
   it("matches by creator (Facebook page name)", () => {
     expect(matchCompany({ creator: "Spare Parts Puppet Theatre" }, REGISTRY)).toBe("spare-parts");
     expect(matchCompany({ creator: "shake & stir theatre co" }, REGISTRY)).toBe("shake-and-stir");
-    expect(matchCompany({ creator: "AWESOME Arts Australia" }, REGISTRY)).toBe("awesome-arts");
+    expect(matchCompany({ creator: "The Listies" }, REGISTRY)).toBe("the-listies");
   });
 
   it("matches by link slug when the creator is missing", () => {
