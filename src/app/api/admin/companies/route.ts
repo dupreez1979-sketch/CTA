@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const action = String(form.get("action") ?? "");
   const redirect = (message: string) =>
     NextResponse.redirect(
-      new URL(`/admin?message=${encodeURIComponent(message)}#companies`, request.url),
+      new URL(`/admin?tab=companies&message=${encodeURIComponent(message)}`, request.url),
       { status: 303 },
     );
 

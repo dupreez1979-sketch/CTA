@@ -16,12 +16,12 @@ export async function POST(request: NextRequest) {
   try {
     const result = await sendTest(issueWindow(cadence as Cadence, new Date()), to);
     return NextResponse.redirect(
-      new URL(`/admin?message=${encodeURIComponent(result === "sent" ? `Test ${cadence} issue sent to ${to}` : `No items in the ${cadence} window — nothing to send`)}`, request.url),
+      new URL(`/admin?tab=sending&message=${encodeURIComponent(result === "sent" ? `Test ${cadence} issue sent to ${to}` : `No items in the ${cadence} window — nothing to send`)}`, request.url),
       { status: 303 },
     );
   } catch (err) {
     return NextResponse.redirect(
-      new URL(`/admin?message=${encodeURIComponent(`Send failed: ${err}`)}`, request.url),
+      new URL(`/admin?tab=sending&message=${encodeURIComponent(`Send failed: ${err}`)}`, request.url),
       { status: 303 },
     );
   }

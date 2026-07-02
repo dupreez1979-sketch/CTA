@@ -25,12 +25,12 @@ export async function POST(request: NextRequest) {
           ? `This ${cadence} window's issue was already sent`
           : `Skipped — no items or no subscribers for ${cadence}`;
     return NextResponse.redirect(
-      new URL(`/admin?message=${encodeURIComponent(message)}`, request.url),
+      new URL(`/admin?tab=sending&message=${encodeURIComponent(message)}`, request.url),
       { status: 303 },
     );
   } catch (err) {
     return NextResponse.redirect(
-      new URL(`/admin?message=${encodeURIComponent(`Send failed: ${err}`)}`, request.url),
+      new URL(`/admin?tab=sending&message=${encodeURIComponent(`Send failed: ${err}`)}`, request.url),
       { status: 303 },
     );
   }

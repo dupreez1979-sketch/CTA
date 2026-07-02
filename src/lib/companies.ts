@@ -42,6 +42,10 @@ export const DEFAULT_COMPANIES: Company[] = [
   { key: "dead-puppet-society", name: "Dead Puppet Society", match: ["dead puppet"] },
   { key: "cdp", name: "CDP Kids", match: ["cdp kids", "cdp theatre"] },
   { key: "brymore", name: "Brymore Productions", match: ["brymore"] },
+  { key: "bunk-puppets", name: "Bunk Puppets", match: ["bunk puppets", "bunkpuppets"] },
+  { key: "critical-stages", name: "Critical Stages Touring", match: ["critical stages"] },
+  { key: "little-match", name: "Little Match Productions", match: ["little match"] },
+  { key: "erth", name: "Erth Visual & Physical", match: ["erth visual", "erthphysical", "erth "] },
 ];
 
 /**
