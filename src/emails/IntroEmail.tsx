@@ -163,9 +163,8 @@ export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
               working together
             </Text>
             <Text className="body-p" style={body()}>
-              Founded in 2026, the Children&#39;s Theatre Alliance is the
-              sector-led national platform of Australia&#39;s professional
-              theatre companies making work for children.
+              Together we collaborate to ensure every Australian child grows
+              up with theatre as part of their life.
             </Text>
           </Section>
 
