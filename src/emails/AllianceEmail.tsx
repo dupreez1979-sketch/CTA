@@ -633,6 +633,21 @@ export default function AllianceEmail({
               Alliance. We acknowledge the Traditional Custodians of the lands
               on which we make and share stories.
             </Text>
+            <Text style={{ margin: "0 0 10px", fontSize: 12 }}>
+              <Link
+                href="https://www.childrenstheatrealliance.com.au/"
+                className="footer-link"
+                style={{
+                  fontFamily: FONT_BODY,
+                  fontWeight: 700,
+                  fontSize: 12,
+                  color: INK,
+                  textDecoration: "underline",
+                }}
+              >
+                childrenstheatrealliance.com.au
+              </Link>
+            </Text>
             <Text style={{ margin: 0, fontSize: 12 }}>
               {preferencesUrl && (
                 <>
@@ -669,6 +684,20 @@ export default function AllianceEmail({
               >
                 Unsubscribe
               </Link>
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONT_BODY,
+                fontWeight: 400,
+                fontSize: 11,
+                lineHeight: 1.6,
+                color: INK,
+                margin: "14px 0 0",
+              }}
+            >
+              Managed by National Children&#39;s Theatre Initiative
+              <br />
+              AI was used to create headings and summarise content.
             </Text>
           </Section>
         </Container>
