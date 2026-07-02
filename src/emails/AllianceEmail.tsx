@@ -68,6 +68,34 @@ const FONT_DISPLAY =
 const FONT_BODY = "'Poppins',Helvetica,Arial,sans-serif";
 const INK = COLORS.ink;
 
+/**
+ * Mobile overrides (Apple Mail, Gmail app, and most modern clients honour
+ * embedded media queries; others keep the desktop layout). Paired with the
+ * fluid container below, phones get a full-width email with 16px body copy
+ * and larger headlines instead of a scaled-down 600px layout.
+ */
+const MOBILE_STYLES = `
+@media only screen and (max-width: 480px) {
+  .px { padding-left: 20px !important; padding-right: 20px !important; }
+  .date-meta { font-size: 13px !important; }
+  .intro-h { font-size: 30px !important; }
+  .chip { font-size: 12px !important; }
+  .banner-h { font-size: 24px !important; }
+  .item-h { font-size: 24px !important; }
+  .item-p { font-size: 16px !important; line-height: 1.5 !important; }
+  .item-link { font-size: 14px !important; }
+  .feat-h { font-size: 34px !important; }
+  .feat-p { font-size: 16px !important; line-height: 1.55 !important; }
+  .feat-img { height: 240px !important; }
+  .feat-btn { font-size: 15px !important; padding: 12px 20px !important; }
+  .thumb-td { width: 100px !important; padding-right: 12px !important; }
+  .thumb-box { width: 100px !important; height: 100px !important; }
+  .thumb-img { width: 100px !important; height: 100px !important; }
+  .footer-p { font-size: 14px !important; }
+  .footer-link { font-size: 14px !important; }
+}
+`;
+
 const display = (size: number, lineHeight = 0.95): React.CSSProperties => ({
   fontFamily: FONT_DISPLAY,
   textTransform: "uppercase" as const,
@@ -93,6 +121,7 @@ function CompanyBanner({
 }) {
   return (
     <span
+      className="banner-h"
       style={{
         ...display(size, 1),
         display: "inline-block",
@@ -115,6 +144,7 @@ function ImageSlot({
   height,
   radius,
   alt,
+  cls,
 }: {
   imageUrl: string | null;
   hex: string;
@@ -122,12 +152,15 @@ function ImageSlot({
   height: number;
   radius: number;
   alt: string;
+  /** Class targeted by the mobile media queries. */
+  cls?: string;
 }) {
   if (imageUrl) {
     return (
       <Img
         src={imageUrl}
         alt={alt}
+        className={cls}
         width={typeof width === "number" ? width : undefined}
         height={height}
         style={{
@@ -146,11 +179,12 @@ function ImageSlot({
       cellPadding={0}
       cellSpacing={0}
       width={typeof width === "number" ? width : "100%"}
-      style={{ borderCollapse: "separate" }}
+      style={{ borderCollapse: "separate", width: "100%" }}
     >
       <tbody>
         <tr>
           <td
+            className={cls}
             style={{
               width,
               height,
@@ -189,6 +223,7 @@ export default function AllianceEmail({
           fontWeight={400}
           fontStyle="normal"
         />
+        <style>{MOBILE_STYLES}</style>
       </Head>
       <Preview>{`${intro} — ${dateRange}`}</Preview>
       <Body
@@ -199,12 +234,15 @@ export default function AllianceEmail({
           color: INK,
         }}
       >
+        {/* Hybrid width: the attribute keeps desktop Outlook at 600px; the
+            CSS makes modern clients fluid (full-width on phones). */}
         <Container
           width={600}
-          style={{ maxWidth: 600, backgroundColor: COLORS.cream }}
+          style={{ width: "100%", maxWidth: 600, backgroundColor: COLORS.cream }}
         >
           {/* Masthead */}
           <Section
+            className="px"
             style={{
               backgroundColor: COLORS.creamWarm,
               borderBottom: `3px solid ${INK}`,
@@ -251,6 +289,7 @@ export default function AllianceEmail({
                   {cadence} dispatch
                 </span>
                 <span
+                  className="date-meta"
                   style={{
                     fontFamily: FONT_BODY,
                     fontWeight: 600,
@@ -267,13 +306,15 @@ export default function AllianceEmail({
           </Section>
 
           {/* Intro line */}
-          <Section style={{ padding: "22px 34px 4px" }}>
-            <Text style={display(26, 0.94)}>{intro}</Text>
+          <Section className="px" style={{ padding: "22px 34px 4px" }}>
+            <Text className="intro-h" style={display(26, 0.94)}>
+              {intro}
+            </Text>
           </Section>
 
           {/* Index chips (fortnightly) */}
           {indexNames && indexNames.length > 0 && (
-            <Section style={{ padding: "12px 34px 4px" }}>
+            <Section className="px" style={{ padding: "12px 34px 4px" }}>
               <Text
                 style={{
                   fontFamily: FONT_BODY,
@@ -291,6 +332,7 @@ export default function AllianceEmail({
                 {indexNames.map((nm) => (
                   <span
                     key={nm}
+                    className="chip"
                     style={{
                       display: "inline-block",
                       fontFamily: FONT_BODY,
@@ -314,7 +356,7 @@ export default function AllianceEmail({
 
           {/* Featured story (weekly + fortnightly) */}
           {featured && (
-            <Section style={{ padding: "18px 34px 6px" }}>
+            <Section className="px" style={{ padding: "18px 34px 6px" }}>
               <table
                 role="presentation"
                 width="100%"
@@ -339,6 +381,7 @@ export default function AllianceEmail({
                         height={330}
                         radius={0}
                         alt={featured.heading}
+                        cls="feat-img"
                       />
                     </td>
                   </tr>
@@ -377,10 +420,14 @@ export default function AllianceEmail({
                           {featured.company}
                         </span>
                       </Text>
-                      <Text style={{ ...display(30, 0.95), margin: "0 0 10px" }}>
+                      <Text
+                        className="feat-h"
+                        style={{ ...display(30, 0.95), margin: "0 0 10px" }}
+                      >
                         {featured.heading}
                       </Text>
                       <Text
+                        className="feat-p"
                         style={{
                           fontFamily: FONT_BODY,
                           fontSize: 15,
@@ -393,6 +440,7 @@ export default function AllianceEmail({
                       </Text>
                       <Link
                         href={featured.url}
+                        className="feat-btn"
                         style={{
                           display: "inline-block",
                           fontFamily: FONT_BODY,
@@ -417,7 +465,7 @@ export default function AllianceEmail({
           )}
 
           {/* Company sections */}
-          <Section style={{ padding: "10px 34px 6px" }}>
+          <Section className="px" style={{ padding: "10px 34px 6px" }}>
             {companies.map((co) => (
               <table
                 key={co.name}
@@ -463,6 +511,7 @@ export default function AllianceEmail({
                             <tr>
                               <td
                                 width={126}
+                                className="thumb-td"
                                 style={{
                                   width: 126,
                                   verticalAlign: "top",
@@ -470,6 +519,7 @@ export default function AllianceEmail({
                                 }}
                               >
                                 <div
+                                  className="thumb-box"
                                   style={{
                                     width: 126,
                                     height: 126,
@@ -486,11 +536,13 @@ export default function AllianceEmail({
                                     height={126}
                                     radius={12}
                                     alt=""
+                                    cls="thumb-img"
                                   />
                                 </div>
                               </td>
                               <td style={{ verticalAlign: "top" }}>
                                 <Text
+                                  className="item-h"
                                   style={{
                                     ...display(20, 0.98),
                                     margin: "0 0 7px",
@@ -499,6 +551,7 @@ export default function AllianceEmail({
                                   {it.heading}
                                 </Text>
                                 <Text
+                                  className="item-p"
                                   style={{
                                     fontFamily: FONT_BODY,
                                     fontSize: 13.5,
@@ -511,6 +564,7 @@ export default function AllianceEmail({
                                 </Text>
                                 <Link
                                   href={it.url}
+                                  className="item-link"
                                   style={{
                                     fontFamily: FONT_BODY,
                                     fontWeight: 700,
@@ -537,6 +591,7 @@ export default function AllianceEmail({
 
           {/* Footer */}
           <Section
+            className="px"
             style={{
               backgroundColor: COLORS.purple,
               borderTop: `3px solid ${INK}`,
@@ -556,6 +611,7 @@ export default function AllianceEmail({
               }}
             />
             <Text
+              className="footer-p"
               style={{
                 fontFamily: FONT_BODY,
                 fontWeight: 500,
@@ -575,6 +631,7 @@ export default function AllianceEmail({
                 <>
                   <Link
                     href={preferencesUrl}
+                    className="footer-link"
                     style={{
                       fontFamily: FONT_BODY,
                       fontWeight: 700,
@@ -594,6 +651,7 @@ export default function AllianceEmail({
               )}
               <Link
                 href={unsubscribeUrl}
+                className="footer-link"
                 style={{
                   fontFamily: FONT_BODY,
                   fontWeight: 700,
