@@ -40,6 +40,7 @@ export const COMPANIES: Company[] = [
   { key: "the-last-great-hunt", name: "The Last Great Hunt", match: ["last great hunt"] },
   { key: "dead-puppet-society", name: "Dead Puppet Society", match: ["dead puppet"] },
   { key: "cdp", name: "CDP Kids", match: ["cdp kids", "cdp theatre"] },
+  { key: "brymore", name: "Brymore Productions", match: ["brymore"] },
 ];
 
 export function companyName(key: string): string {

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { companyName } from "./companies";
+import { FALLBACK_COMPANY_KEY, companyName } from "./companies";
 import type { NormalisedItem } from "./feed";
 
 /**
@@ -47,6 +47,12 @@ export interface AiCopy {
 }
 
 export async function generateCopy(item: NormalisedItem): Promise<AiCopy> {
+  // For unmatched posts, don't name the fallback bucket as if it were the
+  // poster — the copy must not attribute the news to "Around the Alliance".
+  const attribution =
+    item.companyKey === FALLBACK_COMPANY_KEY
+      ? "an Alliance member company (the exact company is not identified — take the company name from the post itself if it's mentioned, and never attribute the news to 'the Alliance' or 'Around the Alliance')"
+      : companyName(item.companyKey);
   const response = await client().messages.create({
     model: MODEL,
     max_tokens: 300,
@@ -55,7 +61,7 @@ export async function generateCopy(item: NormalisedItem): Promise<AiCopy> {
     messages: [
       {
         role: "user",
-        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${companyName(item.companyKey)}.\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
+        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${attribution}.\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
       },
     ],
   });
