@@ -97,7 +97,7 @@ tests/                      # vitest unit tests
 
 ## Operational notes
 
-- **Adding a member company**: append an entry to `COMPANIES` in `src/lib/companies.ts` (display name + match fragments). Unmatched posts fall into an "Around the Alliance" section rather than being dropped.
+- **Adding a member company**: use the "Member companies" section in `/admin` (name + comma-separated match words). The registry lives in the `companies` table, seeded from `DEFAULT_COMPANIES` in `src/lib/companies.ts` on first use. Unmatched posts fall into an "Around the Alliance" section rather than being dropped.
 - **Cadence timing** lives in `src/lib/cadence.ts`; weekly issues go out on Sydney Mondays, fortnightly on alternate Mondays anchored by `FORTNIGHT_ANCHOR`.
 - **Email fonts**: Impact doesn't load in most email clients by design — the fallback stack (`Haettenschweiler` / `Arial Narrow Bold`) is intentional per the design handoff.
 - **Big backlogs**: the first ingest of a full feed may need a few pipeline runs (or a few clicks of "Fetch new posts now") because of the per-run cap.
