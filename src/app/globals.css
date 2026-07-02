@@ -1,0 +1,241 @@
+/* Design tokens from the Children's Theatre Alliance design system
+   (design/_ds/.../tokens). */
+:root {
+  --cta-purple: #ac9efc;
+  --cta-pink: #f24a71;
+  --cta-yellow: #ffb83d;
+  --cta-teal: #05aeaf;
+  --cta-ocean: #053848;
+  --cta-mint: #85f1e6;
+  --cta-emerald: #03dba4;
+  --cta-blue: #00a0c5;
+  --cta-sky: #48befd;
+  --cta-ink: #1e1e1d;
+  --cta-cream: #efeee4;
+  --cta-cream-warm: #fff8e7;
+  --cta-white: #ffffff;
+  --text-body: #2c2c2b;
+  --text-muted: #5a5a57;
+
+  --font-display: var(--font-impact), "Haettenschweiler", "Arial Narrow Bold",
+    sans-serif;
+  --font-body: var(--font-poppins), system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+
+  --dur-fast: 120ms;
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cta-cream);
+  font-family: var(--font-body);
+  color: var(--cta-ink);
+}
+
+/* ---- Sign-up popup card ---- */
+
+.popup-card {
+  position: relative;
+  width: 560px;
+  max-width: 100%;
+  background: var(--cta-white);
+  border-radius: 24px;
+  box-shadow: 14px 14px 0 var(--cta-ink);
+  padding: 44px 46px 40px;
+}
+
+.popup-shape {
+  position: absolute;
+  top: -26px;
+  left: -26px;
+  width: 58px;
+  height: 58px;
+  transform: rotate(-10deg);
+  z-index: 0;
+}
+
+.popup-close {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--cta-ink);
+  background: var(--cta-white);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--cta-ink);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--cta-ink);
+  z-index: 2;
+  transition: background var(--dur-fast);
+}
+
+.popup-close:hover {
+  background: var(--cta-pink);
+}
+
+.popup-title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: 42px;
+  line-height: 0.92;
+  color: var(--cta-ink);
+  margin: 0 0 8px;
+}
+
+.popup-subtitle {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin: 0 0 26px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cta-ink);
+}
+
+.field input {
+  font-family: var(--font-body);
+  font-size: 17px;
+  color: var(--cta-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--cta-ink);
+  padding: 7px 2px;
+  outline: none;
+  width: 100%;
+  border-radius: 0;
+  transition: border-bottom-color var(--dur-fast);
+}
+
+.field input:focus {
+  border-bottom-color: var(--cta-purple);
+}
+
+.pill-row {
+  display: flex;
+  gap: 10px;
+}
+
+.pill {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 11px 6px;
+  border: 2px solid var(--cta-ink);
+  border-radius: 12px;
+  color: var(--cta-ink);
+  background: var(--cta-white);
+  box-shadow: none;
+  transition: background var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.pill[aria-pressed="true"] {
+  background: var(--cta-purple);
+  box-shadow: 3px 3px 0 var(--cta-ink);
+}
+
+.submit {
+  width: 100%;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--cta-ink);
+  background: var(--cta-white);
+  border: 2px solid var(--cta-ink);
+  border-radius: 14px;
+  padding: 14px 20px;
+  cursor: pointer;
+  box-shadow: 6px 6px 0 var(--cta-ink);
+  transition: transform var(--dur-fast) var(--ease-pop),
+    box-shadow var(--dur-fast) var(--ease-out), background var(--dur-fast);
+}
+
+.submit:hover {
+  background: var(--cta-purple);
+  transform: translate(-1px, -1px);
+  box-shadow: 7px 7px 0 var(--cta-ink);
+}
+
+.submit:active {
+  transform: translate(4px, 4px);
+  box-shadow: 2px 2px 0 var(--cta-ink);
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+.disclaimer {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 16px 0 0;
+}
+
+.disclaimer a {
+  color: var(--cta-ink);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.confirm-title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: 48px;
+  line-height: 0.9;
+  color: var(--cta-ink);
+  margin: 0;
+}
+
+.confirm-copy {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-body);
+  max-width: 42ch;
+  margin: 0 0 22px;
+}
+
+.reset-link {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--cta-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--cta-purple);
+  padding: 0 0 2px;
+  cursor: pointer;
+}
+
+.form-error {
+  font-size: 13px;
+  color: var(--cta-pink);
+  font-weight: 600;
+  margin: 12px 0 0;
+  text-align: center;
+}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/effects.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/styles.css">
+  <script src="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/_ds_bundle.js"></script>
+  <style>
+    image-slot { display:block; width:100%; height:100%; }
+  </style>
+</helmet>
+<div style="width:100%;background:#EFEEE4;font-family:var(--font-body);color:var(--cta-ink);">
+
+  <!-- Masthead -->
+  <div style="background:#FFF8E7;border-bottom:3px solid #1E1E1D;padding:28px 34px 26px;position:relative;overflow:hidden;">
+    <div style="position:absolute;right:-16px;top:-18px;width:88px;height:88px;">
+      <x-import component-from-global-scope="DesignSystem_9aa87f.PuzzleShape" shape="circle" color="teal" size="88" hint-size="88px,88px"></x-import>
+    </div>
+    <div style="position:absolute;right:60px;bottom:-24px;width:56px;height:56px;">
+      <x-import component-from-global-scope="DesignSystem_9aa87f.PuzzleShape" shape="plus" color="pink" size="56" rotate="12" hint-size="56px,56px"></x-import>
+    </div>
+    <img src="assets/logo-full.png" alt="The Children's Theatre Alliance" style="height:52px;width:auto;display:block;position:relative;">
+    <div style="display:flex;align-items:center;gap:11px;margin-top:16px;position:relative;">
+      <span style="background:var(--cta-purple);color:var(--cta-ink);font-family:var(--font-body);font-weight:600;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;padding:5px 12px;border:2px solid #1E1E1D;border-radius:999px;box-shadow:3px 3px 0 #1E1E1D;">{{ cadence }} dispatch</span>
+      <span style="font-family:var(--font-body);font-weight:600;font-size:12px;color:var(--text-muted);letter-spacing:0.02em;">{{ dateRange }}</span>
+    </div>
+  </div>
+
+  <!-- Intro line -->
+  <div style="padding:22px 34px 4px;">
+    <div style="font-family:var(--font-display);text-transform:uppercase;font-size:26px;line-height:0.94;color:var(--cta-ink);">{{ intro }}</div>
+  </div>
+
+  <!-- Index chips (fortnightly) -->
+  <sc-if value="{{ hasIndex }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:12px 34px 4px;">
+      <div style="font-family:var(--font-body);font-weight:600;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:9px;">In this issue</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;">
+        <sc-for list="{{ indexNames }}" as="nm" hint-placeholder-count="6">
+          <span style="font-family:var(--font-body);font-weight:600;font-size:11px;color:var(--cta-ink);background:var(--cta-white);border:2px solid #1E1E1D;padding:5px 11px;border-radius:999px;">{{ nm }}</span>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Featured story (weekly + fortnightly) -->
+  <sc-if value="{{ featured }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:18px 34px 6px;">
+      <div style="position:relative;background:var(--cta-white);border:3px solid #1E1E1D;border-radius:22px;box-shadow:10px 10px 0 #1E1E1D;overflow:hidden;">
+        <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ featured.slotId }}" shape="rect" placeholder="Drop the feed image" style="display:block;width:100%;height:330px;border-bottom:3px solid #1E1E1D;" hint-size="100%,330px"></x-import>
+        <div style="padding:20px 22px 22px;">
+          <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:11px;">
+            <span style="background:var(--cta-yellow);color:var(--cta-ink);font-family:var(--font-body);font-weight:700;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;padding:4px 10px;border:2px solid #1E1E1D;border-radius:999px;">Featured</span>
+            <span style="font-family:var(--font-display);text-transform:uppercase;font-size:19px;line-height:1;color:var(--cta-ink);background:{{ featured.hex }};padding:4px 11px 3px;border:2px solid #1E1E1D;border-radius:9px;box-shadow:3px 3px 0 #1E1E1D;display:inline-block;">{{ featured.company }}</span>
+          </div>
+          <div style="font-family:var(--font-display);text-transform:uppercase;font-size:30px;line-height:0.95;color:var(--cta-ink);margin-bottom:10px;">{{ featured.heading }}</div>
+          <div style="font-family:var(--font-body);font-weight:400;font-size:15px;line-height:1.55;color:var(--text-body);margin-bottom:14px;">{{ featured.summary }}</div>
+          <a href="{{ featured.url }}" style="display:inline-block;font-family:var(--font-body);font-weight:700;font-size:13px;color:var(--cta-ink);background:var(--cta-purple);border:2px solid #1E1E1D;border-radius:12px;padding:9px 16px;text-decoration:none;box-shadow:3px 3px 0 #1E1E1D;">Read the post &#8594;</a>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Company sections -->
+  <div style="padding:10px 34px 6px;">
+    <sc-for list="{{ companies }}" as="co" hint-placeholder-count="4">
+      <div style="margin-top:30px;">
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px;">
+          <span style="font-family:var(--font-display);text-transform:uppercase;font-size:22px;line-height:1;color:var(--cta-ink);background:{{ co.hex }};padding:5px 13px 4px;border:2px solid #1E1E1D;border-radius:10px;box-shadow:3px 3px 0 #1E1E1D;display:inline-block;">{{ co.name }}</span>
+          <div style="width:28px;height:28px;flex:none;">
+            <x-import component-from-global-scope="DesignSystem_9aa87f.PuzzleShape" shape="{{ co.shape }}" color="{{ co.hex }}" size="28" hint-size="28px,28px"></x-import>
+          </div>
+        </div>
+        <sc-for list="{{ co.items }}" as="it" hint-placeholder-count="2">
+          <div style="display:grid;grid-template-columns:126px 1fr;gap:16px;align-items:start;padding:16px 0;border-top:2px dashed rgba(30,30,29,0.18);">
+            <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ it.slotId }}" shape="rounded" radius="14" placeholder="Drop image" style="display:block;width:126px;height:126px;border:2px solid #1E1E1D;box-shadow:3px 3px 0 #1E1E1D;" hint-size="126px,126px"></x-import>
+            <div>
+              <div style="font-family:var(--font-display);text-transform:uppercase;font-size:20px;line-height:0.98;color:var(--cta-ink);margin-bottom:7px;">{{ it.heading }}</div>
+              <div style="font-family:var(--font-body);font-weight:400;font-size:13.5px;line-height:1.5;color:var(--text-body);margin-bottom:11px;">{{ it.summary }}</div>
+              <a href="{{ it.url }}" style="font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--cta-ink);text-decoration:none;border-bottom:2px solid {{ co.hex }};padding-bottom:1px;">Read the post &#8594;</a>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- Footer -->
+  <div style="background:var(--cta-purple);border-top:3px solid #1E1E1D;padding:26px 34px;margin-top:28px;">
+    <img src="assets/logo-full.png" alt="The Children's Theatre Alliance" style="height:34px;width:auto;display:block;margin-bottom:12px;">
+    <div style="font-family:var(--font-body);font-weight:500;font-size:12px;line-height:1.6;color:var(--cta-ink);margin-bottom:6px;max-width:52ch;">You&#39;re receiving this as part of the Children&#39;s Theatre Alliance. We acknowledge the Traditional Custodians of the lands on which we make and share stories.</div>
+    <a href="#" style="font-family:var(--font-body);font-weight:700;font-size:12px;color:var(--cta-ink);text-decoration:underline;">Unsubscribe</a>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:900}}"></script>
+</body>
+</html>

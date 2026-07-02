@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/effects.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/styles.css">
+  <script src="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/_ds_bundle.js"></script>
+  <style>
+    body { margin:0; background:#EFEEE4; }
+  </style>
+</helmet>
+<!-- Turn 2 — Sign-up popup -->
+<section style="padding:60px 64px 40px;font-family:var(--font-body);">
+  <div id="2a" style="display:flex;flex-direction:column;gap:14px;align-items:flex-start;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="background:var(--cta-ink);color:var(--cta-cream);font-family:var(--font-body);font-weight:700;font-size:13px;padding:4px 11px;border-radius:999px;">2a</span>
+      <span style="font-family:var(--font-display);text-transform:uppercase;font-size:20px;color:var(--cta-ink);">Sign-up popup</span>
+      <span style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);">Try it: fill the fields and submit</span>
+    </div>
+    <div style="width:720px;border-radius:12px;overflow:hidden;">
+      <dc-import name="SignupPopup" hint-size="720px,680px"></dc-import>
+    </div>
+  </div>
+</section>
+
+<section style="padding:60px 64px 96px;font-family:var(--font-body);">
+
+  <div style="margin-bottom:44px;max-width:900px;">
+    <div style="font-family:var(--font-display);text-transform:uppercase;font-size:52px;line-height:0.9;color:var(--cta-ink);">The daily / weekly / fortnightly dispatch</div>
+    <div style="font-family:var(--font-body);font-size:15px;line-height:1.6;color:var(--text-body);margin-top:14px;max-width:70ch;">One automated build, three rhythms. Each post is pulled from the Alliance feed, given an AI-written headline and a one-sentence summary, and grouped under the company that posted it &mdash; every company in its own colour so the wall of news never blurs together. Drop the real feed image onto any slot. Reference an option in chat by its badge.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:64px;align-items:flex-start;">
+
+    <!-- 1a Daily -->
+    <div id="1a" style="display:flex;flex-direction:column;gap:14px;align-items:flex-start;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="background:var(--cta-ink);color:var(--cta-cream);font-family:var(--font-body);font-weight:700;font-size:13px;padding:4px 11px;border-radius:999px;">1a</span>
+        <span style="font-family:var(--font-display);text-transform:uppercase;font-size:20px;color:var(--cta-ink);">Daily</span>
+        <span style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);">One day of posts, kept tight</span>
+      </div>
+      <div style="width:600px;border:3px solid #1E1E1D;border-radius:8px;box-shadow:10px 10px 0 #1E1E1D;overflow:hidden;background:#EFEEE4;">
+        <dc-import name="AllianceEmail" cadence="Daily" date-range="Wednesday 1 July 2026" intro="{{ dailyIntro }}" companies="{{ daily }}" has-index="{{ false }}" hint-size="600px,1100px"></dc-import>
+      </div>
+    </div>
+
+    <!-- 1b Weekly -->
+    <div id="1b" style="display:flex;flex-direction:column;gap:14px;align-items:flex-start;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="background:var(--cta-ink);color:var(--cta-cream);font-family:var(--font-body);font-weight:700;font-size:13px;padding:4px 11px;border-radius:999px;">1b</span>
+        <span style="font-family:var(--font-display);text-transform:uppercase;font-size:20px;color:var(--cta-ink);">Weekly</span>
+        <span style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);">Featured lead + the week&#39;s roundup</span>
+      </div>
+      <div style="width:600px;border:3px solid #1E1E1D;border-radius:8px;box-shadow:10px 10px 0 #1E1E1D;overflow:hidden;background:#EFEEE4;">
+        <dc-import name="AllianceEmail" cadence="Weekly" date-range="29 Jun &#8211; 5 Jul 2026" intro="{{ weeklyIntro }}" featured="{{ weeklyFeatured }}" companies="{{ weekly }}" has-index="{{ false }}" hint-size="600px,1600px"></dc-import>
+      </div>
+    </div>
+
+    <!-- 1c Fortnightly -->
+    <div id="1c" style="display:flex;flex-direction:column;gap:14px;align-items:flex-start;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="background:var(--cta-ink);color:var(--cta-cream);font-family:var(--font-body);font-weight:700;font-size:13px;padding:4px 11px;border-radius:999px;">1c</span>
+        <span style="font-family:var(--font-display);text-transform:uppercase;font-size:20px;color:var(--cta-ink);">Fortnightly</span>
+        <span style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);">Index + full digest across the network</span>
+      </div>
+      <div style="width:600px;border:3px solid #1E1E1D;border-radius:8px;box-shadow:10px 10px 0 #1E1E1D;overflow:hidden;background:#EFEEE4;">
+        <dc-import name="AllianceEmail" cadence="Fortnightly" date-range="22 Jun &#8211; 5 Jul 2026" intro="{{ fortnightlyIntro }}" featured="{{ fortnightlyFeatured }}" index-names="{{ fortnightlyIndex }}" has-index="{{ true }}" companies="{{ fortnightly }}" hint-size="600px,2400px"></dc-import>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const PINK="#F24A71", TEAL="#05AEAF", YELLOW="#FFB83D", PURPLE="#AC9EFC",
+          SKY="#48BEFD", EMERALD="#03DBA4", BLUE="#00A0C5", MINT="#85F1E6";
+
+    const daily = [
+      { name: "Spare Parts Puppet Theatre", hex: PINK, shape: "square", items: [
+        { slotId: "d-spare-1", url: "https://www.facebook.com/reel/1004189352204656/",
+          heading: "Rules of Summer returns for the holidays",
+          summary: "A wordless, multi-sensory puppetry show drawn from Shaun Tan's picture book runs 4–18 July at Claremont Showground." } ] },
+      { name: "Windmill", hex: TEAL, shape: "arch", items: [
+        { slotId: "d-wind-1", url: "https://www.facebook.com/reel/1004232785650336/",
+          heading: "Moss Piglet wraps its national tour",
+          summary: "Stage manager Taylor takes you behind the scenes as the tour closes at Theatre Royal Hobart this Friday 3 July." } ] },
+      { name: "Shake & Stir", hex: YELLOW, shape: "plus", items: [
+        { slotId: "d-shake-1", url: "https://m.facebook.com/shakeandstir/posts/1541263274222672",
+          heading: "GRIMM keeps delighting audiences",
+          summary: "The Brothers Grimm retelling tours on nationwide, with venues and dates listed on the company's mainstage page." } ] },
+      { name: "Terrapin", hex: SKY, shape: "circle", items: [
+        { slotId: "d-terr-1", url: "https://m.facebook.com/terrapintheatre/posts/",
+          heading: "The Paper Escaper lands in Taipei",
+          summary: "The team has arrived for the Taipei Children's Art Festival, opening at TPAC this week." } ] },
+      { name: "AWESOME Arts", hex: EMERALD, shape: "quarter", items: [
+        { slotId: "d-awe-1", url: "https://www.facebook.com/reel/1024274853344869/",
+          heading: "Volunteer sign-ups open for the festival",
+          summary: "Registrations are now live for anyone keen to join this year's AWESOME Festival crew." } ] },
+    ];
+
+    const weeklyFeatured = {
+      company: "Monkey Baa", hex: PURPLE, slotId: "w-feat",
+      url: "https://m.facebook.com/monkeybaatheatreco/posts/",
+      heading: "Eva Di Cesare to step down after 30 years",
+      summary: "The co-founder and Artistic Director will conclude her tenure at the end of 2027, the company's 30th year, having reached more than 1.8 million children and families across the country.",
+    };
+
+    const weekly = [
+      { name: "Patch Theatre", hex: PINK, shape: "square", items: [
+        { slotId: "w-patch-1", url: "https://www.facebook.com/reel/2214265809318619/",
+          heading: "Me & My Shadow marks 16 years on stage",
+          summary: "After 340+ performances worldwide, the show returns to Adelaide this August with original performers Nathan and Astrid." } ] },
+      { name: "Spare Parts Puppet Theatre", hex: TEAL, shape: "arch", items: [
+        { slotId: "w-spare-1", url: "https://www.facebook.com/reel/1004189352204656/",
+          heading: "Rules of Summer returns for the holidays",
+          summary: "A wordless puppetry show from Shaun Tan's book runs 4–18 July at Claremont Showground." },
+        { slotId: "w-spare-2", url: "https://m.facebook.com/sparepartspuppets/posts/",
+          heading: "Countdown to opening night",
+          summary: "Blue Hat Boy and Red Hat Boy step onto the stage this week as the season begins." } ] },
+      { name: "Barking Gecko", hex: YELLOW, shape: "plus", items: [
+        { slotId: "w-bark-1", url: "https://m.facebook.com/BarkingGeckoArts/posts/",
+          heading: "95,050 children reached in 2025",
+          summary: "A record touring year across WA, helping 7,493 students attend live theatre through subsidised tickets." } ] },
+      { name: "Terrapin", hex: SKY, shape: "circle", items: [
+        { slotId: "w-terr-1", url: "https://m.facebook.com/terrapintheatre/posts/",
+          heading: "The Paper Escaper lands in Taipei",
+          summary: "The team has arrived for the Taipei Children's Art Festival, opening at TPAC this week." },
+        { slotId: "w-terr-2", url: "https://www.facebook.com/reel/1490615672320818/",
+          heading: "Raising $10,000 to tour Space Neighbours",
+          summary: "The schools program aims to reach 12,000 Tasmanian children in 2026, including remote communities." } ] },
+      { name: "Slingsby", hex: EMERALD, shape: "quarter", items: [
+        { slotId: "w-sling-1", url: "https://m.facebook.com/SlingsbyTheatre/posts/",
+          heading: "Slingsby farewells four of its finest",
+          summary: "The company thanks four long-serving team members as it reshapes for its next chapter." } ] },
+      { name: "Windmill", hex: BLUE, shape: "archCut", items: [
+        { slotId: "w-wind-1", url: "https://www.facebook.com/reel/1004232785650336/",
+          heading: "Moss Piglet wraps its national tour",
+          summary: "Stage manager Taylor goes behind the scenes as the tour closes at Theatre Royal Hobart this Friday." } ] },
+    ];
+
+    const fortnightlyFeatured = {
+      company: "Monkey Baa", hex: PURPLE, slotId: "f-feat",
+      url: "https://m.facebook.com/monkeybaatheatreco/posts/",
+      heading: "Eva Di Cesare to step down after 30 years",
+      summary: "The co-founder and Artistic Director will conclude her tenure at the end of 2027, the company's 30th year, having reached more than 1.8 million children and families across every state and territory.",
+    };
+
+    const fortnightlyIndex = ["Monkey Baa","Patch Theatre","Spare Parts","Shake & Stir","Terrapin","Polyglot","Barking Gecko","Playable Streets","Slingsby","Arena","Windmill"];
+
+    const fortnightly = [
+      { name: "Patch Theatre", hex: PINK, shape: "square", items: [
+        { slotId: "f-patch-1", url: "https://www.facebook.com/reel/2214265809318619/",
+          heading: "Me & My Shadow marks 16 years on stage",
+          summary: "After 340+ performances worldwide, the show returns to Adelaide this August with original performers Nathan and Astrid." } ] },
+      { name: "Spare Parts Puppet Theatre", hex: TEAL, shape: "arch", items: [
+        { slotId: "f-spare-1", url: "https://www.facebook.com/reel/1004189352204656/",
+          heading: "Rules of Summer returns for the holidays",
+          summary: "A wordless puppetry show from Shaun Tan's book runs 4–18 July at Claremont Showground." },
+        { slotId: "f-spare-2", url: "https://m.facebook.com/sparepartspuppets/posts/",
+          heading: "Countdown to opening night",
+          summary: "Blue Hat Boy and Red Hat Boy step onto the stage this week as the season begins." } ] },
+      { name: "Shake & Stir", hex: YELLOW, shape: "plus", items: [
+        { slotId: "f-shake-1", url: "https://m.facebook.com/shakeandstir/posts/1541263274222672",
+          heading: "GRIMM keeps delighting audiences",
+          summary: "The Brothers Grimm retelling tours on, with venues and dates on the mainstage page." },
+        { slotId: "f-shake-2", url: "https://m.facebook.com/shakeandstir/posts/",
+          heading: "GRIMM plays Port Macquarie for one night",
+          summary: "A single-night stop at the Glasshouse continues the national tour." } ] },
+      { name: "Terrapin", hex: SKY, shape: "circle", items: [
+        { slotId: "f-terr-1", url: "https://m.facebook.com/terrapintheatre/posts/",
+          heading: "The Paper Escaper lands in Taipei",
+          summary: "The team has arrived for the Taipei Children's Art Festival, opening at TPAC this week." },
+        { slotId: "f-terr-2", url: "https://www.facebook.com/reel/1490615672320818/",
+          heading: "Raising $10,000 to tour Space Neighbours",
+          summary: "The schools program aims to reach 12,000 Tasmanian children in 2026, including remote communities." } ] },
+      { name: "Polyglot", hex: EMERALD, shape: "quarter", items: [
+        { slotId: "f-poly-1", url: "https://bit.ly/GGSJul26Promo",
+          heading: "Free workshop: Getting Support at School",
+          summary: "ACD's online session helps families of children with disability navigate school supports and plans." },
+        { slotId: "f-poly-2", url: "https://www.facebook.com/reel/1571015094598361/",
+          heading: "Spark a child's play this EOFY",
+          summary: "Tax-deductible gifts back art made with and for children, from $2 upward." } ] },
+      { name: "Barking Gecko", hex: BLUE, shape: "archCut", items: [
+        { slotId: "f-bark-1", url: "https://m.facebook.com/BarkingGeckoArts/posts/",
+          heading: "95,050 children reached in 2025",
+          summary: "A record touring year across WA, helping 7,493 students attend live theatre through subsidised tickets." } ] },
+      { name: "Playable Streets", hex: MINT, shape: "knobLeft", items: [
+        { slotId: "f-play-1", url: "https://www.facebook.com/reel/3978199719149621/",
+          heading: "Firefly Night Market lights up Tarneit",
+          summary: "A free, luminous evening of music, theatre and dance presented with Wyndham City at Penrose Place." },
+        { slotId: "f-play-2", url: "https://www.facebook.com/reel/879819111831030/",
+          heading: "Cold Voices remembered at Arts Centre",
+          summary: "A look back at the immersive music-theatre work staged in Melbourne earlier this year." } ] },
+      { name: "Arena Theatre", hex: PINK, shape: "stairs", items: [
+        { slotId: "f-arena-1", url: "https://m.facebook.com/arenatheatrecompany/posts/",
+          heading: "Saltbush moves Bendigo audiences",
+          summary: "Greater Bendigo primary students experienced the work about Country and belonging at Ulumbarra Theatre." } ] },
+      { name: "Slingsby", hex: TEAL, shape: "square", items: [
+        { slotId: "f-sling-1", url: "https://m.facebook.com/SlingsbyTheatre/posts/",
+          heading: "Slingsby farewells four of its finest",
+          summary: "The company thanks four long-serving team members as it reshapes for its next chapter." } ] },
+    ];
+
+    return {
+      dailyIntro: "Today across the Alliance",
+      weeklyIntro: "This week across the Alliance",
+      fortnightlyIntro: "This fortnight across the Alliance",
+      daily, weekly, weeklyFeatured,
+      fortnightly, fortnightlyFeatured, fortnightlyIndex,
+    };
+  }
+}
+</script>
+</body>
+</html>

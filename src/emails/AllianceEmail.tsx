@@ -1,0 +1,584 @@
+import * as React from "react";
+import {
+  Html,
+  Head,
+  Font,
+  Body,
+  Container,
+  Section,
+  Row,
+  Column,
+  Img,
+  Text,
+  Link,
+  Preview,
+} from "@react-email/components";
+import { COLORS } from "../lib/tokens";
+import type { ShapeName } from "../lib/shapes";
+import type { Cadence } from "../lib/db/schema";
+
+/**
+ * The Alliance newsletter email — all three cadences share this template.
+ * Table-based, fully inline-styled, 600px content width, per the design
+ * handoff (design/README.md). Impact won't load in most email clients:
+ * the Haettenschweiler / Arial Narrow Bold fallback stack is intentional.
+ * Puzzle shapes are pre-rendered PNGs served from {baseUrl}/shapes/.
+ */
+
+export interface EmailItem {
+  heading: string;
+  summary: string;
+  url: string;
+  imageUrl: string | null;
+}
+
+export interface EmailCompanySection {
+  name: string;
+  hex: string;
+  colorName: string;
+  shape: ShapeName;
+  items: EmailItem[];
+}
+
+export interface EmailFeatured extends EmailItem {
+  company: string;
+  hex: string;
+}
+
+export interface AllianceEmailProps {
+  cadence: Cadence;
+  dateRange: string;
+  intro: string;
+  indexNames?: string[];
+  featured?: EmailFeatured | null;
+  companies: EmailCompanySection[];
+  /** Absolute origin for assets, e.g. https://newsletter.example.org */
+  baseUrl: string;
+  /** Per-recipient unsubscribe URL (or a merge placeholder). */
+  unsubscribeUrl: string;
+}
+
+const FONT_DISPLAY =
+  "'Haettenschweiler','Arial Narrow Bold','Impact',sans-serif";
+const FONT_BODY = "'Poppins',Helvetica,Arial,sans-serif";
+const INK = COLORS.ink;
+
+const display = (size: number, lineHeight = 0.95): React.CSSProperties => ({
+  fontFamily: FONT_DISPLAY,
+  textTransform: "uppercase" as const,
+  fontSize: size,
+  lineHeight: String(lineHeight),
+  letterSpacing: "0.01em",
+  color: INK,
+  margin: 0,
+});
+
+function shapeUrl(baseUrl: string, shape: ShapeName, colorName: string) {
+  return `${baseUrl}/shapes/${shape}-${colorName}.png`;
+}
+
+function CompanyBanner({
+  name,
+  hex,
+  size = 22,
+}: {
+  name: string;
+  hex: string;
+  size?: number;
+}) {
+  return (
+    <span
+      style={{
+        ...display(size, 1),
+        display: "inline-block",
+        backgroundColor: hex,
+        padding: "5px 13px 4px",
+        border: `2px solid ${INK}`,
+        borderRadius: 10,
+        boxShadow: `3px 3px 0 ${INK}`,
+      }}
+    >
+      {name}
+    </span>
+  );
+}
+
+function ImageSlot({
+  imageUrl,
+  hex,
+  width,
+  height,
+  radius,
+  alt,
+}: {
+  imageUrl: string | null;
+  hex: string;
+  width: number | string;
+  height: number;
+  radius: number;
+  alt: string;
+}) {
+  if (imageUrl) {
+    return (
+      <Img
+        src={imageUrl}
+        alt={alt}
+        width={typeof width === "number" ? width : undefined}
+        height={height}
+        style={{
+          display: "block",
+          width,
+          height,
+          objectFit: "cover",
+          borderRadius: radius,
+        }}
+      />
+    );
+  }
+  return (
+    <table
+      role="presentation"
+      cellPadding={0}
+      cellSpacing={0}
+      width={typeof width === "number" ? width : "100%"}
+      style={{ borderCollapse: "separate" }}
+    >
+      <tbody>
+        <tr>
+          <td
+            style={{
+              width,
+              height,
+              backgroundColor: hex,
+              borderRadius: radius,
+            }}
+          />
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+export default function AllianceEmail({
+  cadence,
+  dateRange,
+  intro,
+  indexNames,
+  featured,
+  companies,
+  baseUrl,
+  unsubscribeUrl,
+}: AllianceEmailProps) {
+  const logo = `${baseUrl}/logo-full.png`;
+  return (
+    <Html lang="en">
+      <Head>
+        <Font
+          fontFamily="Poppins"
+          fallbackFontFamily={["Helvetica", "Arial", "sans-serif"]}
+          webFont={{
+            url: "https://fonts.gstatic.com/s/poppins/v23/pxiEyp8kv8JHgFVrJJfecg.woff2",
+            format: "woff2",
+          }}
+          fontWeight={400}
+          fontStyle="normal"
+        />
+      </Head>
+      <Preview>{`${intro} — ${dateRange}`}</Preview>
+      <Body
+        style={{
+          margin: 0,
+          backgroundColor: COLORS.cream,
+          fontFamily: FONT_BODY,
+          color: INK,
+        }}
+      >
+        <Container
+          width={600}
+          style={{ maxWidth: 600, backgroundColor: COLORS.cream }}
+        >
+          {/* Masthead */}
+          <Section
+            style={{
+              backgroundColor: COLORS.creamWarm,
+              borderBottom: `3px solid ${INK}`,
+              padding: "28px 34px 26px",
+            }}
+          >
+            <Row>
+              <Column>
+                <Img
+                  src={logo}
+                  alt="The Children's Theatre Alliance"
+                  height={52}
+                  style={{ display: "block", height: 52, width: "auto" }}
+                />
+              </Column>
+              <Column align="right" style={{ verticalAlign: "top" }}>
+                <Img
+                  src={shapeUrl(baseUrl, "circle", "teal")}
+                  alt=""
+                  width={56}
+                  height={56}
+                  style={{ display: "block" }}
+                />
+              </Column>
+            </Row>
+            <Row>
+              <Column style={{ paddingTop: 16 }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    backgroundColor: COLORS.purple,
+                    color: INK,
+                    fontFamily: FONT_BODY,
+                    fontWeight: 600,
+                    fontSize: 11,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    padding: "5px 12px",
+                    border: `2px solid ${INK}`,
+                    borderRadius: 999,
+                    boxShadow: `3px 3px 0 ${INK}`,
+                  }}
+                >
+                  {cadence} dispatch
+                </span>
+                <span
+                  style={{
+                    fontFamily: FONT_BODY,
+                    fontWeight: 600,
+                    fontSize: 12,
+                    color: COLORS.textMuted,
+                    letterSpacing: "0.02em",
+                    paddingLeft: 11,
+                  }}
+                >
+                  {dateRange}
+                </span>
+              </Column>
+            </Row>
+          </Section>
+
+          {/* Intro line */}
+          <Section style={{ padding: "22px 34px 4px" }}>
+            <Text style={display(26, 0.94)}>{intro}</Text>
+          </Section>
+
+          {/* Index chips (fortnightly) */}
+          {indexNames && indexNames.length > 0 && (
+            <Section style={{ padding: "12px 34px 4px" }}>
+              <Text
+                style={{
+                  fontFamily: FONT_BODY,
+                  fontWeight: 600,
+                  fontSize: 11,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: COLORS.textMuted,
+                  margin: "0 0 9px",
+                }}
+              >
+                In this issue
+              </Text>
+              <Text style={{ margin: 0, lineHeight: "2.2" }}>
+                {indexNames.map((nm) => (
+                  <span
+                    key={nm}
+                    style={{
+                      display: "inline-block",
+                      fontFamily: FONT_BODY,
+                      fontWeight: 600,
+                      fontSize: 11,
+                      color: INK,
+                      backgroundColor: COLORS.white,
+                      border: `2px solid ${INK}`,
+                      padding: "5px 11px",
+                      borderRadius: 999,
+                      marginRight: 7,
+                      marginBottom: 7,
+                    }}
+                  >
+                    {nm}
+                  </span>
+                ))}
+              </Text>
+            </Section>
+          )}
+
+          {/* Featured story (weekly + fortnightly) */}
+          {featured && (
+            <Section style={{ padding: "18px 34px 6px" }}>
+              <table
+                role="presentation"
+                width="100%"
+                cellPadding={0}
+                cellSpacing={0}
+                style={{
+                  borderCollapse: "separate",
+                  backgroundColor: COLORS.white,
+                  border: `3px solid ${INK}`,
+                  borderRadius: 22,
+                  boxShadow: `10px 10px 0 ${INK}`,
+                  overflow: "hidden",
+                }}
+              >
+                <tbody>
+                  <tr>
+                    <td style={{ borderBottom: `3px solid ${INK}` }}>
+                      <ImageSlot
+                        imageUrl={featured.imageUrl}
+                        hex={featured.hex}
+                        width="100%"
+                        height={330}
+                        radius={0}
+                        alt={featured.heading}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "20px 22px 22px" }}>
+                      <Text style={{ margin: "0 0 11px" }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            backgroundColor: COLORS.yellow,
+                            color: INK,
+                            fontFamily: FONT_BODY,
+                            fontWeight: 700,
+                            fontSize: 10,
+                            letterSpacing: "0.14em",
+                            textTransform: "uppercase",
+                            padding: "4px 10px",
+                            border: `2px solid ${INK}`,
+                            borderRadius: 999,
+                            marginRight: 8,
+                          }}
+                        >
+                          Featured
+                        </span>
+                        <span
+                          style={{
+                            ...display(19, 1),
+                            display: "inline-block",
+                            backgroundColor: featured.hex,
+                            padding: "4px 11px 3px",
+                            border: `2px solid ${INK}`,
+                            borderRadius: 9,
+                            boxShadow: `3px 3px 0 ${INK}`,
+                          }}
+                        >
+                          {featured.company}
+                        </span>
+                      </Text>
+                      <Text style={{ ...display(30, 0.95), margin: "0 0 10px" }}>
+                        {featured.heading}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: FONT_BODY,
+                          fontSize: 15,
+                          lineHeight: 1.55,
+                          color: COLORS.textBody,
+                          margin: "0 0 14px",
+                        }}
+                      >
+                        {featured.summary}
+                      </Text>
+                      <Link
+                        href={featured.url}
+                        style={{
+                          display: "inline-block",
+                          fontFamily: FONT_BODY,
+                          fontWeight: 700,
+                          fontSize: 13,
+                          color: INK,
+                          backgroundColor: COLORS.purple,
+                          border: `2px solid ${INK}`,
+                          borderRadius: 12,
+                          padding: "9px 16px",
+                          textDecoration: "none",
+                          boxShadow: `3px 3px 0 ${INK}`,
+                        }}
+                      >
+                        Read the post →
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+          )}
+
+          {/* Company sections */}
+          <Section style={{ padding: "10px 34px 6px" }}>
+            {companies.map((co) => (
+              <table
+                key={co.name}
+                role="presentation"
+                width="100%"
+                cellPadding={0}
+                cellSpacing={0}
+                style={{ borderCollapse: "separate", marginTop: 30 }}
+              >
+                <tbody>
+                  <tr>
+                    <td style={{ paddingBottom: 18 }}>
+                      <CompanyBanner name={co.name} hex={co.hex} />
+                      <Img
+                        src={shapeUrl(baseUrl, co.shape, co.colorName)}
+                        alt=""
+                        width={28}
+                        height={28}
+                        style={{
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                          marginLeft: 11,
+                        }}
+                      />
+                    </td>
+                  </tr>
+                  {co.items.map((it) => (
+                    <tr key={it.url + it.heading}>
+                      <td
+                        style={{
+                          padding: "16px 0",
+                          borderTop: "2px dashed rgba(30,30,29,0.35)",
+                        }}
+                      >
+                        <table
+                          role="presentation"
+                          width="100%"
+                          cellPadding={0}
+                          cellSpacing={0}
+                          style={{ borderCollapse: "separate" }}
+                        >
+                          <tbody>
+                            <tr>
+                              <td
+                                width={126}
+                                style={{
+                                  width: 126,
+                                  verticalAlign: "top",
+                                  paddingRight: 16,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 126,
+                                    height: 126,
+                                    border: `2px solid ${INK}`,
+                                    borderRadius: 14,
+                                    boxShadow: `3px 3px 0 ${INK}`,
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <ImageSlot
+                                    imageUrl={it.imageUrl}
+                                    hex={co.hex}
+                                    width={126}
+                                    height={126}
+                                    radius={12}
+                                    alt=""
+                                  />
+                                </div>
+                              </td>
+                              <td style={{ verticalAlign: "top" }}>
+                                <Text
+                                  style={{
+                                    ...display(20, 0.98),
+                                    margin: "0 0 7px",
+                                  }}
+                                >
+                                  {it.heading}
+                                </Text>
+                                <Text
+                                  style={{
+                                    fontFamily: FONT_BODY,
+                                    fontSize: 13.5,
+                                    lineHeight: 1.5,
+                                    color: COLORS.textBody,
+                                    margin: "0 0 11px",
+                                  }}
+                                >
+                                  {it.summary}
+                                </Text>
+                                <Link
+                                  href={it.url}
+                                  style={{
+                                    fontFamily: FONT_BODY,
+                                    fontWeight: 700,
+                                    fontSize: 12.5,
+                                    color: INK,
+                                    textDecoration: "none",
+                                    borderBottom: `2px solid ${co.hex}`,
+                                    paddingBottom: 1,
+                                  }}
+                                >
+                                  Read the post →
+                                </Link>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ))}
+          </Section>
+
+          {/* Footer */}
+          <Section
+            style={{
+              backgroundColor: COLORS.purple,
+              borderTop: `3px solid ${INK}`,
+              padding: "26px 34px",
+              marginTop: 28,
+            }}
+          >
+            <Img
+              src={logo}
+              alt="The Children's Theatre Alliance"
+              height={34}
+              style={{
+                display: "block",
+                height: 34,
+                width: "auto",
+                marginBottom: 12,
+              }}
+            />
+            <Text
+              style={{
+                fontFamily: FONT_BODY,
+                fontWeight: 500,
+                fontSize: 12,
+                lineHeight: 1.6,
+                color: INK,
+                margin: "0 0 6px",
+                maxWidth: 420,
+              }}
+            >
+              You&#39;re receiving this as part of the Children&#39;s Theatre
+              Alliance. We acknowledge the Traditional Custodians of the lands
+              on which we make and share stories.
+            </Text>
+            <Link
+              href={unsubscribeUrl}
+              style={{
+                fontFamily: FONT_BODY,
+                fontWeight: 700,
+                fontSize: 12,
+                color: INK,
+                textDecoration: "underline",
+              }}
+            >
+              Unsubscribe
+            </Link>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
+  );
+}

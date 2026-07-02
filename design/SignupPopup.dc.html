@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/tokens/effects.css">
+  <link rel="stylesheet" href="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/styles.css">
+  <script src="_ds/childrens-theatre-alliance-9aa87f34-61ba-4ce6-9402-375146faf2ba/_ds_bundle.js"></script>
+</helmet>
+<!-- Dimmed overlay backdrop -->
+<div style="width:100%;height:100%;min-height:660px;background:rgba(30,30,29,0.55);display:flex;align-items:center;justify-content:center;padding:44px;box-sizing:border-box;font-family:var(--font-body);">
+
+  <!-- Popup card -->
+  <div style="position:relative;width:560px;max-width:100%;background:var(--cta-white);border-radius:24px;box-shadow:14px 14px 0 #1E1E1D;padding:44px 46px 40px;box-sizing:border-box;">
+
+    <!-- decorative shape peeking behind the card corner -->
+    <div style="position:absolute;top:-26px;left:-26px;width:58px;height:58px;z-index:0;">
+      <x-import component-from-global-scope="DesignSystem_9aa87f.PuzzleShape" shape="plus" color="yellow" size="58" rotate="-10" hint-size="58px,58px"></x-import>
+    </div>
+
+    <!-- Close -->
+    <button aria-label="Close" onClick="{{ onClose }}" style="position:absolute;top:18px;right:20px;width:34px;height:34px;border:2px solid #1E1E1D;background:var(--cta-white);border-radius:999px;font-family:var(--font-body);font-weight:700;font-size:16px;line-height:1;color:var(--cta-ink);cursor:pointer;box-shadow:3px 3px 0 #1E1E1D;z-index:2;" style-hover="background:var(--cta-pink)">&#215;</button>
+
+    <sc-if value="{{ submitted }}" hint-placeholder-val="{{ false }}">
+      <!-- Confirmation state -->
+      <div style="position:relative;z-index:1;padding:14px 0 6px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="width:40px;height:40px;flex:none;">
+            <x-import component-from-global-scope="DesignSystem_9aa87f.PuzzleShape" shape="circle" color="teal" size="40" hint-size="40px,40px"></x-import>
+          </div>
+          <div style="font-family:var(--font-display);text-transform:uppercase;font-size:48px;line-height:0.9;color:var(--cta-ink);">You&#39;re in!</div>
+        </div>
+        <div style="font-family:var(--font-body);font-size:16px;line-height:1.6;color:var(--text-body);max-width:42ch;margin-bottom:22px;">Thanks for signing up. Your first {{ freqLabel }} dispatch will land in your inbox soon.</div>
+        <button onClick="{{ reset }}" style="font-family:var(--font-body);font-weight:700;font-size:13px;color:var(--cta-ink);background:transparent;border:none;border-bottom:2px solid var(--cta-purple);padding:0 0 2px;cursor:pointer;">Sign up another address</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showForm }}" hint-placeholder-val="{{ true }}">
+      <div style="position:relative;z-index:1;">
+        <div style="font-family:var(--font-display);text-transform:uppercase;font-size:42px;line-height:0.92;color:var(--cta-ink);margin-bottom:8px;">Sign up to the Alliance Newsletter</div>
+        <div style="font-family:var(--font-body);font-size:14px;line-height:1.55;color:var(--text-muted);margin-bottom:26px;">Get the next Alliance dispatch delivered straight to your inbox.</div>
+
+        <form onSubmit="{{ onSubmit }}">
+          <div style="display:flex;flex-direction:column;gap:22px;margin-bottom:28px;">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label for="su-first" style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--cta-ink);">First name *</label>
+              <input id="su-first" type="text" required style="font-family:var(--font-body);font-size:17px;color:var(--cta-ink);background:transparent;border:none;border-bottom:2px solid #1E1E1D;padding:7px 2px;outline:none;width:100%;" style-focus="border-bottom-color:var(--cta-purple)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label for="su-last" style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--cta-ink);">Last name *</label>
+              <input id="su-last" type="text" required style="font-family:var(--font-body);font-size:17px;color:var(--cta-ink);background:transparent;border:none;border-bottom:2px solid #1E1E1D;padding:7px 2px;outline:none;width:100%;" style-focus="border-bottom-color:var(--cta-purple)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label for="su-email" style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--cta-ink);">Email *</label>
+              <input id="su-email" type="email" required style="font-family:var(--font-body);font-size:17px;color:var(--cta-ink);background:transparent;border:none;border-bottom:2px solid #1E1E1D;padding:7px 2px;outline:none;width:100%;" style-focus="border-bottom-color:var(--cta-purple)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <label style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--cta-ink);">How often? *</label>
+              <div style="display:flex;gap:10px;">
+                <sc-for list="{{ pills }}" as="pill" hint-placeholder-count="3">
+                  <button type="button" onClick="{{ pill.onClick }}" style="{{ pill.style }}">{{ pill.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" style="width:100%;font-family:var(--font-body);font-weight:700;font-size:15px;color:var(--cta-ink);background:var(--cta-white);border:2px solid #1E1E1D;border-radius:14px;padding:14px 20px;cursor:pointer;box-shadow:6px 6px 0 #1E1E1D;transition:transform var(--dur-fast) var(--ease-pop),box-shadow var(--dur-fast) var(--ease-out),background var(--dur-fast);" style-hover="background:var(--cta-purple);transform:translate(-1px,-1px);box-shadow:7px 7px 0 #1E1E1D" style-active="transform:translate(4px,4px);box-shadow:2px 2px 0 #1E1E1D">Submit</button>
+
+          <div style="font-family:var(--font-body);font-size:12px;line-height:1.5;color:var(--text-muted);text-align:center;margin-top:16px;">By signing up you agree to receive updates from us and accept our <a href="#" style="color:var(--cta-ink);font-weight:600;text-decoration:underline;">privacy policy</a>.</div>
+        </form>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:680}}">
+class Component extends DCLogic {
+  state = { submitted: false, freq: 'Weekly' };
+  renderVals() {
+    const freqs = ['Daily', 'Weekly', 'Fortnightly'];
+    const pills = freqs.map((f) => {
+      const selected = this.state.freq === f;
+      return {
+        label: f,
+        onClick: () => this.setState({ freq: f }),
+        style: 'flex:1;text-align:center;font-family:var(--font-body);font-weight:600;font-size:14px;cursor:pointer;padding:11px 6px;border:2px solid #1E1E1D;border-radius:12px;color:var(--cta-ink);transition:background var(--dur-fast),box-shadow var(--dur-fast);'
+          + (selected
+            ? 'background:var(--cta-purple);box-shadow:3px 3px 0 #1E1E1D;'
+            : 'background:var(--cta-white);box-shadow:none;'),
+      };
+    });
+    return {
+      submitted: this.state.submitted,
+      showForm: !this.state.submitted,
+      pills,
+      freqLabel: this.state.freq.toLowerCase(),
+      onSubmit: (e) => { e.preventDefault(); this.setState({ submitted: true }); },
+      reset: () => this.setState({ submitted: false }),
+      onClose: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+/* ============================================================
+   COLORS — Children's Theatre Alliance
+   A bright, primary-leaning playbox palette on warm cream, with
+   near-black ink for type and hard offset shadows. Colors are drawn
+   directly from the brand mark, the puzzle-shape library, and the site.
+   ============================================================ */
+
+:root {
+  /* ---- Brand core (the five mark colors) ---- */
+  --cta-purple:      #AC9EFC;   /* primary accent — buttons, footer, hero */
+  --cta-pink:        #F24A71;   /* coral pink — energy, highlights */
+  --cta-yellow:      #FFB83D;   /* amber — panels, banners, warmth */
+  --cta-teal:        #05AEAF;   /* teal — arches, mark */
+  --cta-ocean:       #053848;   /* deep ocean navy — mark, dark shapes */
+
+  /* ---- Extended play palette (puzzle-shape library) ---- */
+  --cta-mint:        #85F1E6;   /* pale teal — "sky" fills */
+  --cta-emerald:     #03DBA4;   /* bright green */
+  --cta-blue:        #00A0C5;   /* mid blue */
+  --cta-sky:         #48BEFD;   /* light blue */
+  --cta-yellow-soft: #FFCF67;   /* softer yellow / circles */
+  --cta-cream-deep:  #FFECCA;   /* warm cream tint */
+
+  /* ---- Neutrals / ink ---- */
+  --cta-ink:         #1E1E1D;   /* near-black — type + shadows */
+  --cta-ink-2:       #14252D;   /* deep charcoal-navy shape */
+  --cta-cream:       #EFEEE4;   /* signature page background */
+  --cta-cream-warm:  #FFF8E7;   /* alt warm background */
+  --cta-white:       #FFFFFF;
+  --cta-black:       #000000;
+
+  /* ============================================================
+     SEMANTIC ALIASES — reference these in product UI
+     ============================================================ */
+
+  /* Surfaces / backgrounds */
+  --surface-page:        var(--cta-cream);
+  --surface-page-warm:   var(--cta-cream-warm);
+  --surface-card:        var(--cta-white);
+  --surface-inverse:     var(--cta-ink);
+  --surface-accent:      var(--cta-purple);
+  --surface-highlight:   var(--cta-yellow);
+  --surface-sky:         var(--cta-mint);
+
+  /* Text */
+  --text-strong:     var(--cta-ink);      /* headings, body on light */
+  --text-body:       #2C2C2B;             /* body copy */
+  --text-muted:      #5A5A57;             /* captions, meta */
+  --text-on-dark:    var(--cta-cream);    /* text on ink surfaces */
+  --text-on-accent:  var(--cta-ink);      /* ink reads on purple/yellow */
+
+  /* Interactive */
+  --action-primary:      var(--cta-purple);
+  --action-primary-ink:  var(--cta-ink);
+  --action-dark:         var(--cta-ink);
+  --action-dark-ink:     var(--cta-cream);
+  --action-warm:         var(--cta-yellow);
+
+  /* Lines */
+  --border-ink:      var(--cta-ink);
+  --border-hair:     rgba(30,30,29,0.14);
+}

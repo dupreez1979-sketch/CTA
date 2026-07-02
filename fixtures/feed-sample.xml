@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Children's Theatre Alliance — Member News</title>
+    <link>https://www.childrenstheatrealliance.com.au/</link>
+    <description>Aggregated Facebook posts from Alliance member companies</description>
+    <item>
+      <title><![CDATA[Spare Parts Puppet Theatre: Rules of Summer is back these school holidays!]]></title>
+      <dc:creator><![CDATA[Spare Parts Puppet Theatre]]></dc:creator>
+      <link>https://www.facebook.com/reel/1004189352204656/</link>
+      <guid isPermaLink="false">fb-reel-1004189352204656</guid>
+      <pubDate>Wed, 01 Jul 2026 08:15:00 GMT</pubDate>
+      <description><![CDATA[<img src="https://scontent.example.com/v/spareparts.jpg" /> Rules of Summer returns for the school holidays! A wordless, multi-sensory puppetry show drawn from Shaun Tan's picture book, 4–18 July at Claremont Showground.]]></description>
+      <media:content url="https://scontent.example.com/v/spareparts.jpg" medium="image" />
+    </item>
+    <item>
+      <title><![CDATA[Windmill Theatre Co: Moss Piglet wraps its national tour]]></title>
+      <dc:creator><![CDATA[Windmill Theatre Co]]></dc:creator>
+      <link>https://www.facebook.com/reel/1004232785650336/</link>
+      <guid isPermaLink="false">fb-reel-1004232785650336</guid>
+      <pubDate>Wed, 01 Jul 2026 06:40:00 GMT</pubDate>
+      <description><![CDATA[Stage manager Taylor takes you behind the scenes as the Moss Piglet tour closes at Theatre Royal Hobart this Friday 3 July.]]></description>
+      <media:content url="https://scontent.example.com/v/windmill.jpg" medium="image" />
+    </item>
+    <item>
+      <title><![CDATA[GRIMM keeps delighting audiences across the country]]></title>
+      <dc:creator><![CDATA[shake &amp; stir theatre co]]></dc:creator>
+      <link>https://m.facebook.com/shakeandstir/posts/1541263274222672</link>
+      <guid isPermaLink="false">fb-post-1541263274222672</guid>
+      <pubDate>Tue, 30 Jun 2026 22:05:00 GMT</pubDate>
+      <description><![CDATA[The Brothers Grimm retelling tours on nationwide, with venues and dates listed on the company's mainstage page.]]></description>
+    </item>
+    <item>
+      <title><![CDATA[Terrapin: The Paper Escaper lands in Taipei]]></title>
+      <dc:creator><![CDATA[Terrapin]]></dc:creator>
+      <link>https://m.facebook.com/terrapintheatre/posts/9912345</link>
+      <guid isPermaLink="false">fb-post-terrapin-9912345</guid>
+      <pubDate>Tue, 30 Jun 2026 10:30:00 GMT</pubDate>
+      <description><![CDATA[<img src="https://scontent.example.com/v/terrapin.jpg"> The team has arrived for the Taipei Children's Art Festival, opening at TPAC this week.]]></description>
+    </item>
+    <item>
+      <title><![CDATA[Volunteer sign-ups open for the AWESOME Festival]]></title>
+      <dc:creator><![CDATA[AWESOME Arts Australia]]></dc:creator>
+      <link>https://www.facebook.com/reel/1024274853344869/</link>
+      <guid isPermaLink="false">fb-reel-1024274853344869</guid>
+      <pubDate>Mon, 29 Jun 2026 04:12:00 GMT</pubDate>
+      <description><![CDATA[Registrations are now live for anyone keen to join this year's AWESOME Festival crew.]]></description>
+      <media:content url="https://scontent.example.com/v/awesome.jpg" medium="image" />
+    </item>
+    <item>
+      <title><![CDATA[A friend of the Alliance shares some news]]></title>
+      <dc:creator><![CDATA[Some Unknown Page]]></dc:creator>
+      <link>https://www.facebook.com/someunknownpage/posts/42</link>
+      <guid isPermaLink="false">fb-post-unknown-42</guid>
+      <pubDate>Mon, 29 Jun 2026 01:00:00 GMT</pubDate>
+      <description><![CDATA[News from beyond the member list that still lands in the aggregated feed.]]></description>
+    </item>
+  </channel>
+</rss>
