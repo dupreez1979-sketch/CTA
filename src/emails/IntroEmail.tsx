@@ -37,7 +37,7 @@ const INK = COLORS.ink;
 const MOBILE_STYLES = `
 @media only screen and (max-width: 480px) {
   .px { padding-left: 20px !important; padding-right: 20px !important; }
-  .logo { height: 88px !important; }
+  .logo { height: 110px !important; }
   .intro-h { font-size: 34px !important; }
   .body-p { font-size: 16px !important; line-height: 1.6 !important; }
   .card-h { font-size: 26px !important; }
@@ -45,7 +45,7 @@ const MOBILE_STYLES = `
   .cta-btn { font-size: 15px !important; padding: 13px 22px !important; }
   .footer-p { font-size: 14px !important; }
   .footer-link { font-size: 14px !important; }
-  .footer-logo { height: 48px !important; }
+  .footer-logo { height: 72px !important; }
 }
 `;
 
@@ -116,8 +116,8 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                   src={logo}
                   alt="The Children's Theatre Alliance"
                   className="logo"
-                  height={60}
-                  style={{ display: "block", height: 60, width: "auto" }}
+                  height={80}
+                  style={{ display: "block", height: 80, width: "auto" }}
                 />
               </Column>
               <Column align="right" style={{ verticalAlign: "top" }}>
@@ -154,8 +154,21 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
             </Row>
           </Section>
 
+          {/* Greeting */}
+          <Section className="px" style={{ padding: "26px 34px 0" }}>
+            <Text className="body-p" style={{ ...body(16), margin: "0 0 10px" }}>
+              Hello,
+            </Text>
+            <Text className="body-p" style={{ ...body(16), margin: "0 0 6px" }}>
+              We thought you might like to learn more about the
+              Children&#39;s Theatre Alliance, the new national platform of
+              Australia&#39;s professional theatre companies making work for
+              children.
+            </Text>
+          </Section>
+
           {/* Headline + intro copy */}
-          <Section className="px" style={{ padding: "26px 34px 4px" }}>
+          <Section className="px" style={{ padding: "18px 34px 4px" }}>
             <Text className="intro-h" style={{ ...display(32, 0.94), margin: "0 0 16px" }}>
               Australia&#39;s professional children&#39;s theatre makers,
               working together
@@ -312,12 +325,12 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
               src={logo}
               alt="The Children's Theatre Alliance"
               className="footer-logo"
-              height={34}
+              height={56}
               style={{
                 display: "block",
-                height: 34,
+                height: 56,
                 width: "auto",
-                marginBottom: 12,
+                marginBottom: 14,
               }}
             />
             <Text
