@@ -29,6 +29,13 @@
       "when": 1783017884431,
       "tag": "0003_confirmed-member-list",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783018158570,
+      "tag": "0004_ai-spend",
+      "breakpoints": true
     }
   ]
 }

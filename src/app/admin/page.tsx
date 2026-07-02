@@ -1,6 +1,7 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db, subscribers, issues, companies } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
+import { getAiSpend } from "@/lib/ai-spend";
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
@@ -220,6 +221,8 @@ async function OverviewTab() {
         </p>
       </section>
 
+      <AiCreditsCard />
+
       <section className="admin-card">
         <h2 style={h2}>Recent issues</h2>
         <div className="table-scroll">
@@ -261,6 +264,101 @@ async function OverviewTab() {
         </div>
       </section>
     </>
+  );
+}
+
+async function AiCreditsCard() {
+  const spend = await getAiSpend();
+  const barColor =
+    spend.usedPct >= 85
+      ? "var(--cta-pink)"
+      : spend.usedPct >= 60
+        ? "var(--cta-yellow)"
+        : "var(--cta-emerald)";
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+
+  return (
+    <section className="admin-card">
+      <h2 style={h2}>AI credits (estimated)</h2>
+      <p style={muted}>
+        Estimated Anthropic API spend on headlines and summaries, measured
+        from this app&#39;s own usage ({spend.totalCalls.toLocaleString()} AI
+        calls so far). Anthropic doesn&#39;t provide a balance API, so check
+        the console for the authoritative figure.
+      </p>
+      <div
+        style={{
+          border: "2px solid var(--cta-ink)",
+          borderRadius: 999,
+          background: "var(--cta-white)",
+          overflow: "hidden",
+          height: 24,
+          marginBottom: 8,
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.max(spend.usedPct, 1)}%`,
+            background: barColor,
+            height: "100%",
+            borderRight:
+              spend.usedPct < 99 ? "2px solid var(--cta-ink)" : "none",
+          }}
+        />
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+        ≈ {usd(spend.usedUsd)} used of {usd(spend.budgetUsd)} USD ·{" "}
+        {usd(spend.remainingUsd)} left
+        {spend.usedPct >= 85 && (
+          <span style={{ color: "var(--cta-pink)" }}> — time to top up</span>
+        )}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <a
+          href="https://platform.claude.com/settings/billing"
+          target="_blank"
+          rel="noreferrer"
+          style={{ ...buttonStyle, textDecoration: "none" }}
+        >
+          Anthropic billing — buy credits ↗
+        </a>
+        <form
+          action="/api/admin/ai-budget"
+          method="post"
+          style={{ display: "flex", gap: 8, alignItems: "center" }}
+        >
+          <input type="hidden" name="action" value="budget" />
+          <input
+            type="number"
+            name="budget"
+            min={1}
+            step="0.01"
+            defaultValue={spend.budgetUsd.toFixed(2)}
+            style={{ ...smallInput, width: 110 }}
+            aria-label="Credits budget in USD"
+          />
+          <button type="submit" style={smallButton}>
+            Set budget
+          </button>
+        </form>
+        <form action="/api/admin/ai-budget" method="post">
+          <input type="hidden" name="action" value="reset" />
+          <ConfirmSubmit
+            message="Reset the usage bar to zero? Do this after buying credits so the bar tracks the new balance."
+            style={dangerButton}
+          >
+            Mark as topped up
+          </ConfirmSubmit>
+        </form>
+      </div>
+    </section>
   );
 }
 

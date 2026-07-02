@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   integer,
+  bigint,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -90,6 +91,25 @@ export const issues = pgTable(
   },
   (t) => [uniqueIndex("issues_cadence_window_idx").on(t.cadence, t.windowKey)],
 );
+
+/** Per-day accumulator of Anthropic API token usage by this app. */
+export const aiSpend = pgTable(
+  "ai_spend",
+  {
+    id: serial("id").primaryKey(),
+    day: text("day").notNull(), // YYYY-MM-DD (UTC)
+    inputTokens: bigint("input_tokens", { mode: "number" }).notNull().default(0),
+    outputTokens: bigint("output_tokens", { mode: "number" }).notNull().default(0),
+    calls: integer("calls").notNull().default(0),
+  },
+  (t) => [uniqueIndex("ai_spend_day_idx").on(t.day)],
+);
+
+/** Small key/value store for admin-tunable settings. */
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
 
 export type Subscriber = typeof subscribers.$inferSelect;
 export type FeedItem = typeof feedItems.$inferSelect;

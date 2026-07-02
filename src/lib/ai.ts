@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { NormalisedItem } from "./feed";
+import { recordAiUsage } from "./ai-spend";
 
 /**
  * AI copy for the newsletter: one headline + one-sentence summary per feed
@@ -69,6 +70,7 @@ export async function generateCopy(
       },
     ],
   });
+  await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
   const text = response.content.find((b) => b.type === "text");
   if (!text) throw new Error("No text block in AI copy response");
   return JSON.parse(text.text) as AiCopy;
@@ -111,6 +113,7 @@ export async function pickFeatured(
       },
     ],
   });
+  await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
   const text = response.content.find((b) => b.type === "text");
   if (!text) throw new Error("No text block in featured-pick response");
   const parsed = JSON.parse(text.text) as { index: number };
