@@ -13,6 +13,8 @@ import AllianceEmail, {
   type EmailCompanySection,
   type EmailFeatured,
 } from "../emails/AllianceEmail";
+import IntroEmail from "../emails/IntroEmail";
+import { loadCompanies } from "./company-store";
 
 /**
  * Issue assembly + delivery. An issue is idempotent per cadence+window:
@@ -274,6 +276,65 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
     await finish("failed", 0, 0);
     throw err;
   }
+}
+
+const INTRO_SUBJECT = "Introducing the Children's Theatre Alliance";
+const MAX_INTRO_RECIPIENTS = 200;
+
+export async function renderIntroHtml(): Promise<string> {
+  const members = await loadCompanies();
+  return render(
+    React.createElement(IntroEmail, {
+      baseUrl: env("APP_URL").replace(/\/$/, ""),
+      memberNames: members.map((c) => c.name),
+    }),
+  );
+}
+
+export interface IntroSendResult {
+  sent: number;
+  invalid: string[];
+  skipped: number;
+}
+
+/**
+ * One-off introduction email to a pasted list of addresses (funders,
+ * presenters, friends of the Alliance). Recipients are used for this send
+ * only and are deliberately never stored.
+ */
+export async function sendIntro(raw: string): Promise<IntroSendResult> {
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const parts = raw
+    .split(/[,;\n\r]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const unique = [...new Set(parts)];
+  const valid = unique.filter((e) => emailRe.test(e));
+  const invalid = unique.filter((e) => !emailRe.test(e));
+  const recipients = valid.slice(0, MAX_INTRO_RECIPIENTS);
+  const skipped = valid.length - recipients.length;
+  if (recipients.length === 0) return { sent: 0, invalid, skipped };
+
+  const html = await renderIntroHtml();
+  const from = env("EMAIL_FROM");
+
+  if (process.env.SEND_DRY_RUN === "1") {
+    console.log(`[dry-run] would send intro to ${recipients.length} recipients`);
+    return { sent: recipients.length, invalid, skipped };
+  }
+
+  const resend = new Resend(env("RESEND_API_KEY"));
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    const batch = recipients.slice(i, i + BATCH_SIZE).map((to) => ({
+      from,
+      to,
+      subject: INTRO_SUBJECT,
+      html,
+    }));
+    const { error } = await resend.batch.send(batch);
+    if (error) throw new Error(`Resend batch failed: ${error.message}`);
+  }
+  return { sent: recipients.length, invalid, skipped };
 }
 
 /**

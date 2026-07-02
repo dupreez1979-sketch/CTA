@@ -1,0 +1,42 @@
+import { NextRequest, NextResponse } from "next/server";
+import { sendIntro } from "@/lib/send";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Admin: send the one-off introduction email to a pasted list of
+ * addresses. Recipients are parsed, deduplicated, emailed and then
+ * forgotten — nothing is written to the database.
+ */
+export async function POST(request: NextRequest) {
+  const form = await request.formData();
+  const raw = String(form.get("emails") ?? "");
+  const redirect = (message: string) =>
+    NextResponse.redirect(
+      new URL(
+        `/admin?tab=sending&message=${encodeURIComponent(message)}`,
+        request.url,
+      ),
+      { status: 303 },
+    );
+  try {
+    const result = await sendIntro(raw);
+    if (result.sent === 0) {
+      return redirect(
+        result.invalid.length > 0
+          ? `No valid addresses found. Could not read: ${result.invalid.slice(0, 5).join(", ")}`
+          : "Please paste at least one email address",
+      );
+    }
+    let message = `Introduction sent to ${result.sent} recipient${result.sent === 1 ? "" : "s"}`;
+    if (result.invalid.length > 0) {
+      message += ` · skipped ${result.invalid.length} invalid: ${result.invalid.slice(0, 5).join(", ")}`;
+    }
+    if (result.skipped > 0) {
+      message += ` · ${result.skipped} over the 200-per-send limit were not sent (send again with the rest)`;
+    }
+    return redirect(message);
+  } catch (err) {
+    return redirect(`Intro send failed: ${err}`);
+  }
+}

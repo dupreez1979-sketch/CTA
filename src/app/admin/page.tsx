@@ -426,6 +426,50 @@ function SendingTab() {
       </section>
 
       <section className="admin-card">
+        <h2 style={h2}>Introduce the Alliance</h2>
+        <p style={muted}>
+          A one-off branded email introducing the Alliance and the
+          newsletter, for funders, presenters and friends (including
+          international). Paste addresses separated by commas or new lines.
+          Recipients are emailed once and <strong>never stored</strong>.
+        </p>
+        <div style={{ marginBottom: 12 }}>
+          <a
+            href="/admin/preview/intro"
+            target="_blank"
+            style={{
+              ...buttonStyle,
+              textDecoration: "none",
+              background: "var(--cta-white)",
+            }}
+          >
+            Preview the introduction ↗
+          </a>
+        </div>
+        <form action="/api/admin/send-intro" method="post">
+          <textarea
+            name="emails"
+            required
+            rows={4}
+            placeholder={"jane@presenter.org, funder@example.org\nfriend@theatre.com"}
+            style={{
+              ...inputStyle,
+              width: "100%",
+              resize: "vertical",
+              marginBottom: 12,
+              fontSize: 13.5,
+            }}
+          />
+          <ConfirmSubmit
+            message="Send the introduction email to everyone in the list now? Each address is emailed once and not saved."
+            style={buttonStyle}
+          >
+            Send introduction
+          </ConfirmSubmit>
+        </form>
+      </section>
+
+      <section className="admin-card">
         <h2 style={h2}>Send now</h2>
         <p style={muted}>
           Sends the current window&#39;s issue to all active subscribers of
