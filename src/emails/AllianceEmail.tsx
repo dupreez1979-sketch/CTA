@@ -77,7 +77,8 @@ const INK = COLORS.ink;
 const MOBILE_STYLES = `
 @media only screen and (max-width: 480px) {
   .px { padding-left: 20px !important; padding-right: 20px !important; }
-  .logo { height: 72px !important; }
+  .logo { height: 88px !important; }
+  .footer-logo { height: 48px !important; }
   .date-meta { font-size: 13px !important; }
   .intro-h { font-size: 30px !important; }
   .chip { font-size: 12px !important; }
@@ -607,6 +608,7 @@ export default function AllianceEmail({
             <Img
               src={logo}
               alt="The Children's Theatre Alliance"
+              className="footer-logo"
               height={34}
               style={{
                 display: "block",
