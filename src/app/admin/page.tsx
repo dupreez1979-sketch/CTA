@@ -182,7 +182,49 @@ export default async function AdminPage({
                     {s.firstName} {s.lastName}
                   </td>
                   <td style={td}>{s.email}</td>
-                  <td style={td}>{s.cadence}</td>
+                  <td style={td}>
+                    <form
+                      action="/api/admin/set-cadence"
+                      method="post"
+                      style={{ display: "flex", gap: 6, alignItems: "center" }}
+                    >
+                      <input type="hidden" name="id" value={s.id} />
+                      <select
+                        name="cadence"
+                        defaultValue={s.cadence}
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontSize: 12.5,
+                          padding: "4px 6px",
+                          border: "2px solid var(--cta-ink)",
+                          borderRadius: 8,
+                          background: "var(--cta-white)",
+                        }}
+                      >
+                        {CADENCES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="submit"
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontWeight: 700,
+                          fontSize: 11.5,
+                          color: "var(--cta-ink)",
+                          background: "var(--cta-purple)",
+                          border: "2px solid var(--cta-ink)",
+                          borderRadius: 8,
+                          padding: "4px 10px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  </td>
                   <td style={td}>{s.status}</td>
                   <td style={td}>{s.createdAt.toISOString().slice(0, 10)}</td>
                 </tr>

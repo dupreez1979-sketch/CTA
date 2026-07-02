@@ -156,6 +156,25 @@ body {
   box-shadow: 3px 3px 0 var(--cta-ink);
 }
 
+/* Radio-backed pills (preferences page) */
+.pill-radio {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pill-radio input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pill-radio:has(input:checked) {
+  background: var(--cta-purple);
+  box-shadow: 3px 3px 0 var(--cta-ink);
+}
+
 .submit {
   width: 100%;
   font-family: var(--font-body);

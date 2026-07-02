@@ -56,6 +56,8 @@ export interface AllianceEmailProps {
   baseUrl: string;
   /** Per-recipient unsubscribe URL (or a merge placeholder). */
   unsubscribeUrl: string;
+  /** Per-recipient preferences URL (or a merge placeholder). */
+  preferencesUrl?: string;
 }
 
 // Impact ships with Windows and macOS, so most desktop clients render the
@@ -171,6 +173,7 @@ export default function AllianceEmail({
   companies,
   baseUrl,
   unsubscribeUrl,
+  preferencesUrl,
 }: AllianceEmailProps) {
   const logo = `${baseUrl}/logo-full.png`;
   return (
@@ -567,18 +570,41 @@ export default function AllianceEmail({
               Alliance. We acknowledge the Traditional Custodians of the lands
               on which we make and share stories.
             </Text>
-            <Link
-              href={unsubscribeUrl}
-              style={{
-                fontFamily: FONT_BODY,
-                fontWeight: 700,
-                fontSize: 12,
-                color: INK,
-                textDecoration: "underline",
-              }}
-            >
-              Unsubscribe
-            </Link>
+            <Text style={{ margin: 0, fontSize: 12 }}>
+              {preferencesUrl && (
+                <>
+                  <Link
+                    href={preferencesUrl}
+                    style={{
+                      fontFamily: FONT_BODY,
+                      fontWeight: 700,
+                      fontSize: 12,
+                      color: INK,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Change how often you hear from us
+                  </Link>
+                  <span
+                    style={{ fontFamily: FONT_BODY, color: INK, padding: "0 8px" }}
+                  >
+                    ·
+                  </span>
+                </>
+              )}
+              <Link
+                href={unsubscribeUrl}
+                style={{
+                  fontFamily: FONT_BODY,
+                  fontWeight: 700,
+                  fontSize: 12,
+                  color: INK,
+                  textDecoration: "underline",
+                }}
+              >
+                Unsubscribe
+              </Link>
+            </Text>
           </Section>
         </Container>
       </Body>

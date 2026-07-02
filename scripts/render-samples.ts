@@ -80,6 +80,7 @@ const daily: AllianceEmailProps = {
   ],
   baseUrl: BASE_URL,
   unsubscribeUrl: "#",
+  preferencesUrl: "#",
 };
 
 const weekly: AllianceEmailProps = {
@@ -151,6 +152,7 @@ const weekly: AllianceEmailProps = {
   ],
   baseUrl: BASE_URL,
   unsubscribeUrl: "#",
+  preferencesUrl: "#",
 };
 
 const fortnightly: AllianceEmailProps = {

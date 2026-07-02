@@ -21,6 +21,7 @@ import AllianceEmail, {
  */
 
 const UNSUB_TOKEN = "%%UNSUBSCRIBE_URL%%";
+const PREFS_TOKEN = "%%PREFERENCES_URL%%";
 const MAX_ITEMS_PER_COMPANY = 3;
 const BATCH_SIZE = 100; // Resend batch API limit
 
@@ -141,9 +142,14 @@ export async function assembleIssue(
 export async function renderIssueHtml(
   assembled: AssembledIssue,
   unsubscribeUrl: string = UNSUB_TOKEN,
+  preferencesUrl: string = PREFS_TOKEN,
 ): Promise<string> {
   return render(
-    React.createElement(AllianceEmail, { ...assembled.props, unsubscribeUrl }),
+    React.createElement(AllianceEmail, {
+      ...assembled.props,
+      unsubscribeUrl,
+      preferencesUrl,
+    }),
   );
 }
 
@@ -237,11 +243,14 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
       const batch = recipients.slice(i, i + BATCH_SIZE).map((r) => {
         const unsubUrl = `${appUrl}/unsubscribe?token=${r.unsubscribeToken}`;
+        const prefsUrl = `${appUrl}/preferences?token=${r.unsubscribeToken}`;
         return {
           from,
           to: r.email,
           subject,
-          html: html.replaceAll(UNSUB_TOKEN, unsubUrl),
+          html: html
+            .replaceAll(UNSUB_TOKEN, unsubUrl)
+            .replaceAll(PREFS_TOKEN, prefsUrl),
           headers: {
             // One-click POST target (RFC 8058) — mail clients POST here
             "List-Unsubscribe": `<${appUrl}/api/unsubscribe?token=${r.unsubscribeToken}>`,
@@ -273,7 +282,11 @@ export async function sendTest(
   const assembled = await assembleIssue(window);
   if (!assembled) return "no-items";
   const appUrl = env("APP_URL").replace(/\/$/, "");
-  const html = await renderIssueHtml(assembled, `${appUrl}/unsubscribe`);
+  const html = await renderIssueHtml(
+    assembled,
+    `${appUrl}/unsubscribe`,
+    `${appUrl}/preferences`,
+  );
   const resend = new Resend(env("RESEND_API_KEY"));
   const { error } = await resend.emails.send({
     from: env("EMAIL_FROM"),
