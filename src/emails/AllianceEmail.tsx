@@ -77,6 +77,7 @@ const INK = COLORS.ink;
 const MOBILE_STYLES = `
 @media only screen and (max-width: 480px) {
   .px { padding-left: 20px !important; padding-right: 20px !important; }
+  .logo { height: 72px !important; }
   .date-meta { font-size: 13px !important; }
   .intro-h { font-size: 30px !important; }
   .chip { font-size: 12px !important; }
@@ -257,8 +258,9 @@ export default function AllianceEmail({
                 <Img
                   src={logo}
                   alt="The Children's Theatre Alliance"
-                  height={52}
-                  style={{ display: "block", height: 52, width: "auto" }}
+                  className="logo"
+                  height={60}
+                  style={{ display: "block", height: 60, width: "auto" }}
                 />
               </Column>
               <Column align="right" style={{ verticalAlign: "top" }}>
