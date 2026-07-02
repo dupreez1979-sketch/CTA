@@ -45,7 +45,8 @@ const MOBILE_STYLES = `
   .cta-btn { font-size: 15px !important; padding: 13px 22px !important; }
   .footer-p { font-size: 14px !important; }
   .footer-link { font-size: 14px !important; }
-  .footer-logo { height: 72px !important; }
+  .footer-logo { height: 60px !important; }
+  .ncti-logo { height: 36px !important; }
 }
 `;
 
@@ -321,18 +322,31 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
               marginTop: 28,
             }}
           >
-            <Img
-              src={logo}
-              alt="The Children's Theatre Alliance"
-              className="footer-logo"
-              height={56}
-              style={{
-                display: "block",
-                height: 56,
-                width: "auto",
-                marginBottom: 14,
-              }}
-            />
+            <Row style={{ marginBottom: 14 }}>
+              <Column style={{ verticalAlign: "middle" }}>
+                <Img
+                  src={logo}
+                  alt="The Children's Theatre Alliance"
+                  className="footer-logo"
+                  height={56}
+                  style={{ display: "block", height: 56, width: "auto" }}
+                />
+              </Column>
+              <Column align="right" style={{ verticalAlign: "middle" }}>
+                <Img
+                  src={`${baseUrl}/ncti-logo.png`}
+                  alt="National Children's Theatre Initiative"
+                  className="ncti-logo"
+                  height={36}
+                  style={{
+                    display: "block",
+                    height: 36,
+                    width: "auto",
+                    marginLeft: "auto",
+                  }}
+                />
+              </Column>
+            </Row>
             <Text
               className="footer-p"
               style={{
