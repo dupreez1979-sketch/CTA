@@ -34,6 +34,22 @@ export const subscribers = pgTable(
   ],
 );
 
+export const companies = pgTable(
+  "companies",
+  {
+    id: serial("id").primaryKey(),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    // Comma-separated lowercase fragments matched against a feed item's
+    // creator, title and link.
+    match: text("match").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("companies_key_idx").on(t.key)],
+);
+
 export const feedItems = pgTable(
   "feed_items",
   {

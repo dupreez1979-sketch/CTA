@@ -3,6 +3,7 @@ import { db, feedItems } from "./db";
 import { fetchFeed, type NormalisedItem } from "./feed";
 import { generateCopy } from "./ai";
 import { rehostImage } from "./images";
+import { loadCompanies } from "./company-store";
 
 /**
  * Feed ingestion: fetch the RSS feed, skip items already stored (by guid),
@@ -23,7 +24,9 @@ export async function ingestFeed(): Promise<{
 }> {
   const url = process.env.FEED_URL;
   if (!url) throw new Error("FEED_URL is not set");
-  const items = await fetchFeed(url);
+  const companies = await loadCompanies();
+  const nameByKey = new Map(companies.map((c) => [c.key, c.name]));
+  const items = await fetchFeed(url, companies);
   if (items.length === 0) return { seen: 0, added: 0, remaining: 0 };
 
   const existing = await db()
@@ -42,7 +45,11 @@ export async function ingestFeed(): Promise<{
   let added = 0;
   for (let i = 0; i < batch.length; i += CHUNK) {
     const results = await Promise.allSettled(
-      batch.slice(i, i + CHUNK).map((item) => ingestItem(item)),
+      batch
+        .slice(i, i + CHUNK)
+        .map((item) =>
+          ingestItem(item, nameByKey.get(item.companyKey) ?? null),
+        ),
     );
     for (let j = 0; j < results.length; j++) {
       const r = results[j];
@@ -53,9 +60,12 @@ export async function ingestFeed(): Promise<{
   return { seen: items.length, added, remaining: fresh.length - batch.length };
 }
 
-async function ingestItem(item: NormalisedItem): Promise<void> {
+async function ingestItem(
+  item: NormalisedItem,
+  companyDisplayName: string | null,
+): Promise<void> {
   const [copy, imageUrl] = await Promise.all([
-    generateCopy(item),
+    generateCopy(item, companyDisplayName),
     item.imageUrl ? rehostImage(item.imageUrl, item.guid) : Promise.resolve(null),
   ]);
   await db()

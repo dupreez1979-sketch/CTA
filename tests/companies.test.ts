@@ -1,37 +1,41 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_COMPANIES,
   FALLBACK_COMPANY_KEY,
-  companyName,
+  FALLBACK_COMPANY_NAME,
+  companyNameFrom,
   matchCompany,
   sectionStyle,
 } from "@/lib/companies";
 
+const REGISTRY = DEFAULT_COMPANIES;
+
 describe("matchCompany", () => {
   it("matches by creator (Facebook page name)", () => {
-    expect(matchCompany({ creator: "Spare Parts Puppet Theatre" })).toBe("spare-parts");
-    expect(matchCompany({ creator: "shake & stir theatre co" })).toBe("shake-and-stir");
-    expect(matchCompany({ creator: "AWESOME Arts Australia" })).toBe("awesome-arts");
+    expect(matchCompany({ creator: "Spare Parts Puppet Theatre" }, REGISTRY)).toBe("spare-parts");
+    expect(matchCompany({ creator: "shake & stir theatre co" }, REGISTRY)).toBe("shake-and-stir");
+    expect(matchCompany({ creator: "AWESOME Arts Australia" }, REGISTRY)).toBe("awesome-arts");
   });
 
   it("matches by link slug when the creator is missing", () => {
     expect(
-      matchCompany({ link: "https://m.facebook.com/sparepartspuppets/posts/1" }),
+      matchCompany({ link: "https://m.facebook.com/sparepartspuppets/posts/1" }, REGISTRY),
     ).toBe("spare-parts");
     expect(
-      matchCompany({ link: "https://m.facebook.com/monkeybaatheatreco/posts/" }),
+      matchCompany({ link: "https://m.facebook.com/monkeybaatheatreco/posts/" }, REGISTRY),
     ).toBe("monkey-baa");
   });
 
   it("matches by title text", () => {
-    expect(matchCompany({ title: "Terrapin: The Paper Escaper lands in Taipei" })).toBe(
-      "terrapin",
-    );
+    expect(
+      matchCompany({ title: "Terrapin: The Paper Escaper lands in Taipei" }, REGISTRY),
+    ).toBe("terrapin");
   });
 
   it("falls back to Around the Alliance for unknown sources", () => {
-    const key = matchCompany({ creator: "Some Unknown Page", title: "News" });
+    const key = matchCompany({ creator: "Some Unknown Page", title: "News" }, REGISTRY);
     expect(key).toBe(FALLBACK_COMPANY_KEY);
-    expect(companyName(key)).toBe("Around the Alliance");
+    expect(companyNameFrom(new Map(), key)).toBe(FALLBACK_COMPANY_NAME);
   });
 });
 

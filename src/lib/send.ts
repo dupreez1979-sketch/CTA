@@ -4,7 +4,8 @@ import { Resend } from "resend";
 import * as React from "react";
 import { db, feedItems, issues, subscribers, type FeedItem } from "./db";
 import type { Cadence } from "./db/schema";
-import { companyName, sectionStyle, FEATURED_STYLE } from "./companies";
+import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
+import { companyNameMap } from "./company-store";
 import { pickFeatured } from "./ai";
 import type { IssueWindow } from "./cadence";
 import AllianceEmail, {
@@ -54,6 +55,7 @@ export async function assembleIssue(
   window: IssueWindow,
 ): Promise<AssembledIssue | null> {
   const baseUrl = env("APP_URL").replace(/\/$/, "");
+  const nameByKey = await companyNameMap();
   const items = await db()
     .select()
     .from(feedItems)
@@ -74,14 +76,14 @@ export async function assembleIssue(
   if (window.cadence !== "daily" && items.length >= 2) {
     const idx = await pickFeatured(
       items.map((it) => ({
-        companyKey: it.companyKey,
+        company: companyNameFrom(nameByKey, it.companyKey),
         heading: it.aiHeading,
         summary: it.aiSummary,
       })),
     ).catch(() => 0);
     const pick = items[idx];
     featured = {
-      company: companyName(pick.companyKey),
+      company: companyNameFrom(nameByKey, pick.companyKey),
       hex: FEATURED_STYLE.hex,
       heading: pick.aiHeading,
       summary: pick.aiSummary,
@@ -103,7 +105,7 @@ export async function assembleIssue(
     ([key, list], i) => {
       const style = sectionStyle(i);
       return {
-        name: companyName(key),
+        name: companyNameFrom(nameByKey, key),
         hex: style.hex,
         colorName: style.colorName,
         shape: style.shape,

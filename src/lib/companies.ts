@@ -2,13 +2,12 @@ import { COLORS } from "./tokens";
 import type { ShapeName } from "./shapes";
 
 /**
- * Registry of Alliance member companies. Feed items are matched against
- * `match` fragments (checked case-insensitively against the item's creator,
- * title and link). Items that match nothing land in the "Around the
- * Alliance" bucket rather than being dropped.
- *
- * Member list from childrenstheatrealliance.com.au + the design handoff
- * sample data. Add new members here — colour/shape assignment is automatic.
+ * Member-company matching. The live registry is managed in the admin
+ * console and stored in the `companies` table (see company-store.ts);
+ * DEFAULT_COMPANIES below seeds it on first use. Feed items are matched
+ * against `match` fragments (checked case-insensitively against the
+ * item's creator, title and link). Items that match nothing land in the
+ * "Around the Alliance" bucket rather than being dropped.
  */
 
 export interface Company {
@@ -18,8 +17,10 @@ export interface Company {
 }
 
 export const FALLBACK_COMPANY_KEY = "around-the-alliance";
+export const FALLBACK_COMPANY_NAME = "Around the Alliance";
 
-export const COMPANIES: Company[] = [
+/** Seed data for the companies table (from the design handoff + website). */
+export const DEFAULT_COMPANIES: Company[] = [
   { key: "spare-parts", name: "Spare Parts Puppet Theatre", match: ["spare parts", "sparepartspuppets"] },
   { key: "windmill", name: "Windmill", match: ["windmill"] },
   { key: "shake-and-stir", name: "Shake & Stir", match: ["shake & stir", "shake and stir", "shakeandstir"] },
@@ -43,30 +44,32 @@ export const COMPANIES: Company[] = [
   { key: "brymore", name: "Brymore Productions", match: ["brymore"] },
 ];
 
-export function companyName(key: string): string {
-  if (key === FALLBACK_COMPANY_KEY) return "Around the Alliance";
-  return COMPANIES.find((c) => c.key === key)?.name ?? "Around the Alliance";
-}
-
 /**
  * Match a feed item to a company by its creator/author, title, and link.
  */
-export function matchCompany(fields: {
-  creator?: string;
-  title?: string;
-  link?: string;
-}): string {
+export function matchCompany(
+  fields: { creator?: string; title?: string; link?: string },
+  companies: Company[],
+): string {
   const haystacks = [fields.creator, fields.title, fields.link]
     .filter(Boolean)
     .map((s) => (s as string).toLowerCase());
   // Creator (the Facebook page name) is the most reliable signal, then
   // title, then link — haystacks are already in that order.
   for (const hay of haystacks) {
-    for (const c of COMPANIES) {
-      if (c.match.some((frag) => hay.includes(frag))) return c.key;
+    for (const c of companies) {
+      if (c.match.some((frag) => frag && hay.includes(frag))) return c.key;
     }
   }
   return FALLBACK_COMPANY_KEY;
+}
+
+/** Display name for a company key, given a key→name map. */
+export function companyNameFrom(
+  nameByKey: Map<string, string>,
+  key: string,
+): string {
+  return nameByKey.get(key) ?? FALLBACK_COMPANY_NAME;
 }
 
 /**

@@ -1,7 +1,10 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { parseFeed } from "@/lib/feed";
+import { parseFeed as parseFeedRaw } from "@/lib/feed";
+import { DEFAULT_COMPANIES } from "@/lib/companies";
+
+const parseFeed = (xml: string) => parseFeedRaw(xml, DEFAULT_COMPANIES);
 
 const xml = readFileSync(
   path.join(__dirname, "..", "fixtures", "feed-sample.xml"),

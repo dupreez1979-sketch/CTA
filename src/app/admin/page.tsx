@@ -1,5 +1,6 @@
-import { desc, eq, sql } from "drizzle-orm";
-import { db, subscribers, issues } from "@/lib/db";
+import { asc, desc, eq, sql } from "drizzle-orm";
+import { db, subscribers, issues, companies } from "@/lib/db";
+import { loadCompanies } from "@/lib/company-store";
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
@@ -44,6 +45,13 @@ export default async function AdminPage({
     .from(issues)
     .orderBy(desc(issues.id))
     .limit(20);
+
+  // Seeds the table on first load, then read the raw rows for editing
+  await loadCompanies();
+  const companyRows = await db()
+    .select()
+    .from(companies)
+    .orderBy(asc(companies.name));
 
   const card: React.CSSProperties = {
     background: "var(--cta-white)",
@@ -379,6 +387,144 @@ export default async function AdminPage({
             </form>
           ))}
         </div>
+      </section>
+
+      <section style={card} id="companies">
+        <h2 style={h2}>Member companies</h2>
+        <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 0 }}>
+          Posts are matched to a company when its page name, post title or
+          link contains one of the <strong>match words</strong> (separate
+          several with commas). Unmatched posts appear under &quot;Around the
+          Alliance&quot; — if you spot one there, add the company here.
+          Changes apply to posts fetched from then on.
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={th}>Company</th>
+              <th style={th}>Match words</th>
+              <th style={th}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {companyRows.map((c) => (
+              <tr key={c.id}>
+                <td style={{ ...td, whiteSpace: "nowrap" }}>
+                  <form
+                    action="/api/admin/companies"
+                    method="post"
+                    id={`co-${c.id}`}
+                  >
+                    <input type="hidden" name="action" value="update" />
+                    <input type="hidden" name="id" value={c.id} />
+                    <input
+                      name="name"
+                      defaultValue={c.name}
+                      required
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize: 13,
+                        padding: "5px 8px",
+                        border: "2px solid var(--cta-ink)",
+                        borderRadius: 8,
+                        width: 210,
+                      }}
+                    />
+                  </form>
+                </td>
+                <td style={td}>
+                  <input
+                    form={`co-${c.id}`}
+                    name="match"
+                    defaultValue={c.match}
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: 13,
+                      padding: "5px 8px",
+                      border: "2px solid var(--cta-ink)",
+                      borderRadius: 8,
+                      width: "100%",
+                      minWidth: 220,
+                    }}
+                  />
+                </td>
+                <td style={{ ...td, whiteSpace: "nowrap" }}>
+                  <button
+                    form={`co-${c.id}`}
+                    type="submit"
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontWeight: 700,
+                      fontSize: 11.5,
+                      color: "var(--cta-ink)",
+                      background: "var(--cta-purple)",
+                      border: "2px solid var(--cta-ink)",
+                      borderRadius: 8,
+                      padding: "5px 10px",
+                      cursor: "pointer",
+                      marginRight: 6,
+                    }}
+                  >
+                    Save
+                  </button>
+                  <form
+                    action="/api/admin/companies"
+                    method="post"
+                    style={{ display: "inline" }}
+                  >
+                    <input type="hidden" name="action" value="delete" />
+                    <input type="hidden" name="id" value={c.id} />
+                    <button
+                      type="submit"
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontWeight: 700,
+                        fontSize: 11.5,
+                        color: "var(--cta-ink)",
+                        background: "var(--cta-white)",
+                        border: "2px solid var(--cta-ink)",
+                        borderRadius: 8,
+                        padding: "5px 10px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <form
+          action="/api/admin/companies"
+          method="post"
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+            marginTop: 18,
+            paddingTop: 16,
+            borderTop: "2px dashed rgba(30,30,29,0.25)",
+          }}
+        >
+          <input type="hidden" name="action" value="add" />
+          <input
+            name="name"
+            required
+            placeholder="Company name"
+            style={{ ...inputStyle, minWidth: 220 }}
+          />
+          <input
+            name="match"
+            placeholder="Match words (e.g. brymore, brymoreproductions)"
+            style={{ ...inputStyle, minWidth: 300, flex: 1 }}
+          />
+          <button type="submit" style={buttonStyle}>
+            Add company
+          </button>
+        </form>
       </section>
 
       <section style={card}>

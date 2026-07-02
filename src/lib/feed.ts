@@ -1,5 +1,5 @@
 import Parser from "rss-parser";
-import { matchCompany } from "./companies";
+import { matchCompany, type Company } from "./companies";
 
 /**
  * Feed ingestion for the Alliance RSS feed (rss.app — aggregated Facebook
@@ -62,7 +62,10 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-export function normaliseItem(item: RawItem): NormalisedItem | null {
+export function normaliseItem(
+  item: RawItem,
+  companies: Company[],
+): NormalisedItem | null {
   const link = item.link?.trim();
   if (!link) return null;
   const guid = item.guid?.trim() || link;
@@ -72,7 +75,7 @@ export function normaliseItem(item: RawItem): NormalisedItem | null {
   const text = item.contentSnippet?.trim() || stripHtml(item.content ?? "");
   return {
     guid,
-    companyKey: matchCompany({ creator: item.creator, title, link }),
+    companyKey: matchCompany({ creator: item.creator, title, link }, companies),
     title,
     text,
     link,
@@ -81,14 +84,20 @@ export function normaliseItem(item: RawItem): NormalisedItem | null {
   };
 }
 
-export async function parseFeed(xml: string): Promise<NormalisedItem[]> {
+export async function parseFeed(
+  xml: string,
+  companies: Company[],
+): Promise<NormalisedItem[]> {
   const feed = await parser.parseString(xml);
   return (feed.items ?? [])
-    .map((item) => normaliseItem(item))
+    .map((item) => normaliseItem(item, companies))
     .filter((i): i is NormalisedItem => i !== null);
 }
 
-export async function fetchFeed(url: string): Promise<NormalisedItem[]> {
+export async function fetchFeed(
+  url: string,
+  companies: Company[],
+): Promise<NormalisedItem[]> {
   const res = await fetch(url, {
     headers: { "user-agent": "CTA-Newsletter/1.0" },
     signal: AbortSignal.timeout(30_000),
@@ -96,5 +105,5 @@ export async function fetchFeed(url: string): Promise<NormalisedItem[]> {
   if (!res.ok) {
     throw new Error(`Feed fetch failed: ${res.status} ${res.statusText}`);
   }
-  return parseFeed(await res.text());
+  return parseFeed(await res.text(), companies);
 }

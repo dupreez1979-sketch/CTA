@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { FALLBACK_COMPANY_KEY, companyName } from "./companies";
 import type { NormalisedItem } from "./feed";
 
 /**
@@ -46,13 +45,18 @@ export interface AiCopy {
   summary: string;
 }
 
-export async function generateCopy(item: NormalisedItem): Promise<AiCopy> {
-  // For unmatched posts, don't name the fallback bucket as if it were the
-  // poster — the copy must not attribute the news to "Around the Alliance".
+/**
+ * @param companyDisplayName the matched company's name, or null when the
+ * post couldn't be matched — the copy must then take the name from the
+ * post itself rather than attributing the news to the fallback bucket.
+ */
+export async function generateCopy(
+  item: NormalisedItem,
+  companyDisplayName: string | null,
+): Promise<AiCopy> {
   const attribution =
-    item.companyKey === FALLBACK_COMPANY_KEY
-      ? "an Alliance member company (the exact company is not identified — take the company name from the post itself if it's mentioned, and never attribute the news to 'the Alliance' or 'Around the Alliance')"
-      : companyName(item.companyKey);
+    companyDisplayName ??
+    "an Alliance member company (the exact company is not identified — take the company name from the post itself if it's mentioned, and never attribute the news to 'the Alliance' or 'Around the Alliance')";
   const response = await client().messages.create({
     model: MODEL,
     max_tokens: 300,
@@ -88,15 +92,12 @@ const FEATURED_SCHEMA = {
  * significant post across the whole window. Returns the item's index.
  */
 export async function pickFeatured(
-  items: { companyKey: string; heading: string; summary: string }[],
+  items: { company: string; heading: string; summary: string }[],
 ): Promise<number> {
   if (items.length === 0) throw new Error("No items to pick featured from");
   if (items.length === 1) return 0;
   const list = items
-    .map(
-      (it, i) =>
-        `${i}. [${companyName(it.companyKey)}] ${it.heading} — ${it.summary}`,
-    )
+    .map((it, i) => `${i}. [${it.company}] ${it.heading} — ${it.summary}`)
     .join("\n");
   const response = await client().messages.create({
     model: MODEL,
