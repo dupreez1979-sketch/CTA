@@ -274,7 +274,11 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
   }
 }
 
-/** Send a single test issue to one address (admin "send test" button). */
+/**
+ * Send a single test issue to one address (admin "send test" button).
+ * If the address belongs to a subscriber, their real unsubscribe and
+ * preferences links are used so the footer is fully clickable.
+ */
 export async function sendTest(
   window: IssueWindow,
   to: string,
@@ -282,10 +286,16 @@ export async function sendTest(
   const assembled = await assembleIssue(window);
   if (!assembled) return "no-items";
   const appUrl = env("APP_URL").replace(/\/$/, "");
+  const [existing] = await db()
+    .select()
+    .from(subscribers)
+    .where(eq(subscribers.email, to.toLowerCase()))
+    .limit(1);
+  const tokenSuffix = existing ? `?token=${existing.unsubscribeToken}` : "";
   const html = await renderIssueHtml(
     assembled,
-    `${appUrl}/unsubscribe`,
-    `${appUrl}/preferences`,
+    `${appUrl}/unsubscribe${tokenSuffix}`,
+    `${appUrl}/preferences${tokenSuffix}`,
   );
   const resend = new Resend(env("RESEND_API_KEY"));
   const { error } = await resend.emails.send({
