@@ -213,6 +213,9 @@ export default function AllianceEmail({
   return (
     <Html lang="en">
       <Head>
+        {/* Lets phone browsers (admin previews) trigger the mobile styles;
+            email clients that don't need it simply ignore it. */}
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Font
           fontFamily="Poppins"
           fallbackFontFamily={["Helvetica", "Arial", "sans-serif"]}
