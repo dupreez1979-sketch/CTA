@@ -167,16 +167,10 @@ export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
               sector-led national platform of Australia&#39;s professional
               theatre companies making work for children.
             </Text>
-            <Text className="body-p" style={body()}>
-              We cover theatre for children aged 0 to 14, with a focused lens
-              on children aged 0 to 8. These are the early and primary years
-              where the case for theatre is strongest, and where the gap
-              between what children need and what they can access is
-              greatest.
-            </Text>
           </Section>
 
-          {/* Members */}
+          {/* Members visual — chips are the stand-in until the supplied
+              member image (public/intro-members.png) replaces them. */}
           <Section className="px" style={{ padding: "8px 34px 4px" }}>
             <Text
               style={{
@@ -216,6 +210,17 @@ export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
             </Text>
           </Section>
 
+          {/* Age-range copy sits below the members visual */}
+          <Section className="px" style={{ padding: "16px 34px 4px" }}>
+            <Text className="body-p" style={body()}>
+              We cover theatre for children aged 0 to 14, with a focused lens
+              on children aged 0 to 8. These are the early and primary years
+              where the case for theatre is strongest, and where the gap
+              between what children need and what they can access is
+              greatest.
+            </Text>
+          </Section>
+
           {/* Newsletter card */}
           <Section className="px" style={{ padding: "22px 34px 6px" }}>
             <table
@@ -241,11 +246,8 @@ export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
                       The Alliance newsletter
                     </Text>
                     <Text className="body-p" style={{ ...body(14.5), margin: "0 0 16px" }}>
-                      Our new email dispatch gathers the latest from member
-                      companies across the country: new productions, national
-                      and international tours, milestones and sector news.
-                      Stories are grouped by company, and you choose the
-                      rhythm that suits you: daily, weekly or fortnightly.
+                      The latest from our member companies, grouped by
+                      company. Choose daily, weekly or fortnightly.
                     </Text>
                     <Link
                       href={baseUrl}
@@ -272,11 +274,16 @@ export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
             </table>
           </Section>
 
-          {/* Website CTA */}
-          <Section className="px" style={{ padding: "18px 34px 8px" }}>
-            <Text className="body-p" style={body()}>
-              Meet our member companies and our advocacy for every Australian
-              child on our website.
+          {/* Website CTA — the loudest block on the page */}
+          <Section
+            className="px"
+            style={{ padding: "26px 34px 8px", textAlign: "center" }}
+          >
+            <Text
+              className="card-h"
+              style={{ ...display(26, 0.95), margin: "0 0 14px" }}
+            >
+              Explore the Alliance
             </Text>
             <Link
               href={WEBSITE}
@@ -285,14 +292,14 @@ export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
                 display: "inline-block",
                 fontFamily: FONT_BODY,
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: 17,
                 color: INK,
-                backgroundColor: COLORS.white,
-                border: `2px solid ${INK}`,
-                borderRadius: 12,
-                padding: "11px 18px",
+                backgroundColor: COLORS.yellow,
+                border: `3px solid ${INK}`,
+                borderRadius: 14,
+                padding: "16px 28px",
                 textDecoration: "none",
-                boxShadow: `3px 3px 0 ${INK}`,
+                boxShadow: `6px 6px 0 ${INK}`,
               }}
             >
               childrenstheatrealliance.com.au ↗
