@@ -25,8 +25,6 @@ import { COLORS } from "../lib/tokens";
 export interface IntroEmailProps {
   /** Absolute origin for assets and the sign-up link. */
   baseUrl: string;
-  /** Member company names, shown as chips. */
-  memberNames: string[];
 }
 
 const WEBSITE = "https://www.childrenstheatrealliance.com.au/";
@@ -69,7 +67,7 @@ const body = (size = 15): React.CSSProperties => ({
   margin: "0 0 16px",
 });
 
-export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
+export default function IntroEmail({ baseUrl }: IntroEmailProps) {
   const logo = `${baseUrl}/logo-full.png`;
   return (
     <Html lang="en">
@@ -168,45 +166,40 @@ export default function IntroEmail({ baseUrl, memberNames }: IntroEmailProps) {
             </Text>
           </Section>
 
-          {/* Members visual — chips are the stand-in until the supplied
-              member image (public/intro-members.png) replaces them. */}
+          {/* Members logo grid */}
           <Section className="px" style={{ padding: "8px 34px 4px" }}>
-            <Text
+            <table
+              role="presentation"
+              width="100%"
+              cellPadding={0}
+              cellSpacing={0}
               style={{
-                fontFamily: FONT_BODY,
-                fontWeight: 600,
-                fontSize: 11,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: COLORS.textMuted,
-                margin: "0 0 9px",
+                borderCollapse: "separate",
+                backgroundColor: COLORS.white,
+                border: `3px solid ${INK}`,
+                borderRadius: 22,
+                boxShadow: `10px 10px 0 ${INK}`,
               }}
             >
-              The Alliance is
-            </Text>
-            <Text style={{ margin: 0, lineHeight: "2.2" }}>
-              {memberNames.map((nm) => (
-                <span
-                  key={nm}
-                  className="chip"
-                  style={{
-                    display: "inline-block",
-                    fontFamily: FONT_BODY,
-                    fontWeight: 600,
-                    fontSize: 11,
-                    color: INK,
-                    backgroundColor: COLORS.white,
-                    border: `2px solid ${INK}`,
-                    padding: "5px 11px",
-                    borderRadius: 999,
-                    marginRight: 7,
-                    marginBottom: 7,
-                  }}
-                >
-                  {nm}
-                </span>
-              ))}
-            </Text>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "20px 18px" }}>
+                    <Img
+                      src={`${baseUrl}/intro-members.png`}
+                      alt="The member companies of the Children's Theatre Alliance"
+                      width={494}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        maxWidth: 494,
+                        height: "auto",
+                        margin: "0 auto",
+                      }}
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </Section>
 
           {/* Age-range copy sits below the members visual */}

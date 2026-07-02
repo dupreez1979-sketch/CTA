@@ -14,7 +14,6 @@ import AllianceEmail, {
   type EmailFeatured,
 } from "../emails/AllianceEmail";
 import IntroEmail from "../emails/IntroEmail";
-import { loadCompanies } from "./company-store";
 
 /**
  * Issue assembly + delivery. An issue is idempotent per cadence+window:
@@ -282,11 +281,9 @@ const INTRO_SUBJECT = "Introducing the Children's Theatre Alliance";
 const MAX_INTRO_RECIPIENTS = 200;
 
 export async function renderIntroHtml(): Promise<string> {
-  const members = await loadCompanies();
   return render(
     React.createElement(IntroEmail, {
       baseUrl: env("APP_URL").replace(/\/$/, ""),
-      memberNames: members.map((c) => c.name),
     }),
   );
 }
