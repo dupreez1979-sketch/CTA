@@ -180,7 +180,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
             </Text>
           </Section>
 
-          {/* Members logo grid */}
+          {/* Logo grid of the companies working together in the Alliance */}
           <Section className="px" style={{ padding: "8px 34px 4px" }}>
             <table
               role="presentation"
@@ -200,7 +200,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                   <td style={{ padding: "20px 18px" }}>
                     <Img
                       src={`${baseUrl}/intro-members.png`}
-                      alt="The member companies of the Children's Theatre Alliance"
+                      alt="The companies working together in the Children's Theatre Alliance"
                       width={494}
                       style={{
                         display: "block",
@@ -216,7 +216,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
             </table>
           </Section>
 
-          {/* Age-range copy sits below the members visual */}
+          {/* Age-range copy sits below the logo grid */}
           <Section className="px" style={{ padding: "16px 34px 4px" }}>
             <Text className="body-p" style={body()}>
               We cover theatre for children aged 0 to 14, with a focused lens
@@ -252,8 +252,9 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                       The Alliance newsletter
                     </Text>
                     <Text className="body-p" style={{ ...body(14.5), margin: "0 0 16px" }}>
-                      The latest from our member companies, grouped by
-                      company. Choose daily, weekly or fortnightly.
+                      The latest from the companies working together in the
+                      Alliance, grouped by company. Choose daily, weekly or
+                      fortnightly.
                     </Text>
                     <Link
                       href={baseUrl}
