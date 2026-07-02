@@ -58,8 +58,11 @@ export interface AllianceEmailProps {
   unsubscribeUrl: string;
 }
 
+// Impact ships with Windows and macOS, so most desktop clients render the
+// real brand font; Haettenschweiler / Arial Narrow Bold are the intended
+// fallbacks per the design handoff.
 const FONT_DISPLAY =
-  "'Haettenschweiler','Arial Narrow Bold','Impact',sans-serif";
+  "'Impact','Haettenschweiler','Arial Narrow Bold',sans-serif";
 const FONT_BODY = "'Poppins',Helvetica,Arial,sans-serif";
 const INK = COLORS.ink;
 

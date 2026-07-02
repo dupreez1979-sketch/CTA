@@ -35,10 +35,24 @@ export interface AssembledIssue {
   itemCount: number;
 }
 
+/**
+ * Turn a stored image reference into an absolute URL against the current
+ * APP_URL. Handles relative "/api/img/<key>" paths (how new rows are
+ * stored) and legacy rows that baked in a full origin at ingest time.
+ */
+function absolutizeImage(url: string | null, baseUrl: string): string | null {
+  if (!url) return null;
+  if (url.startsWith("/")) return `${baseUrl}${url}`;
+  const legacy = url.match(/\/api\/img\/[A-Za-z0-9_-]+$/);
+  if (legacy) return `${baseUrl}${legacy[0]}`;
+  return url;
+}
+
 /** Group window items into the email's data shape (featured, sections). */
 export async function assembleIssue(
   window: IssueWindow,
 ): Promise<AssembledIssue | null> {
+  const baseUrl = env("APP_URL").replace(/\/$/, "");
   const items = await db()
     .select()
     .from(feedItems)
@@ -71,7 +85,7 @@ export async function assembleIssue(
       heading: pick.aiHeading,
       summary: pick.aiSummary,
       url: pick.postUrl,
-      imageUrl: pick.imageUrl,
+      imageUrl: absolutizeImage(pick.imageUrl, baseUrl),
     };
     sectionItems = items.filter((it) => it.id !== pick.id);
   }
@@ -96,7 +110,7 @@ export async function assembleIssue(
           heading: it.aiHeading,
           summary: it.aiSummary,
           url: it.postUrl,
-          imageUrl: it.imageUrl,
+          imageUrl: absolutizeImage(it.imageUrl, baseUrl),
         })),
       };
     },
@@ -118,7 +132,7 @@ export async function assembleIssue(
       indexNames,
       featured,
       companies,
-      baseUrl: env("APP_URL").replace(/\/$/, ""),
+      baseUrl,
     },
     itemCount: items.length,
   };

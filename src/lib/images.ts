@@ -26,8 +26,10 @@ export async function rehostImage(
     const key = guid.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
     const store = getStore("post-images");
     await store.set(key, buffer, { metadata: { contentType } });
-    const appUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
-    return `${appUrl}/api/img/${key}`;
+    // Stored as a relative path; the sender absolutises it against the
+    // current APP_URL at render time, so a domain change never strands
+    // previously ingested images.
+    return `/api/img/${key}`;
   } catch (err) {
     console.error(`Image re-host failed for ${guid}:`, err);
     return null;
