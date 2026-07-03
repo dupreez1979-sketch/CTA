@@ -5,6 +5,7 @@ import {
   timestamp,
   integer,
   bigint,
+  boolean,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -62,6 +63,9 @@ export const feedItems = pgTable(
     // The feed's page/author name — kept for diagnosing and re-filing
     // posts that couldn't be matched to a company at ingest time.
     creator: text("creator"),
+    // Admin pressed "Ignore" in the unfiled-posts panel: hides the item
+    // from triage. Does not affect whether it appears in issues.
+    reviewed: boolean("reviewed").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
     aiHeading: text("ai_heading").notNull(),
     aiSummary: text("ai_summary").notNull(),

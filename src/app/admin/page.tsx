@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, subscribers, issues, companies, feedItems } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
 import { getAiSpend } from "@/lib/ai-spend";
@@ -637,7 +637,12 @@ async function CompaniesTab() {
   const unfiled = await db()
     .select()
     .from(feedItems)
-    .where(eq(feedItems.companyKey, "around-the-alliance"))
+    .where(
+      and(
+        eq(feedItems.companyKey, "around-the-alliance"),
+        eq(feedItems.reviewed, false),
+      ),
+    )
     .orderBy(desc(feedItems.publishedAt))
     .limit(15);
 
@@ -762,6 +767,7 @@ async function CompaniesTab() {
                   <th style={th}>Page name (from feed)</th>
                   <th style={th}>Post text</th>
                   <th style={th}>Link</th>
+                  <th style={th}></th>
                 </tr>
               </thead>
               <tbody>
@@ -783,6 +789,14 @@ async function CompaniesTab() {
                       >
                         open ↗
                       </a>
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      <form action="/api/admin/ignore-item" method="post">
+                        <input type="hidden" name="id" value={it.id} />
+                        <button type="submit" style={dangerButton}>
+                          Ignore
+                        </button>
+                      </form>
                     </td>
                   </tr>
                 ))}

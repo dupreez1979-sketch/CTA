@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, feedItems } from "@/lib/db";
 import { FALLBACK_COMPANY_KEY, matchCompany } from "@/lib/companies";
 import { loadCompanies } from "@/lib/company-store";
@@ -14,10 +14,16 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   const companies = await loadCompanies();
+  // Ignored (reviewed) items are left alone — they were triaged already.
   const unfiled = await db()
     .select()
     .from(feedItems)
-    .where(eq(feedItems.companyKey, FALLBACK_COMPANY_KEY));
+    .where(
+      and(
+        eq(feedItems.companyKey, FALLBACK_COMPANY_KEY),
+        eq(feedItems.reviewed, false),
+      ),
+    );
 
   let moved = 0;
   for (const item of unfiled) {
