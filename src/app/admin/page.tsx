@@ -2,6 +2,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, subscribers, issues, companies, feedItems } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
 import { getAiSpend } from "@/lib/ai-spend";
+import { getNotifyEmails } from "@/lib/notify";
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
@@ -513,7 +514,10 @@ async function SubscribersTab() {
     .orderBy(desc(subscribers.createdAt))
     .limit(200);
 
+  const notifyEmails = await getNotifyEmails();
+
   return (
+    <>
     <section className="admin-card">
       <h2 style={h2}>Subscribers</h2>
       <div
@@ -623,6 +627,38 @@ async function SubscribersTab() {
         </table>
       </div>
     </section>
+
+    <section className="admin-card">
+      <h2 style={h2}>New-subscriber notifications</h2>
+      <p style={muted}>
+        These addresses get a short branded email every time someone new
+        subscribes. Separate several with commas. Leave empty to turn
+        notifications off. Cadence changes and re-subscribes do not trigger
+        one.
+      </p>
+      <form
+        action="/api/admin/notify-emails"
+        method="post"
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <input
+          type="text"
+          name="emails"
+          defaultValue={notifyEmails.join(", ")}
+          placeholder="you@example.com, colleague@example.com"
+          style={{ ...inputStyle, flex: "1 1 280px", minWidth: 220 }}
+        />
+        <button type="submit" style={buttonStyle}>
+          Save
+        </button>
+      </form>
+    </section>
+    </>
   );
 }
 

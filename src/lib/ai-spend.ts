@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { db, aiSpend, settings } from "./db";
+import { db, aiSpend } from "./db";
+import { getSetting, setSetting } from "./settings";
 
 /**
  * Estimated Anthropic API spend tracker. Anthropic has no API for reading
@@ -47,22 +48,6 @@ export async function recordAiUsage(
   } catch (err) {
     console.error("Failed to record AI usage:", err);
   }
-}
-
-async function getSetting(key: string): Promise<string | null> {
-  const rows = await db()
-    .select()
-    .from(settings)
-    .where(sql`${settings.key} = ${key}`)
-    .limit(1);
-  return rows[0]?.value ?? null;
-}
-
-export async function setSetting(key: string, value: string): Promise<void> {
-  await db()
-    .insert(settings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: settings.key, set: { value } });
 }
 
 export interface AiSpendSummary {

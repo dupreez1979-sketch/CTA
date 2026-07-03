@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
 import type { Cadence } from "@/lib/db/schema";
+import { notifyNewSubscriber } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,15 @@ export async function POST(request: NextRequest) {
   if (!CADENCES.includes(cadence))
     return NextResponse.json({ error: "Please choose how often." }, { status: 400 });
 
-  await db()
+  // Check for an existing row first so the team is only notified about
+  // genuinely new subscribers, not cadence changes or re-subscribes.
+  const existing = await db()
+    .select({ id: subscribers.id })
+    .from(subscribers)
+    .where(eq(subscribers.email, email))
+    .limit(1);
+
+  const [row] = await db()
     .insert(subscribers)
     .values({
       firstName,
@@ -55,7 +64,13 @@ export async function POST(request: NextRequest) {
         status: "active",
         updatedAt: sql`now()`,
       },
-    });
+    })
+    .returning();
+
+  if (existing.length === 0 && row) {
+    // Never throws — a notification problem must not break the sign-up.
+    await notifyNewSubscriber(row);
+  }
 
   return NextResponse.json({ ok: true });
 }
