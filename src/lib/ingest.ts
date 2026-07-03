@@ -75,6 +75,7 @@ async function ingestItem(
       companyKey: item.companyKey,
       postUrl: item.link,
       rawTitle: item.title,
+      creator: item.creator,
       publishedAt: item.publishedAt,
       aiHeading: copy.heading,
       aiSummary: copy.summary,

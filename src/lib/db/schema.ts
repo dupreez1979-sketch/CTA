@@ -59,6 +59,9 @@ export const feedItems = pgTable(
     companyKey: text("company_key").notNull(),
     postUrl: text("post_url").notNull(),
     rawTitle: text("raw_title"),
+    // The feed's page/author name — kept for diagnosing and re-filing
+    // posts that couldn't be matched to a company at ingest time.
+    creator: text("creator"),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
     aiHeading: text("ai_heading").notNull(),
     aiSummary: text("ai_summary").notNull(),

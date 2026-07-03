@@ -15,6 +15,8 @@ export interface NormalisedItem {
   link: string;
   publishedAt: Date;
   imageUrl: string | null;
+  /** The feed's page/author name, when provided. */
+  creator: string | null;
 }
 
 type RawItem = {
@@ -81,6 +83,7 @@ export function normaliseItem(
     link,
     publishedAt,
     imageUrl: extractImage(item),
+    creator: item.creator?.trim() || null,
   };
 }
 
