@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { eq, sql } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
-import type { Cadence } from "@/lib/db/schema";
+import type { SubscriberCadence } from "@/lib/db/schema";
 import { notifyNewSubscriber } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
-const CADENCES: Cadence[] = ["daily", "weekly", "fortnightly"];
+const CADENCES: SubscriberCadence[] = ["daily", "weekly", "fortnightly", "none"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -26,7 +26,10 @@ export async function POST(request: NextRequest) {
   const firstName = String(body.firstName ?? "").trim();
   const lastName = String(body.lastName ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
-  const cadence = String(body.cadence ?? "").toLowerCase() as Cadence;
+  const cadence = String(body.cadence ?? "").toLowerCase() as SubscriberCadence;
+  // Absent means true: older embedded sign-up forms don't send the field,
+  // and The Showcase Edition is opt-out. "Showcase only" implies opted in.
+  const showcase = cadence === "none" ? true : body.showcase !== false;
 
   if (!firstName || firstName.length > 100)
     return NextResponse.json({ error: "Please enter your first name." }, { status: 400 });
@@ -52,6 +55,7 @@ export async function POST(request: NextRequest) {
       lastName,
       email,
       cadence,
+      showcase,
       status: "active",
       unsubscribeToken: randomBytes(24).toString("base64url"),
     })
@@ -61,6 +65,7 @@ export async function POST(request: NextRequest) {
         firstName,
         lastName,
         cadence,
+        showcase,
         status: "active",
         updatedAt: sql`now()`,
       },

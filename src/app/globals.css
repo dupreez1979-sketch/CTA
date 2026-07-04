@@ -132,6 +132,7 @@ body {
 
 .pill-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -173,6 +174,43 @@ body {
 .pill-radio:has(input:checked) {
   background: var(--cta-purple);
   box-shadow: 3px 3px 0 var(--cta-ink);
+}
+
+/* Branded checkbox row (Showcase Edition opt-in) */
+.check-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cta-ink);
+  cursor: pointer;
+}
+
+.check-row input {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  border: 2px solid var(--cta-ink);
+  border-radius: 7px;
+  background: var(--cta-white);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+}
+
+.check-row input:checked {
+  background: var(--cta-yellow);
+}
+
+.check-row input:checked::before {
+  content: "✓";
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--cta-ink);
 }
 
 .submit {

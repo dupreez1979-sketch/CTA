@@ -3,8 +3,8 @@
 import { useState } from "react";
 import PuzzleShape from "./PuzzleShape";
 
-type Freq = "Daily" | "Weekly" | "Fortnightly";
-const FREQS: Freq[] = ["Daily", "Weekly", "Fortnightly"];
+type Freq = "Daily" | "Weekly" | "Fortnightly" | "Showcase only";
+const FREQS: Freq[] = ["Daily", "Weekly", "Fortnightly", "Showcase only"];
 
 /**
  * The sign-up popup from the design handoff (SignupPopup.dc.html):
@@ -16,8 +16,10 @@ const FREQS: Freq[] = ["Daily", "Weekly", "Fortnightly"];
 export default function SignupPopup({ onClose }: { onClose?: () => void }) {
   const [submitted, setSubmitted] = useState(false);
   const [freq, setFreq] = useState<Freq>("Weekly");
+  const [showcase, setShowcase] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const showcaseOnly = freq === "Showcase only";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -33,7 +35,8 @@ export default function SignupPopup({ onClose }: { onClose?: () => void }) {
           firstName: data.get("firstName"),
           lastName: data.get("lastName"),
           email: data.get("email"),
-          cadence: freq.toLowerCase(),
+          cadence: showcaseOnly ? "none" : freq.toLowerCase(),
+          showcase: showcaseOnly ? true : showcase,
         }),
       });
       if (!res.ok) {
@@ -75,8 +78,9 @@ export default function SignupPopup({ onClose }: { onClose?: () => void }) {
             <h2 className="confirm-title">You&#39;re in!</h2>
           </div>
           <p className="confirm-copy">
-            Thanks for signing up. Your first {freq.toLowerCase()} dispatch
-            will land in your inbox soon.
+            {showcaseOnly
+              ? "Thanks for signing up. The Showcase Edition will land in your inbox whenever there is news about shows."
+              : `Thanks for signing up. Your first ${freq.toLowerCase()} dispatch will land in your inbox soon.`}
           </p>
           <button className="reset-link" onClick={() => setSubmitted(false)}>
             Sign up another address
@@ -125,6 +129,19 @@ export default function SignupPopup({ onClose }: { onClose?: () => void }) {
                     </button>
                   ))}
                 </div>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={showcaseOnly ? true : showcase}
+                    disabled={showcaseOnly}
+                    onChange={(e) => setShowcase(e.target.checked)}
+                  />
+                  <span>
+                    <strong>The Showcase Edition</strong>: news about shows
+                    and tours from the companies of the Alliance, sent as it
+                    happens. Untick if you would rather not receive it.
+                  </span>
+                </label>
               </div>
             </div>
 

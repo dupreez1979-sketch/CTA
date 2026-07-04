@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE, adminSessionToken } from "@/lib/admin-session";
+import { messagePageHtml } from "@/lib/message-page";
 
 /**
  * Cookie-session guard for the admin area (the branded /admin/login page
@@ -10,7 +11,16 @@ import { ADMIN_COOKIE, adminSessionToken } from "@/lib/admin-session";
 export async function middleware(request: NextRequest) {
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
-    return new NextResponse("Admin is not configured", { status: 503 });
+    return new NextResponse(
+      messagePageHtml(
+        "Admin is not set up yet",
+        "The ADMIN_PASSWORD environment variable is missing, so the admin area is switched off. Add it in the hosting settings and redeploy.",
+      ),
+      {
+        status: 503,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      },
+    );
   }
   const { pathname } = request.nextUrl;
   if (pathname === "/admin/login") return NextResponse.next();

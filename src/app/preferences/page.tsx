@@ -9,6 +9,7 @@ const CADENCES = [
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "fortnightly", label: "Fortnightly" },
+  { value: "none", label: "Showcase only" },
 ] as const;
 
 /**
@@ -73,8 +74,16 @@ export default async function PreferencesPage({
           <div style={{ position: "relative", zIndex: 1 }}>
             <h1 className="popup-title">How often should we visit your inbox?</h1>
             <p className="popup-subtitle">
-              Hi {subscriber.firstName} — you&#39;re currently getting the{" "}
-              <strong>{subscriber.cadence}</strong> dispatch
+              Hi {subscriber.firstName} — you&#39;re currently{" "}
+              {subscriber.cadence === "none" ? (
+                <>
+                  getting <strong>The Showcase Edition only</strong>
+                </>
+              ) : (
+                <>
+                  getting the <strong>{subscriber.cadence}</strong> dispatch
+                </>
+              )}
               {subscriber.status === "unsubscribed"
                 ? ", but you're unsubscribed. Saving a choice below will resubscribe you."
                 : "."}
@@ -91,13 +100,13 @@ export default async function PreferencesPage({
                   fontSize: 14,
                 }}
               >
-                Saved — your next {subscriber.cadence} dispatch is on its way.
+                Saved. Your choices are updated.
               </p>
             )}
 
             <form action="/api/preferences" method="post">
               <input type="hidden" name="token" value={token} />
-              <div className="pill-row" style={{ margin: "18px 0 28px" }}>
+              <div className="pill-row" style={{ margin: "18px 0 16px" }}>
                 {CADENCES.map((c) => (
                   <label key={c.value} className="pill pill-radio">
                     <input
@@ -111,6 +120,20 @@ export default async function PreferencesPage({
                   </label>
                 ))}
               </div>
+              <label className="check-row" style={{ margin: "0 0 28px" }}>
+                <input
+                  type="checkbox"
+                  name="showcase"
+                  value="1"
+                  defaultChecked={subscriber.showcase}
+                />
+                <span>
+                  <strong>The Showcase Edition</strong>: news about shows and
+                  tours from the companies of the Alliance, sent as it
+                  happens. Choosing &quot;Showcase only&quot; above always
+                  includes it.
+                </span>
+              </label>
               <button type="submit" className="submit">
                 Save my preference
               </button>

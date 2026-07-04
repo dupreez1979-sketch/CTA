@@ -15,16 +15,21 @@ export default function QuickAction({
   children,
   style,
   confirm,
+  announce,
 }: {
   fields: Record<string, string | number>;
   children: React.ReactNode;
   style?: React.CSSProperties;
   confirm?: string;
+  /** Show the route's success message in a pop-up. For actions whose
+   * result isn't obvious from the page alone (e.g. "AI re-rate"). */
+  announce?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const run = async () => {
@@ -45,6 +50,9 @@ export default function QuickAction({
         setError(
           data?.message ?? "That didn't work. Refresh the page and try again.",
         );
+      } else if (announce) {
+        const data = await res.json().catch(() => null);
+        setDone(data?.message ?? "Done.");
       }
       startTransition(() => router.refresh());
     } finally {
@@ -81,6 +89,12 @@ export default function QuickAction({
         title="That didn't work"
         message={error ?? ""}
         onClose={() => setError(null)}
+      />
+      <AdminModal
+        open={done !== null}
+        title="Done"
+        message={done ?? ""}
+        onClose={() => setDone(null)}
       />
     </>
   );

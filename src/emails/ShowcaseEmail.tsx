@@ -95,6 +95,12 @@ export interface ShowcaseEmailProps {
   social: ShowcaseSocialItem[];
   shows: ShowcaseListing[];
   baseUrl: string;
+  /** Per-recipient unsubscribe URL (or a merge placeholder). Present on
+   * live sends to subscribers; absent on test sends, which show the
+   * test-list footer copy instead. */
+  unsubscribeUrl?: string;
+  /** Per-recipient preferences URL (or a merge placeholder). */
+  preferencesUrl?: string;
 }
 
 const INK = COLORS.ink;
@@ -274,6 +280,8 @@ export default function ShowcaseEmail({
   social,
   shows,
   baseUrl,
+  unsubscribeUrl,
+  preferencesUrl,
 }: ShowcaseEmailProps) {
   const logo = `${baseUrl}/logo-full.png`;
   return (
@@ -1129,10 +1137,9 @@ export default function ShowcaseEmail({
                 maxWidth: 440,
               }}
             >
-              You are receiving this test edition of The Showcase because you
-              are helping the Alliance shape it. Reply to this email with
-              feedback. We acknowledge the Traditional Custodians of the lands
-              on which we make and share stories.
+              {unsubscribeUrl
+                ? "You are receiving The Showcase Edition from the Children's Theatre Alliance: news about shows and tours, sent as it happens. We acknowledge the Traditional Custodians of the lands on which we make and share stories."
+                : "You are receiving this test edition of The Showcase because you are helping the Alliance shape it. Reply to this email with feedback. We acknowledge the Traditional Custodians of the lands on which we make and share stories."}
             </Text>
             <Text style={{ margin: "0 0 10px", fontSize: 12 }}>
               <Link
@@ -1149,6 +1156,49 @@ export default function ShowcaseEmail({
                 childrenstheatrealliance.com.au
               </Link>
             </Text>
+            {unsubscribeUrl && (
+              <Text style={{ margin: "0 0 10px", fontSize: 12 }}>
+                {preferencesUrl && (
+                  <>
+                    <Link
+                      href={preferencesUrl}
+                      className="footer-link"
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontWeight: 700,
+                        fontSize: 12,
+                        color: INK,
+                        textDecoration: "underline",
+                      }}
+                    >
+                      Change what you receive
+                    </Link>
+                    <span
+                      style={{
+                        fontFamily: FONT_BODY,
+                        color: INK,
+                        padding: "0 8px",
+                      }}
+                    >
+                      ·
+                    </span>
+                  </>
+                )}
+                <Link
+                  href={unsubscribeUrl}
+                  className="footer-link"
+                  style={{
+                    fontFamily: FONT_BODY,
+                    fontWeight: 700,
+                    fontSize: 12,
+                    color: INK,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Unsubscribe
+                </Link>
+              </Text>
+            )}
             <Text
               style={{
                 fontFamily: FONT_BODY,

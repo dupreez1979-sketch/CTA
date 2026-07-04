@@ -10,6 +10,7 @@ import {
   showcaseEditionItems,
   showcaseEditionShows,
   shows,
+  subscribers,
   type FeedItem,
   type PresenterRelevance,
   type Show,
@@ -28,12 +29,13 @@ import ShowcaseEmail, {
 import ShowcaseDraftEmail from "../emails/ShowcaseDraftEmail";
 
 /**
- * The Showcase — the presenter and international partner edition, currently
- * in test mode. Stories are rated low/medium/high for Showcase relevance at
- * ingest; editions are built explicitly in admin ("New Showcase" pre-fills
- * from unused high-relevance stories and the active show registry), then
- * edited, previewed and sent to the settings-managed test list. Nothing is
- * ever sent automatically.
+ * The Showcase — the presenter and international partner edition. Stories
+ * are rated low/medium/high for Showcase relevance at ingest; editions are
+ * built explicitly in admin ("New Showcase" pre-fills from unused
+ * high-relevance stories and the active show registry), then edited,
+ * previewed, test-sent to the settings-managed test list, and finally sent
+ * live to every active subscriber opted in to The Showcase Edition.
+ * Nothing is ever sent automatically.
  */
 
 const RECIPIENTS_KEY = "presenter_recipients";
@@ -45,6 +47,11 @@ const PREFILL_MAX = Number(process.env.PRESENTER_PREFILL_MAX ?? 12);
 const SOCIAL_PREFILL_MAX = Number(process.env.PRESENTER_SOCIAL_PREFILL_MAX ?? 4);
 const MAX_PROFILES = 2;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Per-recipient merge tokens + Resend batch limit (same scheme as the
+// cadence dispatch in send.ts).
+const UNSUB_TOKEN = "%%UNSUBSCRIBE_URL%%";
+const PREFS_TOKEN = "%%PREFERENCES_URL%%";
+const BATCH_SIZE = 100;
 
 function env(name: string): string {
   const v = process.env[name];
@@ -97,6 +104,26 @@ export async function setPresenterRecipients(raw: string): Promise<string[]> {
   ];
   await setSetting(RECIPIENTS_KEY, emails.join(", "));
   return emails.length > 0 ? emails : DEFAULT_RECIPIENTS;
+}
+
+/** Active subscribers who are opted in to The Showcase Edition. */
+export async function getShowcaseSubscribers() {
+  return db()
+    .select()
+    .from(subscribers)
+    .where(
+      and(eq(subscribers.status, "active"), eq(subscribers.showcase, true)),
+    );
+}
+
+export async function getShowcaseSubscriberCount(): Promise<number> {
+  const [row] = await db()
+    .select({ count: sql<number>`count(*)::int` })
+    .from(subscribers)
+    .where(
+      and(eq(subscribers.status, "active"), eq(subscribers.showcase, true)),
+    );
+  return row?.count ?? 0;
 }
 
 // ------------------------------------------------------------------ editions
@@ -737,8 +764,11 @@ export async function assembleEdition(
 
 export async function renderShowcaseHtml(
   assembled: AssembledShowcase,
+  urls?: { unsubscribeUrl: string; preferencesUrl: string },
 ): Promise<string> {
-  return render(React.createElement(ShowcaseEmail, assembled.props));
+  return render(
+    React.createElement(ShowcaseEmail, { ...assembled.props, ...urls }),
+  );
 }
 
 // --------------------------------------------------------------------- send
@@ -751,12 +781,66 @@ export interface ShowcaseSendResult {
   reason?: string;
 }
 
+/** The even-Spotlight rule, shared by test and live sends. */
+function spotlightBlockReason(assembled: AssembledShowcase): string | null {
+  const spotlightCount = assembled.props.shows.length;
+  if (spotlightCount % 2 === 0) return null;
+  return `This Showcase has ${spotlightCount} show${spotlightCount === 1 ? "" : "s"} in the Spotlight. The grid shows two per row, so add or remove one to make it an even number, then send again`;
+}
+
+function showcaseSubject(): string {
+  return `The Showcase: Australia's Children's Theatre Alliance (${sydneyDateLabel()})`;
+}
+
 /**
- * Send an edition to the test list. The edition row is claimed atomically
- * (draft/failed → sending), so a double-click can't dispatch it twice; on
- * failure it lands in "failed" and stays editable and resendable.
+ * Send an edition to the test list. Leaves the edition's status untouched:
+ * a test send is a rendering check, not a dispatch, so the draft stays a
+ * draft and can be test-sent as often as needed.
  */
-export async function sendEdition(
+export async function sendEditionTest(
+  editionId: number,
+): Promise<ShowcaseSendResult> {
+  const assembled = await assembleEdition(editionId);
+  if (!assembled) {
+    return { status: "skipped", itemCount: 0, recipientCount: 0 };
+  }
+  const blocked = spotlightBlockReason(assembled);
+  if (blocked) {
+    return { status: "blocked", itemCount: 0, recipientCount: 0, reason: blocked };
+  }
+
+  const recipients = await getPresenterRecipients();
+  const html = await renderShowcaseHtml(assembled);
+
+  if (process.env.SEND_DRY_RUN === "1") {
+    console.log(
+      `[dry-run] would send Showcase edition ${editionId} test to ${recipients.join(", ")}`,
+    );
+  } else {
+    const resend = new Resend(env("RESEND_API_KEY"));
+    const { error } = await resend.emails.send({
+      from: env("EMAIL_FROM"),
+      to: recipients,
+      subject: `[TEST] ${showcaseSubject()}`,
+      html,
+    });
+    if (error) throw new Error(`Resend send failed: ${error.message}`);
+  }
+  return {
+    status: "sent",
+    itemCount: assembled.itemCount,
+    recipientCount: recipients.length,
+  };
+}
+
+/**
+ * Send an edition to every active subscriber opted in to The Showcase
+ * Edition, with per-recipient unsubscribe and preferences links. The
+ * edition row is claimed atomically (draft/failed → sending), so a
+ * double-click can't dispatch it twice; on failure it lands in "failed"
+ * and stays editable and resendable.
+ */
+export async function sendEditionLive(
   editionId: number,
 ): Promise<ShowcaseSendResult> {
   const claimed = await db()
@@ -772,50 +856,78 @@ export async function sendEdition(
   if (claimed.length === 0) {
     return { status: "skipped", itemCount: 0, recipientCount: 0 };
   }
+  const revertToDraft = () =>
+    db()
+      .update(showcaseEditions)
+      .set({ status: "draft" })
+      .where(eq(showcaseEditions.id, editionId));
 
   try {
     const assembled = await assembleEdition(editionId);
     if (!assembled) {
-      await db()
-        .update(showcaseEditions)
-        .set({ status: "draft" })
-        .where(eq(showcaseEditions.id, editionId));
+      await revertToDraft();
       return { status: "skipped", itemCount: 0, recipientCount: 0 };
     }
 
     // The Spotlight renders as a two-card grid, so an odd count would
     // leave a hole. Block the send until the count is even.
-    const spotlightCount = assembled.props.shows.length;
-    if (spotlightCount % 2 === 1) {
-      await db()
-        .update(showcaseEditions)
-        .set({ status: "draft" })
-        .where(eq(showcaseEditions.id, editionId));
+    const blocked = spotlightBlockReason(assembled);
+    if (blocked) {
+      await revertToDraft();
       return {
         status: "blocked",
         itemCount: 0,
         recipientCount: 0,
-        reason: `This Showcase has ${spotlightCount} show${spotlightCount === 1 ? "" : "s"} in the Spotlight. The grid shows two per row, so add or remove one to make it an even number, then send again`,
+        reason: blocked,
       };
     }
 
-    const recipients = await getPresenterRecipients();
-    const html = await renderShowcaseHtml(assembled);
-    const subject = `The Showcase: Australia's Children's Theatre Alliance (${sydneyDateLabel()})`;
+    const recipients = await getShowcaseSubscribers();
+    if (recipients.length === 0) {
+      await revertToDraft();
+      return {
+        status: "blocked",
+        itemCount: 0,
+        recipientCount: 0,
+        reason:
+          "No active subscribers are opted in to The Showcase Edition yet, so there is no one to send to. The draft is unchanged",
+      };
+    }
+
+    const appUrl = env("APP_URL").replace(/\/$/, "");
+    const html = await renderShowcaseHtml(assembled, {
+      unsubscribeUrl: UNSUB_TOKEN,
+      preferencesUrl: PREFS_TOKEN,
+    });
+    const subject = showcaseSubject();
+    const from = env("EMAIL_FROM");
 
     if (process.env.SEND_DRY_RUN === "1") {
       console.log(
-        `[dry-run] would send Showcase edition ${editionId} (${assembled.itemCount} items) to ${recipients.join(", ")}`,
+        `[dry-run] would send Showcase edition ${editionId} (${assembled.itemCount} items) to ${recipients.length} subscribers`,
       );
     } else {
       const resend = new Resend(env("RESEND_API_KEY"));
-      const { error } = await resend.emails.send({
-        from: env("EMAIL_FROM"),
-        to: recipients,
-        subject,
-        html,
-      });
-      if (error) throw new Error(`Resend send failed: ${error.message}`);
+      for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+        const batch = recipients.slice(i, i + BATCH_SIZE).map((r) => {
+          const unsubUrl = `${appUrl}/unsubscribe?token=${r.unsubscribeToken}`;
+          const prefsUrl = `${appUrl}/preferences?token=${r.unsubscribeToken}`;
+          return {
+            from,
+            to: r.email,
+            subject,
+            html: html
+              .replaceAll(UNSUB_TOKEN, unsubUrl)
+              .replaceAll(PREFS_TOKEN, prefsUrl),
+            headers: {
+              "List-Unsubscribe": `<${appUrl}/api/unsubscribe?token=${r.unsubscribeToken}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          };
+        });
+        const { error } = await resend.batch.send(batch);
+        if (error) throw new Error(`Resend batch failed: ${error.message}`);
+      }
     }
 
     await db()
@@ -827,7 +939,7 @@ export async function sendEdition(
         itemCount: assembled.itemCount,
         profileCount: assembled.profileCount,
         recipientCount: recipients.length,
-        recipients: recipients.join(", "),
+        recipients: null,
       })
       .where(eq(showcaseEditions.id, editionId));
     return {

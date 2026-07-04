@@ -189,7 +189,7 @@ export async function reassessRatings(item: {
     messages: [
       {
         role: "user",
-        content: `Rate this story by ${item.company} for the two Showcase scales described in the schema.\n\nHeadline: ${item.heading}\nSummary: ${item.summary}\nOriginal post text: ${(item.rawTitle ?? "").slice(0, 1500) || "(none)"}`,
+        content: `Rate this story on two independent scales, each low, medium or high. Judge each scale on its own merits — a story can be high on one and low on the other.\n\npresenterRelevance — ${COPY_SCHEMA.properties.presenterRelevance.description}\n\nsocialRelevance — ${COPY_SCHEMA.properties.socialRelevance.description}\n\nStory by ${item.company}:\nHeadline: ${item.heading}\nSummary: ${item.summary}\nOriginal post title: ${(item.rawTitle ?? "").slice(0, 1500) || "(none)"}`,
       },
     ],
   });

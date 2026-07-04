@@ -36,6 +36,15 @@ export default function RatingsForm({
   const router = useRouter();
   const [showVal, setShowVal] = useState(show);
   const [socialVal, setSocialVal] = useState(social);
+  // When fresh server values arrive (e.g. after "AI re-rate" refreshes the
+  // page data), adopt them — otherwise the selects would keep showing the
+  // values from when the page first loaded.
+  const [lastProps, setLastProps] = useState({ show, social });
+  if (show !== lastProps.show || social !== lastProps.social) {
+    setLastProps({ show, social });
+    setShowVal(show);
+    setSocialVal(social);
+  }
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);

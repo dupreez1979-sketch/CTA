@@ -4,6 +4,7 @@ import {
   ADMIN_COOKIE_MAX_AGE,
   adminSessionToken,
 } from "@/lib/admin-session";
+import { messagePageHtml } from "@/lib/message-page";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,16 @@ export async function POST(request: NextRequest) {
   const password = String(form.get("password") ?? "");
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
-    return new NextResponse("Admin is not configured", { status: 503 });
+    return new NextResponse(
+      messagePageHtml(
+        "Admin is not set up yet",
+        "The ADMIN_PASSWORD environment variable is missing, so the admin area is switched off. Add it in the hosting settings and redeploy.",
+      ),
+      {
+        status: 503,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      },
+    );
   }
   if (password !== expected) {
     return NextResponse.redirect(new URL("/admin/login?error=1", request.url), {

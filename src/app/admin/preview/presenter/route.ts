@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assembleEdition, getEdition, renderShowcaseHtml } from "@/lib/presenter";
+import { messagePageHtml } from "@/lib/message-page";
 
 export const dynamic = "force-dynamic";
 
-function page(body: string) {
+function page(title: string, body: string) {
   return new NextResponse(
-    `<body style="font-family:sans-serif;padding:40px">${body}</body>`,
+    messagePageHtml(title, body, {
+      backHref: "/admin?tab=presenters",
+      backLabel: "Back to The Showcase",
+    }),
     { headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
@@ -18,15 +22,21 @@ export async function GET(request: NextRequest) {
   const id = Number(request.nextUrl.searchParams.get("edition"));
   if (!Number.isInteger(id) || id <= 0) {
     return page(
-      "Pick a Showcase to preview from the admin tab (this page needs ?edition=…).",
+      "Nothing to preview yet",
+      "Pick a Showcase to preview from The Showcase tab: this page needs to know which edition to show.",
     );
   }
   const edition = await getEdition(id);
-  if (!edition) return page("That Showcase no longer exists.");
+  if (!edition)
+    return page(
+      "That Showcase is gone",
+      "This edition no longer exists. It may have been deleted. Head back to The Showcase tab to pick another one.",
+    );
   const assembled = await assembleEdition(id);
   if (!assembled) {
     return page(
-      "This Showcase is empty. Add stories or spotlight shows in the builder first.",
+      "This Showcase is empty",
+      "There is nothing in this edition yet. Add stories or spotlight shows in the builder, then preview again.",
     );
   }
   let html = await renderShowcaseHtml(assembled);

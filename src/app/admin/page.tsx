@@ -19,6 +19,7 @@ import {
   getEditionItems,
   getEditionShows,
   getPresenterRecipients,
+  getShowcaseSubscriberCount,
   getUsedStoryDates,
   hasRelativeTime,
   parseShowcaseListParams,
@@ -201,7 +202,7 @@ export default async function AdminPage({
 }
 
 async function OverviewTab() {
-  const [counts, recentIssues] = await Promise.all([
+  const [counts, showcaseCount, recentIssues] = await Promise.all([
     db()
       .select({
         cadence: subscribers.cadence,
@@ -210,6 +211,7 @@ async function OverviewTab() {
       .from(subscribers)
       .where(eq(subscribers.status, "active"))
       .groupBy(subscribers.cadence),
+    getShowcaseSubscriberCount(),
     db().select().from(issues).orderBy(desc(issues.id)).limit(20),
   ]);
   const countByCadence = Object.fromEntries(
@@ -257,6 +259,32 @@ async function OverviewTab() {
               </div>
             );
           })}
+          <div style={{ ...tile, flex: "1 1 200px" }}>
+            <div
+              style={{
+                fontFamily: "var(--font-display)",
+                textTransform: "uppercase",
+                fontSize: 22,
+                lineHeight: 1,
+                marginBottom: 4,
+              }}
+            >
+              The Showcase Edition
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginBottom: 8,
+              }}
+            >
+              Sent when there is show news · {showcaseCount} subscriber
+              {showcaseCount === 1 ? "" : "s"}
+            </div>
+            <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+              Built and sent from The Showcase tab
+            </div>
+          </div>
         </div>
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "14px 0 0" }}>
           Issues go out with the morning pipeline run — 7:00 am Sydney time
@@ -539,7 +567,7 @@ function SendingTab() {
 }
 
 async function SubscribersTab() {
-  const [counts, recent, notifyEmails] = await Promise.all([
+  const [counts, showcaseCount, recent, notifyEmails] = await Promise.all([
     db()
       .select({
         cadence: subscribers.cadence,
@@ -548,6 +576,7 @@ async function SubscribersTab() {
       .from(subscribers)
       .where(eq(subscribers.status, "active"))
       .groupBy(subscribers.cadence),
+    getShowcaseSubscriberCount(),
     db()
       .select()
       .from(subscribers)
@@ -595,6 +624,48 @@ async function SubscribersTab() {
             </div>
           </div>
         ))}
+        <div style={tile}>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 30,
+              lineHeight: 1,
+            }}
+          >
+            {countByCadence["none"] ?? 0}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "var(--text-muted)",
+            }}
+          >
+            Showcase only
+          </div>
+        </div>
+        <div style={{ ...tile, background: "var(--cta-mint)" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 30,
+              lineHeight: 1,
+            }}
+          >
+            {showcaseCount}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "var(--text-muted)",
+            }}
+          >
+            Showcase Edition
+          </div>
+        </div>
         <a
           href="/api/admin/subscribers.csv"
           style={{ ...buttonStyle, textDecoration: "none" }}
@@ -608,7 +679,7 @@ async function SubscribersTab() {
             <tr>
               <th style={th}>Name</th>
               <th style={th}>Email</th>
-              <th style={th}>Cadence</th>
+              <th style={th}>Receives</th>
               <th style={th}>Status</th>
               <th style={th}>Joined</th>
               <th style={th}></th>
@@ -625,7 +696,12 @@ async function SubscribersTab() {
                   <form
                     action="/api/admin/set-cadence"
                     method="post"
-                    style={{ display: "flex", gap: 6, alignItems: "center" }}
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
                   >
                     <input type="hidden" name="id" value={s.id} />
                     <select
@@ -638,6 +714,16 @@ async function SubscribersTab() {
                           {c}
                         </option>
                       ))}
+                      <option value="none">Showcase only</option>
+                    </select>
+                    <select
+                      name="showcase"
+                      defaultValue={s.showcase ? "1" : "0"}
+                      title="The Showcase Edition"
+                      style={{ ...smallInput, background: "var(--cta-mint)" }}
+                    >
+                      <option value="1">+ Showcase</option>
+                      <option value="0">no Showcase</option>
                     </select>
                     <button type="submit" style={smallButton}>
                       Save
@@ -975,16 +1061,25 @@ async function ShowcaseTab({ sp }: { sp: ShowcaseParams }) {
  */
 async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const params = parseShowcaseListParams(sp);
-  const [editions, counts, recipients, companyRows, registry, pool, usedDates] =
-    await Promise.all([
-      db().select().from(showcaseEditions),
-      getEditionCounts(),
-      getPresenterRecipients(),
-      db().select().from(companies).orderBy(asc(companies.name)),
-      db().select().from(shows).orderBy(asc(shows.title)),
-      queryStoryPool(params),
-      getUsedStoryDates(),
-    ]);
+  const [
+    editions,
+    counts,
+    recipients,
+    subscriberCount,
+    companyRows,
+    registry,
+    pool,
+    usedDates,
+  ] = await Promise.all([
+    db().select().from(showcaseEditions),
+    getEditionCounts(),
+    getPresenterRecipients(),
+    getShowcaseSubscriberCount(),
+    db().select().from(companies).orderBy(asc(companies.name)),
+    db().select().from(shows).orderBy(asc(shows.title)),
+    queryStoryPool(params),
+    getUsedStoryDates(),
+  ]);
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
 
   const itemsOf = (e: ShowcaseEdition) =>
@@ -1028,8 +1123,10 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
         <p style={muted}>
           The Showcase is built one edition at a time. New Showcase starts a
           draft pre-filled with the latest high-relevance stories and the
-          current Shows in the Spotlight list; edit it, preview it, then send it to
-          the test list. Sent editions stay here as history.
+          current Shows in the Spotlight list; edit it, preview it, send a
+          test, then send it live to the {subscriberCount} subscriber
+          {subscriberCount === 1 ? "" : "s"} who receive The Showcase
+          Edition. Sent editions stay here as history.
         </p>
         <form
           action="/api/admin/showcase-edition"
@@ -1069,7 +1166,12 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                     </td>
                     <td style={td}>{itemsOf(e)}</td>
                     <td style={td}>{profilesOf(e)}</td>
-                    <td style={td}>{e.recipients ?? ""}</td>
+                    <td style={td}>
+                      {e.recipients ??
+                        (e.status === "sent"
+                          ? `${e.recipientCount} subscriber${e.recipientCount === 1 ? "" : "s"}`
+                          : "")}
+                    </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {editable && (
                         <Link
@@ -1113,19 +1215,38 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                         </button>
                       </form>
                       {editable && (
-                        <form
-                          action="/api/admin/presenter-send"
-                          method="post"
-                          style={{ display: "inline", marginRight: 6 }}
-                        >
-                          <input type="hidden" name="edition" value={e.id} />
-                          <ConfirmSubmit
-                            message={`Send this Showcase to the test list (${recipients.join(", ")}) now?`}
-                            style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                        <>
+                          <form
+                            action="/api/admin/presenter-send"
+                            method="post"
+                            style={{ display: "inline", marginRight: 6 }}
                           >
-                            Send
-                          </ConfirmSubmit>
-                        </form>
+                            <input type="hidden" name="edition" value={e.id} />
+                            <input type="hidden" name="mode" value="test" />
+                            <ConfirmSubmit
+                              message={`Send a test of this Showcase to ${recipients.join(", ")}? The draft stays a draft.`}
+                              style={{ ...smallButton, background: "var(--cta-white)" }}
+                            >
+                              Send test
+                            </ConfirmSubmit>
+                          </form>
+                          <form
+                            action="/api/admin/presenter-send"
+                            method="post"
+                            style={{ display: "inline", marginRight: 6 }}
+                          >
+                            <input type="hidden" name="edition" value={e.id} />
+                            <input type="hidden" name="mode" value="live" />
+                            <ConfirmSubmit
+                              title="Sending for real"
+                              message={`Send this Showcase to all ${subscriberCount} subscriber${subscriberCount === 1 ? "" : "s"} who receive The Showcase Edition? This can't be undone.`}
+                              confirmLabel="Yes, send it live"
+                              style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                            >
+                              Send live
+                            </ConfirmSubmit>
+                          </form>
+                        </>
                       )}
                       <form
                         action="/api/admin/showcase-edition"
@@ -1165,8 +1286,9 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
       <section className="admin-card">
         <h2 style={h2}>Test recipients</h2>
         <p style={muted}>
-          The Showcase is in test mode. Sends and new-story notifications go
-          only to this list.
+          Send test delivers a draft to this list only, and new-story
+          notifications go here too. Live sends go to every subscriber who
+          receives The Showcase Edition (see the Subscribers tab).
         </p>
         <form
           action="/api/admin/presenter-recipients"
@@ -1566,6 +1688,7 @@ function StoryPoolTable({
                         />
                         <QuickAction
                           fields={{ action: "reassess", id: p.id }}
+                          announce
                           style={{ ...smallButton, background: "var(--cta-white)" }}
                         >
                           AI re-rate
@@ -1663,12 +1786,22 @@ async function EditionBuilder({
   const editable = edition.status === "draft" || edition.status === "failed";
   const params = parseShowcaseListParams(sp);
   // One parallel round-trip for everything the builder needs.
-  const [entries, editionShows, companyRows, recipients, pool, usedDates, registry] =
+  const [
+    entries,
+    editionShows,
+    companyRows,
+    recipients,
+    subscriberCount,
+    pool,
+    usedDates,
+    registry,
+  ] =
     await Promise.all([
       getEditionItems(edition.id),
       getEditionShows(edition.id),
       db().select().from(companies).orderBy(asc(companies.name)),
       getPresenterRecipients(),
+      getShowcaseSubscriberCount(),
       editable
         ? queryStoryPool(params, { excludeEditionId: edition.id })
         : Promise.resolve({ rows: [], hasMore: false }),
@@ -1715,7 +1848,7 @@ async function EditionBuilder({
         </div>
         <p style={muted}>
           {edition.status === "sent"
-            ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? ""}. Sent editions are read-only; duplicate to reuse it.`
+            ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? `${edition.recipientCount} subscriber${edition.recipientCount === 1 ? "" : "s"}`}. Sent editions are read-only; duplicate to reuse it.`
             : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${socialCount} Social Theatre stor${socialCount === 1 ? "y" : "ies"}, ${entries.length - profileCount - socialCount} more stor${entries.length - profileCount - socialCount === 1 ? "y" : "ies"}, ${editionShows.length} spotlight show${editionShows.length === 1 ? "" : "s"}.`}
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
@@ -1734,15 +1867,30 @@ async function EditionBuilder({
             Preview ↗
           </a>
           {editable && (
-            <form action="/api/admin/presenter-send" method="post">
-              <input type="hidden" name="edition" value={edition.id} />
-              <ConfirmSubmit
-                message={`Send this Showcase to the test list (${recipients.join(", ")}) now?`}
-                style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
-              >
-                Send to test list
-              </ConfirmSubmit>
-            </form>
+            <>
+              <form action="/api/admin/presenter-send" method="post">
+                <input type="hidden" name="edition" value={edition.id} />
+                <input type="hidden" name="mode" value="test" />
+                <ConfirmSubmit
+                  message={`Send a test of this Showcase to ${recipients.join(", ")}? The draft stays a draft.`}
+                  style={{ ...buttonStyle, background: "var(--cta-white)" }}
+                >
+                  Send test
+                </ConfirmSubmit>
+              </form>
+              <form action="/api/admin/presenter-send" method="post">
+                <input type="hidden" name="edition" value={edition.id} />
+                <input type="hidden" name="mode" value="live" />
+                <ConfirmSubmit
+                  title="Sending for real"
+                  message={`Send this Showcase to all ${subscriberCount} subscriber${subscriberCount === 1 ? "" : "s"} who receive The Showcase Edition? This can't be undone.`}
+                  confirmLabel="Yes, send it live"
+                  style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+                >
+                  Send live
+                </ConfirmSubmit>
+              </form>
+            </>
           )}
           <form action="/api/admin/showcase-edition" method="post">
             <input type="hidden" name="action" value="duplicate" />

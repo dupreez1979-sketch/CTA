@@ -54,13 +54,20 @@ export async function notifyNewSubscriber(sub: Subscriber): Promise<void> {
     );
 
     const baseUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
+    // Human wording for the frequency line, Showcase choice included.
+    const cadenceLabel =
+      sub.cadence === "none"
+        ? "The Showcase Edition only"
+        : sub.showcase
+          ? `${sub.cadence} plus The Showcase Edition`
+          : sub.cadence;
     const html = await render(
       React.createElement(NotifyEmail, {
         baseUrl,
         firstName: sub.firstName,
         lastName: sub.lastName,
         email: sub.email,
-        cadence: sub.cadence,
+        cadence: cadenceLabel,
         counts,
       }),
     );
@@ -73,7 +80,7 @@ export async function notifyNewSubscriber(sub: Subscriber): Promise<void> {
     await resend.emails.send({
       from: process.env.EMAIL_FROM ?? "",
       to,
-      subject: `New subscriber: ${sub.firstName} ${sub.lastName} (${sub.cadence})`,
+      subject: `New subscriber: ${sub.firstName} ${sub.lastName} (${cadenceLabel})`,
       html,
     });
   } catch (err) {

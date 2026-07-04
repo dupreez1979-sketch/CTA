@@ -16,12 +16,17 @@ export const subscribers = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     email: text("email").notNull(),
+    // "none" = The Showcase Edition only, no regular dispatch.
     cadence: text("cadence", {
-      enum: ["daily", "weekly", "fortnightly"],
+      enum: ["daily", "weekly", "fortnightly", "none"],
     }).notNull(),
     status: text("status", { enum: ["active", "unsubscribed"] })
       .notNull()
       .default("active"),
+    // Opted in to The Showcase Edition (event-driven, not on a cadence).
+    // Defaults on, so everyone who signed up before the option existed
+    // keeps receiving it unless they opt out.
+    showcase: boolean("showcase").notNull().default(true),
     unsubscribeToken: text("unsubscribe_token").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -266,4 +271,6 @@ export type Show = typeof shows.$inferSelect;
 export type ShowcaseEdition = typeof showcaseEditions.$inferSelect;
 export type ShowcaseEditionItem = typeof showcaseEditionItems.$inferSelect;
 export type Cadence = "daily" | "weekly" | "fortnightly";
+/** A subscriber's frequency choice: a cadence, or Showcase-only ("none"). */
+export type SubscriberCadence = Cadence | "none";
 export type PresenterRelevance = "low" | "medium" | "high";

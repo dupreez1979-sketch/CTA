@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendEdition } from "@/lib/presenter";
+import { sendEditionLive, sendEditionTest } from "@/lib/presenter";
 import { showcaseRedirectUrl } from "@/lib/showcase-admin";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Admin: send a Showcase edition to the test list now. The edition row is
- * claimed atomically, so a double-click can't dispatch it twice.
+ * Admin: send a Showcase edition. mode=test emails the test list and
+ * leaves the draft untouched; mode=live emails every opted-in subscriber
+ * and marks the edition sent. The live path claims the edition row
+ * atomically, so a double-click can't dispatch it twice.
  */
 export async function POST(request: NextRequest) {
   const form = await request.formData();
   const id = Number(form.get("edition"));
+  const mode = String(form.get("mode") ?? "test");
   const redirect = (message: string, edition: number | null) =>
     NextResponse.redirect(
       showcaseRedirectUrl(request.url, form, message, { edition }),
@@ -19,17 +22,32 @@ export async function POST(request: NextRequest) {
   if (!Number.isInteger(id) || id <= 0) return redirect("Invalid input", null);
 
   try {
-    const result = await sendEdition(id);
+    if (mode === "live") {
+      const result = await sendEditionLive(id);
+      if (result.status === "blocked")
+        return redirect(result.reason ?? "Send blocked", id);
+      if (result.status === "skipped")
+        return redirect(
+          "Nothing sent. The Showcase is empty, or it was already sent",
+          id,
+        );
+      return redirect(
+        `The Showcase is on its way: ${result.itemCount} stor${result.itemCount === 1 ? "y" : "ies"} to ${result.recipientCount} subscriber${result.recipientCount === 1 ? "" : "s"}`,
+        null,
+      );
+    }
+
+    const result = await sendEditionTest(id);
     if (result.status === "blocked")
       return redirect(result.reason ?? "Send blocked", id);
     if (result.status === "skipped")
       return redirect(
-        "Nothing sent. The Showcase is empty, or it was already sent",
+        "Nothing sent. The Showcase is empty; add stories or spotlight shows first",
         id,
       );
     return redirect(
-      `The Showcase sent: ${result.itemCount} stor${result.itemCount === 1 ? "y" : "ies"} to ${result.recipientCount} recipient${result.recipientCount === 1 ? "" : "s"}`,
-      null,
+      `Test sent to ${result.recipientCount} address${result.recipientCount === 1 ? "" : "es"}. The draft is unchanged, keep editing or send it live when it is ready`,
+      id,
     );
   } catch (err) {
     return redirect(`Send failed: ${err}`, id);

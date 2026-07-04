@@ -1,0 +1,1 @@
+ALTER TABLE "subscribers" ADD COLUMN "showcase" boolean DEFAULT true NOT NULL;

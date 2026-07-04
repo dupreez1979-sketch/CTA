@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { issueWindow } from "@/lib/cadence";
 import { assembleIssue, renderIssueHtml } from "@/lib/send";
+import { messagePageHtml } from "@/lib/message-page";
 import type { Cadence } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -15,13 +16,27 @@ export async function GET(
 ) {
   const { cadence } = await params;
   if (!["daily", "weekly", "fortnightly"].includes(cadence)) {
-    return NextResponse.json({ error: "Unknown cadence" }, { status: 404 });
+    return new NextResponse(
+      messagePageHtml(
+        "No such preview",
+        "Previews exist for the daily, weekly and fortnightly dispatches. Use the preview buttons on the Sending tab.",
+        { backHref: "/admin?tab=sending", backLabel: "Back to Sending" },
+      ),
+      {
+        status: 404,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      },
+    );
   }
   const window = issueWindow(cadence as Cadence, new Date());
   const assembled = await assembleIssue(window);
   if (!assembled) {
     return new NextResponse(
-      `<body style="font-family:sans-serif;padding:40px">No feed items in the ${cadence} window (${window.dateRange}). Run the pipeline first.</body>`,
+      messagePageHtml(
+        "Nothing in this window yet",
+        `There are no posts in the ${cadence} window (${window.dateRange}), so there is no issue to preview. Click "Fetch new posts now" on the Sending tab, or check back once the companies have posted.`,
+        { backHref: "/admin?tab=sending", backLabel: "Back to Sending" },
+      ),
       { headers: { "content-type": "text/html; charset=utf-8" } },
     );
   }

@@ -148,7 +148,7 @@ export default function NotifyEmail({
                     </Text>
                     <Text style={{ ...row, margin: 0, borderBottom: "none" }}>
                       <span style={label}>Active list&nbsp;&nbsp;</span>
-                      {`daily ${counts.daily ?? 0} · weekly ${counts.weekly ?? 0} · fortnightly ${counts.fortnightly ?? 0}`}
+                      {`daily ${counts.daily ?? 0} · weekly ${counts.weekly ?? 0} · fortnightly ${counts.fortnightly ?? 0}${counts.none ? ` · Showcase only ${counts.none}` : ""}`}
                     </Text>
                   </td>
                 </tr>
