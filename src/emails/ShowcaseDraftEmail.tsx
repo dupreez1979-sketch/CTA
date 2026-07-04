@@ -54,8 +54,10 @@ export default function ShowcaseDraftEmail({
       <Preview>{`${newItems.length} new show announcement${newItems.length === 1 ? "" : "s"} for The Showcase`}</Preview>
       <Body
         style={{
+          // Mint backdrop: the cream email floats on it like a card.
           margin: 0,
-          backgroundColor: COLORS.cream,
+          backgroundColor: COLORS.mint,
+          padding: "28px 12px",
           fontFamily: FONT_BODY,
           color: INK,
         }}

@@ -129,8 +129,10 @@ export default function IntroNewsletterEmail({
       </Preview>
       <Body
         style={{
+          // Mint backdrop: the cream email floats on it like a card.
           margin: 0,
-          backgroundColor: COLORS.cream,
+          backgroundColor: COLORS.mint,
+          padding: "28px 12px",
           fontFamily: FONT_BODY,
           color: INK,
         }}
