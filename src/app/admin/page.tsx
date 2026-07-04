@@ -1201,6 +1201,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                 <th style={th}>Company</th>
                 <th style={th}>Show page URL</th>
                 <th style={th}>Blurb</th>
+                <th style={th}>Image URL</th>
                 <th style={th}>Ages</th>
                 <th style={th}></th>
               </tr>
@@ -1238,6 +1239,15 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                       name="blurb"
                       defaultValue={s.blurb ?? ""}
                       style={{ ...smallInput, width: "100%", minWidth: 180 }}
+                    />
+                  </td>
+                  <td style={td}>
+                    <input
+                      form={`show-${s.id}`}
+                      name="imageUrl"
+                      defaultValue={s.imageUrl ?? ""}
+                      placeholder="For the Spotlight card"
+                      style={{ ...smallInput, width: "100%", minWidth: 160 }}
                     />
                   </td>
                   <td style={td}>
@@ -1282,7 +1292,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
               ))}
               {registry.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={6}>
+                  <td style={td} colSpan={7}>
                     No shows listed yet.
                   </td>
                 </tr>
@@ -1322,6 +1332,11 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
             type="url"
             placeholder="Show page URL (optional)"
             style={{ ...inputStyle, minWidth: 180, flex: "1 1 180px" }}
+          />
+          <input
+            name="imageUrl"
+            placeholder="Image URL (optional)"
+            style={{ ...inputStyle, minWidth: 160, flex: "1 1 160px" }}
           />
           <input
             name="ageRange"
@@ -2035,10 +2050,27 @@ async function EditionBuilder({
       <section className="admin-card">
         <h2 style={h2}>Spotlight shows in this Showcase</h2>
         <p style={muted}>
-          The show list at the bottom of this edition.
+          The show grid at the bottom of this edition, two cards per row.
           {editable &&
             " Remove a show from this edition here; manage the full registry on the main Showcase page."}
         </p>
+        {editable && editionShows.length % 2 === 1 && (
+          <p
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: "var(--cta-ink)",
+              background: "var(--cta-yellow)",
+              border: "2px solid var(--cta-ink)",
+              borderRadius: 10,
+              padding: "10px 14px",
+            }}
+          >
+            {editionShows.length} spotlight show
+            {editionShows.length === 1 ? "" : "s"}: the grid needs an even
+            number. Add or remove one, or sending will be blocked.
+          </p>
+        )}
         {editionShows.length === 0 && (
           <p style={{ ...muted, marginBottom: 0 }}>
             No shows in this edition{editable ? " yet" : ""}.

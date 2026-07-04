@@ -189,7 +189,7 @@ describe("buildShowcaseProps", () => {
   it("lists registry shows sorted by company then title", () => {
     const listings = [
       show({ companyKey: "terrapin", title: "Zeb" }),
-      show({ companyKey: "monkey-baa", title: "Alpha" }),
+      show({ companyKey: "monkey-baa", title: "Alpha", imageUrl: "/api/img/alpha" }),
       show({ companyKey: "terrapin", title: "Arc" }),
     ];
     const out = buildShowcaseProps([], listings, NAMES, BASE, "4 July 2026")!;
@@ -198,6 +198,9 @@ describe("buildShowcaseProps", () => {
       "Terrapin: Arc",
       "Terrapin: Zeb",
     ]);
+    // Spotlight card images are absolutised like every other stored image
+    expect(out.props.shows[0].imageUrl).toBe(`${BASE}/api/img/alpha`);
+    expect(out.props.shows[1].imageUrl).toBeNull();
     expect(out.itemCount).toBe(0);
   });
 });

@@ -29,7 +29,14 @@ export async function GET(request: NextRequest) {
       "This Showcase is empty. Add stories or spotlight shows in the builder first.",
     );
   }
-  const html = await renderShowcaseHtml(assembled);
+  let html = await renderShowcaseHtml(assembled);
+  // The Spotlight grid needs an even card count; sending is blocked while
+  // it's odd, so flag it loudly in the preview too.
+  const spotlightCount = assembled.props.shows.length;
+  if (spotlightCount % 2 === 1) {
+    const warning = `<div style="position:sticky;top:0;z-index:9;background:#F24A71;color:#fff;font-family:sans-serif;font-weight:700;font-size:14px;padding:12px 18px;text-align:center">Preview only: ${spotlightCount} show${spotlightCount === 1 ? "" : "s"} in the Spotlight. The grid needs an even number before this Showcase can be sent.</div>`;
+    html = html.replace(/<body([^>]*)>/i, `<body$1>${warning}`);
+  }
   return new NextResponse(html, {
     headers: { "content-type": "text/html; charset=utf-8" },
   });

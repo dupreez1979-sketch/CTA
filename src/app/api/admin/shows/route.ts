@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
         url: val("url"),
         blurb: val("blurb"),
         ageRange: val("ageRange"),
+        imageUrl: val("imageUrl"),
       })
       .onConflictDoNothing()
       .returning({ id: shows.id });
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
         url: val("url"),
         blurb: val("blurb"),
         ageRange: val("ageRange"),
+        imageUrl: val("imageUrl"),
         updatedAt: new Date(),
       })
       .where(eq(shows.id, id));

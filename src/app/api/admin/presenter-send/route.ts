@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await sendEdition(id);
+    if (result.status === "blocked")
+      return redirect(result.reason ?? "Send blocked", id);
     if (result.status === "skipped")
       return redirect(
         "Nothing sent. The Showcase is empty, or it was already sent",

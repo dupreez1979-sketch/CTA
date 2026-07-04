@@ -76,6 +76,7 @@ export interface ShowcaseListing {
   blurb: string | null;
   url: string | null;
   ageRange: string | null;
+  imageUrl: string | null;
 }
 
 export interface ShowcaseEmailProps {
@@ -108,10 +109,102 @@ const MOBILE_STYLES = `
   .thumb-box { width: 100px !important; height: 100px !important; }
   .thumb-img { width: 100px !important; height: 100px !important; }
   .show-h { font-size: 22px !important; }
+  .grid-cell { display: block !important; width: 100% !important; padding: 0 0 16px 0 !important; }
+  .grid-img { height: 200px !important; }
   .footer-p { font-size: 14px !important; }
   .footer-link { font-size: 14px !important; }
 }
 `;
+
+// Card accents for the Spotlight grid, cycled by position.
+const GRID_HEXES = [
+  COLORS.teal,
+  COLORS.pink,
+  COLORS.yellow,
+  COLORS.sky,
+  COLORS.emerald,
+  COLORS.purple,
+];
+
+function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
+  return (
+    <table
+      role="presentation"
+      width="100%"
+      cellPadding={0}
+      cellSpacing={0}
+      style={{
+        borderCollapse: "separate",
+        backgroundColor: COLORS.white,
+        border: `2px solid ${INK}`,
+        borderRadius: 14,
+        boxShadow: `4px 4px 0 ${INK}`,
+        overflow: "hidden",
+      }}
+    >
+      <tbody>
+        <tr>
+          <td style={{ borderBottom: `2px solid ${INK}` }}>
+            <ImageSlot
+              imageUrl={s.imageUrl}
+              hex={hex}
+              width="100%"
+              height={150}
+              radius={0}
+              alt={s.title}
+              cls="grid-img"
+            />
+          </td>
+        </tr>
+        <tr>
+          <td style={{ padding: "12px 14px 14px" }}>
+            <Text
+              className="show-h"
+              style={{ ...display(19, 1), margin: "0 0 4px" }}
+            >
+              {s.title}
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONT_BODY,
+                fontWeight: 600,
+                fontSize: 12,
+                color: COLORS.textMuted,
+                margin: "0 0 8px",
+              }}
+            >
+              {s.company}
+            </Text>
+            {s.ageRange && (
+              <Text style={{ margin: "0 0 8px" }}>
+                <AgeChip ageRange={s.ageRange} />
+              </Text>
+            )}
+            {s.url && (
+              <Text style={{ margin: 0 }}>
+                <Link
+                  href={s.url}
+                  className="item-link"
+                  style={{
+                    fontFamily: FONT_BODY,
+                    fontWeight: 700,
+                    fontSize: 12.5,
+                    color: INK,
+                    textDecoration: "none",
+                    borderBottom: `2px solid ${hex}`,
+                    paddingBottom: 1,
+                  }}
+                >
+                  Show page →
+                </Link>
+              </Text>
+            )}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
 
 function AgeChip({ ageRange }: { ageRange: string | null }) {
   if (!ageRange) return null;
@@ -729,80 +822,49 @@ export default function ShowcaseEmail({
                 Productions from the companies working together in the
                 Alliance.
               </Text>
+              {/* Two-card grid (an even count is enforced before sending;
+                  cells stack to one column on phones) */}
               <table
                 role="presentation"
                 width="100%"
                 cellPadding={0}
                 cellSpacing={0}
-                style={{
-                  borderCollapse: "separate",
-                  backgroundColor: COLORS.white,
-                  border: `2px solid ${INK}`,
-                  borderRadius: 16,
-                  boxShadow: `4px 4px 0 ${INK}`,
-                  marginTop: 12,
-                }}
+                style={{ borderCollapse: "separate", marginTop: 12 }}
               >
                 <tbody>
-                  {shows.map((s, i) => (
-                    <tr key={s.company + s.title}>
+                  {Array.from(
+                    { length: Math.ceil(shows.length / 2) },
+                    (_, r) => shows.slice(r * 2, r * 2 + 2),
+                  ).map((pair, r) => (
+                    <tr key={pair[0].company + pair[0].title}>
                       <td
+                        className="grid-cell"
+                        width="50%"
                         style={{
-                          padding: "14px 18px",
-                          borderTop:
-                            i === 0
-                              ? undefined
-                              : "2px dashed rgba(30,30,29,0.25)",
+                          width: "50%",
+                          verticalAlign: "top",
+                          padding: "0 8px 16px 0",
                         }}
                       >
-                        <Text
-                          className="show-h"
-                          style={{ ...display(19, 1), margin: "0 0 3px" }}
-                        >
-                          {s.title}
-                        </Text>
-                        <Text
-                          style={{
-                            fontFamily: FONT_BODY,
-                            fontWeight: 600,
-                            fontSize: 12,
-                            color: COLORS.textMuted,
-                            margin: s.blurb ? "0 0 6px" : 0,
-                          }}
-                        >
-                          {s.company}
-                          {s.ageRange ? ` · ${s.ageRange}` : ""}
-                        </Text>
-                        {s.blurb && (
-                          <Text
-                            className="item-p"
-                            style={{
-                              fontFamily: FONT_BODY,
-                              fontSize: 13,
-                              lineHeight: 1.5,
-                              color: COLORS.textBody,
-                              margin: s.url ? "0 0 8px" : 0,
-                            }}
-                          >
-                            {s.blurb}
-                          </Text>
-                        )}
-                        {s.url && (
-                          <Link
-                            href={s.url}
-                            className="item-link"
-                            style={{
-                              fontFamily: FONT_BODY,
-                              fontWeight: 700,
-                              fontSize: 12.5,
-                              color: INK,
-                              textDecoration: "none",
-                              borderBottom: `2px solid ${COLORS.teal}`,
-                              paddingBottom: 1,
-                            }}
-                          >
-                            Show page →
-                          </Link>
+                        <SpotlightCard
+                          s={pair[0]}
+                          hex={GRID_HEXES[(r * 2) % GRID_HEXES.length]}
+                        />
+                      </td>
+                      <td
+                        className="grid-cell"
+                        width="50%"
+                        style={{
+                          width: "50%",
+                          verticalAlign: "top",
+                          padding: "0 0 16px 8px",
+                        }}
+                      >
+                        {pair[1] && (
+                          <SpotlightCard
+                            s={pair[1]}
+                            hex={GRID_HEXES[(r * 2 + 1) % GRID_HEXES.length]}
+                          />
                         )}
                       </td>
                     </tr>

@@ -609,6 +609,7 @@ export function buildShowcaseProps(
       blurb: clean(s.blurb),
       url: s.url,
       ageRange: s.ageRange,
+      imageUrl: absolutizeImage(s.imageUrl, baseUrl),
     }));
 
   return {
@@ -651,9 +652,11 @@ export async function renderShowcaseHtml(
 // --------------------------------------------------------------------- send
 
 export interface ShowcaseSendResult {
-  status: "sent" | "skipped";
+  status: "sent" | "skipped" | "blocked";
   itemCount: number;
   recipientCount: number;
+  /** Human-readable reason when status is "blocked". */
+  reason?: string;
 }
 
 /**
@@ -686,6 +689,22 @@ export async function sendEdition(
         .set({ status: "draft" })
         .where(eq(showcaseEditions.id, editionId));
       return { status: "skipped", itemCount: 0, recipientCount: 0 };
+    }
+
+    // The Spotlight renders as a two-card grid, so an odd count would
+    // leave a hole. Block the send until the count is even.
+    const spotlightCount = assembled.props.shows.length;
+    if (spotlightCount % 2 === 1) {
+      await db()
+        .update(showcaseEditions)
+        .set({ status: "draft" })
+        .where(eq(showcaseEditions.id, editionId));
+      return {
+        status: "blocked",
+        itemCount: 0,
+        recipientCount: 0,
+        reason: `This Showcase has ${spotlightCount} show${spotlightCount === 1 ? "" : "s"} in the Spotlight. The grid shows two per row, so add or remove one to make it an even number, then send again`,
+      };
     }
 
     const recipients = await getPresenterRecipients();
