@@ -72,14 +72,14 @@ export default function NotifyEmail({
         }}
       >
         <Container
-          width={600}
-          style={{ width: "100%", maxWidth: 600, backgroundColor: COLORS.cream }}
+          width={680}
+          style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
           <Section
             style={{
               backgroundColor: COLORS.creamWarm,
               borderBottom: `3px solid ${INK}`,
-              padding: "20px 30px",
+              padding: "20px 40px",
             }}
           >
             <Img
@@ -108,7 +108,7 @@ export default function NotifyEmail({
             </span>
           </Section>
 
-          <Section style={{ padding: "24px 30px 8px" }}>
+          <Section style={{ padding: "24px 40px 8px" }}>
             <Text
               style={{
                 fontFamily: FONT_DISPLAY,
@@ -160,7 +160,7 @@ export default function NotifyEmail({
             style={{
               backgroundColor: COLORS.purple,
               borderTop: `3px solid ${INK}`,
-              padding: "16px 30px",
+              padding: "16px 40px",
               marginTop: 24,
             }}
           >
