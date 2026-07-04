@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       ? "No unfiled posts to re-check"
       : `Re-checked ${unfiled.length} unfiled post${unfiled.length === 1 ? "" : "s"}: ${moved} now filed under a company, ${unfiled.length - moved} still unmatched`;
   return NextResponse.redirect(
-    new URL(`/admin?tab=companies&message=${encodeURIComponent(message)}`, request.url),
+    new URL(`/admin?tab=settings&message=${encodeURIComponent(message)}`, request.url),
     { status: 303 },
   );
 }

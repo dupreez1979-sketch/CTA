@@ -274,11 +274,11 @@ describe("swapPositions", () => {
 });
 
 describe("parseShowcaseListParams", () => {
-  it("defaults to newest-first high-relevance page 1", () => {
+  it("defaults to newest-first, both high categories, page 1", () => {
     expect(parseShowcaseListParams({})).toEqual({
       sort: "date",
       dir: "desc",
-      rel: "high",
+      rel: "highs",
       co: "",
       q: "",
       pg: 1,
@@ -310,10 +310,11 @@ describe("parseShowcaseListParams", () => {
         rel: "nah",
         pg: "-2",
       }),
-    ).toEqual({ sort: "date", dir: "desc", rel: "high", co: "", q: "", pg: 1 });
+    ).toEqual({ sort: "date", dir: "desc", rel: "highs", co: "", q: "", pg: 1 });
     expect(parseShowcaseListParams({ pg: "abc" }).pg).toBe(1);
     expect(parseShowcaseListParams({ rel: "s-high" }).rel).toBe("s-high");
-    expect(parseShowcaseListParams({ rel: "s-bogus" }).rel).toBe("high");
+    expect(parseShowcaseListParams({ rel: "s-bogus" }).rel).toBe("highs");
+    expect(parseShowcaseListParams({ rel: "high" }).rel).toBe("high");
   });
 });
 

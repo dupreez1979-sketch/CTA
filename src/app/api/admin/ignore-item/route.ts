@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     .where(eq(feedItems.id, id));
   return NextResponse.redirect(
     new URL(
-      `/admin?tab=companies&message=${encodeURIComponent("Post dismissed from the unfiled list")}`,
+      `/admin?tab=settings&message=${encodeURIComponent("Post dismissed from the unfiled list")}`,
       request.url,
     ),
     { status: 303 },

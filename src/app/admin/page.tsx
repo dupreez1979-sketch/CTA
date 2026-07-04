@@ -10,6 +10,7 @@ import {
   shows,
   type Delivery,
   type FeedItem,
+  type SubscriberCadence,
   type ShowcaseEdition,
   type Subscriber,
 } from "@/lib/db";
@@ -50,7 +51,7 @@ const TABS = [
   { id: "editions", label: "Editions" },
   { id: "presenters", label: "The Showcase" },
   { id: "subscribers", label: "Subscribers" },
-  { id: "companies", label: "Companies" },
+  { id: "settings", label: "Settings" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -143,9 +144,14 @@ export default async function AdminPage({
 }) {
   const sp = await searchParams;
   const { message, tab: requested } = sp;
-  // The Editions tab was called "Sending" until July 2026: old links and
-  // bookmarks still land in the right place.
-  const rawTab = requested === "sending" ? "editions" : requested;
+  // Renamed tabs ("Sending" became Editions, "Companies" became Settings
+  // in July 2026): old links and bookmarks still land in the right place.
+  const rawTab =
+    requested === "sending"
+      ? "editions"
+      : requested === "companies"
+        ? "settings"
+        : requested;
   const tab: Tab = (TABS.find((t) => t.id === rawTab)?.id ?? "overview") as Tab;
 
   return (
@@ -201,7 +207,7 @@ export default async function AdminPage({
       {tab === "overview" && <OverviewTab />}
       {tab === "editions" && <EditionsTab sp={sp} />}
       {tab === "subscribers" && <SubscribersTab sp={sp} />}
-      {tab === "companies" && <CompaniesTab />}
+      {tab === "settings" && <SettingsTab />}
       {tab === "presenters" && <ShowcaseTab sp={sp} />}
     </main>
   );
@@ -298,8 +304,6 @@ async function OverviewTab() {
           quiet window is skipped, never sent empty.
         </p>
       </section>
-
-      <AiCreditsCard />
 
       <section className="admin-card">
         <h2 style={h2}>Recent issues</h2>
@@ -520,79 +524,6 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Introduction emails</h2>
-        <p style={muted}>
-          Two one-off branded emails for funders, presenters and friends
-          (including international). <strong>Introduce the Alliance</strong>{" "}
-          leads with who we are; <strong>Introduce the newsletter</strong>{" "}
-          leads with the editions and how to sign up, with the Alliance as
-          the secondary story. Paste addresses separated by commas or new
-          lines. Recipients are emailed once and <strong>never stored</strong>.
-        </p>
-        <div
-          style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}
-        >
-          <a
-            href="/admin/preview/intro"
-            target="_blank"
-            style={{
-              ...buttonStyle,
-              textDecoration: "none",
-              background: "var(--cta-white)",
-            }}
-          >
-            Preview: the Alliance ↗
-          </a>
-          <a
-            href="/admin/preview/intro?kind=newsletter"
-            target="_blank"
-            style={{
-              ...buttonStyle,
-              textDecoration: "none",
-              background: "var(--cta-white)",
-            }}
-          >
-            Preview: the newsletter ↗
-          </a>
-        </div>
-        <form action="/api/admin/send-intro" method="post">
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <select name="kind" style={inputStyle}>
-              <option value="alliance">Introduce the Alliance</option>
-              <option value="newsletter">Introduce the newsletter</option>
-            </select>
-          </div>
-          <textarea
-            name="emails"
-            required
-            rows={4}
-            placeholder={"jane@presenter.org, funder@example.org\nfriend@theatre.com"}
-            style={{
-              ...inputStyle,
-              width: "100%",
-              resize: "vertical",
-              marginBottom: 12,
-              fontSize: 13.5,
-            }}
-          />
-          <ConfirmSubmit
-            message="Send the chosen introduction email to everyone in the list now? Each address is emailed once and not saved."
-            style={buttonStyle}
-          >
-            Send introduction
-          </ConfirmSubmit>
-        </form>
-      </section>
-
-      <section className="admin-card">
         <h2 style={h2}>Send now</h2>
         <p style={muted}>
           Sends the current window&#39;s issue to all active subscribers of
@@ -626,7 +557,35 @@ async function SubscribersTab({
   if (Number.isInteger(subscriberId) && subscriberId > 0) {
     return <SubscriberDetailView subscriberId={subscriberId} sp={sp} />;
   }
-  const [counts, showcaseCount, recent, notifyEmails] = await Promise.all([
+  // List filters and sort, straight from the query string.
+  const scad = ["daily", "weekly", "fortnightly", "none"].includes(sp.scad ?? "")
+    ? (sp.scad as SubscriberCadence)
+    : "all";
+  const sshow = sp.sshow === "yes" || sp.sshow === "no" ? sp.sshow : "all";
+  const ssort = ["name", "email", "cadence", "showcase", "status", "joined"].includes(
+    sp.ssort ?? "",
+  )
+    ? (sp.ssort as "name" | "email" | "cadence" | "showcase" | "status" | "joined")
+    : "joined";
+  const sdir = sp.sdir === "asc" ? "asc" : "desc";
+  const listConditions = [
+    scad === "all" ? undefined : eq(subscribers.cadence, scad),
+    sshow === "all" ? undefined : eq(subscribers.showcase, sshow === "yes"),
+  ].filter((c) => c !== undefined);
+  const orderCols =
+    ssort === "name"
+      ? [subscribers.firstName, subscribers.lastName]
+      : ssort === "email"
+        ? [subscribers.email]
+        : ssort === "cadence"
+          ? [subscribers.cadence]
+          : ssort === "showcase"
+            ? [subscribers.showcase]
+            : ssort === "status"
+              ? [subscribers.status]
+              : [subscribers.createdAt];
+
+  const [counts, showcaseCount, recent] = await Promise.all([
     db()
       .select({
         cadence: subscribers.cadence,
@@ -639,13 +598,38 @@ async function SubscribersTab({
     db()
       .select()
       .from(subscribers)
-      .orderBy(desc(subscribers.createdAt))
-      .limit(200),
-    getNotifyEmails(),
+      .where(listConditions.length > 0 ? and(...listConditions) : undefined)
+      .orderBy(
+        ...orderCols.map((c) => (sdir === "asc" ? asc(c) : desc(c))),
+        desc(subscribers.createdAt),
+      )
+      .limit(500),
   ]);
   const countByCadence = Object.fromEntries(
     counts.map((c) => [c.cadence, c.count]),
   );
+
+  const subSortLink = (key: string, label: string) => {
+    const nextDir = ssort === key && sdir === "asc" ? "desc" : "asc";
+    const params = new URLSearchParams({
+      tab: "subscribers",
+      ssort: key,
+      sdir: nextDir,
+    });
+    if (scad !== "all") params.set("scad", scad);
+    if (sshow !== "all") params.set("sshow", sshow);
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${params.toString()}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {ssort === key ? (sdir === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -732,15 +716,56 @@ async function SubscribersTab({
           Export CSV
         </a>
       </div>
+      <form
+        method="get"
+        action="/admin"
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginBottom: 14,
+        }}
+      >
+        <input type="hidden" name="tab" value="subscribers" />
+        <select name="scad" defaultValue={scad} style={smallInput}>
+          <option value="all">All newsletter types</option>
+          <option value="daily">daily</option>
+          <option value="weekly">weekly</option>
+          <option value="fortnightly">fortnightly</option>
+          <option value="none">Showcase only</option>
+        </select>
+        <select name="sshow" defaultValue={sshow} style={smallInput}>
+          <option value="all">Showcase: everyone</option>
+          <option value="yes">Receives the Showcase</option>
+          <option value="no">No Showcase</option>
+        </select>
+        <button type="submit" style={smallButton}>
+          Filter
+        </button>
+        {(scad !== "all" || sshow !== "all") && (
+          <Link
+            prefetch={false}
+            href="/admin?tab=subscribers"
+            style={{ fontSize: 13, fontWeight: 600, color: "var(--cta-ink)" }}
+          >
+            Clear
+          </Link>
+        )}
+      </form>
       <div className="table-scroll" style={{ maxHeight: 480, overflowY: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={th}>Name</th>
-              <th style={th}>Email</th>
-              <th style={th}>Receives</th>
-              <th style={th}>Status</th>
-              <th style={th}>Joined</th>
+              <th style={th}>{subSortLink("name", "Name")}</th>
+              <th style={th}>{subSortLink("email", "Email")}</th>
+              <th style={th}>
+                {subSortLink("cadence", "Receives")}
+                {" · "}
+                {subSortLink("showcase", "Showcase")}
+              </th>
+              <th style={th}>{subSortLink("status", "Status")}</th>
+              <th style={th}>{subSortLink("joined", "Joined")}</th>
               <th style={th}></th>
             </tr>
           </thead>
@@ -817,7 +842,9 @@ async function SubscribersTab({
             {recent.length === 0 && (
               <tr>
                 <td style={td} colSpan={6}>
-                  No subscribers yet.
+                  {scad !== "all" || sshow !== "all"
+                    ? "No subscribers match the filter."
+                    : "No subscribers yet."}
                 </td>
               </tr>
             )}
@@ -882,6 +909,106 @@ async function SubscribersTab({
       </form>
     </section>
 
+    </>
+  );
+}
+
+async function SettingsTab() {
+  // Seeds the table on first load, then read the raw rows for editing
+  await loadCompanies();
+  const [companyRows, unfiled, notifyEmails] = await Promise.all([
+    db().select().from(companies).orderBy(asc(companies.name)),
+    db()
+      .select()
+      .from(feedItems)
+      .where(
+        and(
+          eq(feedItems.companyKey, "around-the-alliance"),
+          eq(feedItems.reviewed, false),
+        ),
+      )
+      .orderBy(desc(feedItems.publishedAt))
+      .limit(15),
+    getNotifyEmails(),
+  ]);
+
+  return (
+    <>
+      <section className="admin-card">
+        <h2 style={h2}>Introduction emails</h2>
+        <p style={muted}>
+          Two one-off branded emails for funders, presenters and friends
+          (including international). <strong>Introduce the Alliance</strong>{" "}
+          leads with who we are; <strong>Introduce the newsletter</strong>{" "}
+          leads with the editions and how to sign up, with the Alliance as
+          the secondary story. Paste addresses separated by commas or new
+          lines. Recipients are emailed once and <strong>never stored</strong>.
+        </p>
+        <div
+          style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}
+        >
+          <a
+            href="/admin/preview/intro"
+            target="_blank"
+            style={{
+              ...buttonStyle,
+              textDecoration: "none",
+              background: "var(--cta-white)",
+            }}
+          >
+            Preview: the Alliance ↗
+          </a>
+          <a
+            href="/admin/preview/intro?kind=newsletter"
+            target="_blank"
+            style={{
+              ...buttonStyle,
+              textDecoration: "none",
+              background: "var(--cta-white)",
+            }}
+          >
+            Preview: the newsletter ↗
+          </a>
+        </div>
+        <form action="/api/admin/send-intro" method="post">
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <select name="kind" style={inputStyle}>
+              <option value="alliance">Introduce the Alliance</option>
+              <option value="newsletter">Introduce the newsletter</option>
+            </select>
+          </div>
+          <textarea
+            name="emails"
+            required
+            rows={4}
+            placeholder={"jane@presenter.org, funder@example.org\nfriend@theatre.com"}
+            style={{
+              ...inputStyle,
+              width: "100%",
+              resize: "vertical",
+              marginBottom: 12,
+              fontSize: 13.5,
+            }}
+          />
+          <ConfirmSubmit
+            message="Send the chosen introduction email to everyone in the list now? Each address is emailed once and not saved."
+            style={buttonStyle}
+          >
+            Send introduction
+          </ConfirmSubmit>
+        </form>
+      </section>
+
+      <AiCreditsCard />
+
     <section className="admin-card">
       <h2 style={h2}>New-subscriber notifications</h2>
       <p style={muted}>
@@ -912,30 +1039,7 @@ async function SubscribersTab({
         </button>
       </form>
     </section>
-    </>
-  );
-}
 
-async function CompaniesTab() {
-  // Seeds the table on first load, then read the raw rows for editing
-  await loadCompanies();
-  const [companyRows, unfiled] = await Promise.all([
-    db().select().from(companies).orderBy(asc(companies.name)),
-    db()
-      .select()
-      .from(feedItems)
-      .where(
-        and(
-          eq(feedItems.companyKey, "around-the-alliance"),
-          eq(feedItems.reviewed, false),
-        ),
-      )
-      .orderBy(desc(feedItems.publishedAt))
-      .limit(15),
-  ]);
-
-  return (
-    <>
     <section className="admin-card">
       <h2 style={h2}>Alliance companies</h2>
       <p style={muted}>
@@ -1703,6 +1807,7 @@ function StoryPoolTable({
           <input type="hidden" name="edition" value={editionId} />
         ) : null}
         <select name="rel" defaultValue={params.rel} style={smallInput}>
+          <option value="highs">High: show or social</option>
           <option value="high">Show: high</option>
           <option value="medium">Show: medium</option>
           <option value="low">Show: low</option>
@@ -2059,8 +2164,9 @@ async function EditionBuilder({
           <h2 style={h2}>Add stories</h2>
           <p style={muted}>
             Stories not yet in this Showcase, ready to add to the sections
-            below. High relevance is shown by default; switch the rating
-            filter, search, or page further back to dig deeper. Stories
+            below. Stories rated high for shows or for Social Theatre are
+            shown by default; switch the rating filter, search, or page
+            further back to dig deeper. Stories
             marked <strong>Sent</strong> have already appeared in a past
             Showcase but can be added again on purpose.
           </p>
@@ -2576,7 +2682,7 @@ function BuilderStoryCard({
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
                     Research needs {company}&#39;s shows
                     page URL before it can find this show. Add it on the
-                    Companies tab.
+                    Settings tab.
                   </div>
                 )}
               </details>

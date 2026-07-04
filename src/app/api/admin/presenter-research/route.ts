@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     .limit(1);
   if (!company?.showsPageUrl)
     return redirect(
-      `${prefix}This company has no shows page URL yet — add one on the Companies tab, then research again`,
+      `${prefix}This company has no shows page URL yet — add one on the Settings tab, then research again`,
     );
 
   const result = await researchItem(showTitle, item.guid, company.showsPageUrl);

@@ -1059,8 +1059,18 @@ export async function addShowFromItem(itemId: number): Promise<number | null> {
 export interface ShowcaseListParams {
   sort: "date" | "company" | "headline" | "relevance";
   dir: "asc" | "desc";
-  /** Show relevance, or the "s-" variants filtering on social relevance. */
-  rel: "high" | "medium" | "low" | "all" | "s-high" | "s-medium" | "s-low";
+  /** "highs" = show high OR Social Theatre high (the default: both
+   * categories a New Showcase would pick up). Plain values filter show
+   * relevance; the "s-" variants filter social relevance. */
+  rel:
+    | "highs"
+    | "high"
+    | "medium"
+    | "low"
+    | "all"
+    | "s-high"
+    | "s-medium"
+    | "s-low";
   co: string;
   q: string;
   /** 1-based page through the full history, STORY_POOL_LIMIT per page. */
@@ -1073,6 +1083,7 @@ export function parseShowcaseListParams(
 ): ShowcaseListParams {
   const sorts = ["date", "company", "headline", "relevance"] as const;
   const rels = [
+    "highs",
     "high",
     "medium",
     "low",
@@ -1085,7 +1096,7 @@ export function parseShowcaseListParams(
   return {
     sort: sorts.find((s) => s === sp.sort) ?? "date",
     dir: sp.dir === "asc" ? "asc" : "desc",
-    rel: rels.find((r) => r === sp.rel) ?? "high",
+    rel: rels.find((r) => r === sp.rel) ?? "highs",
     co: (sp.co ?? "").trim(),
     q: (sp.q ?? "").trim(),
     pg: Number.isInteger(pg) && pg > 0 ? pg : 1,
@@ -1117,7 +1128,9 @@ export async function queryStoryPool(
   opts: { excludeEditionId?: number } = {},
 ): Promise<StoryPoolPage> {
   const conditions = [];
-  if (p.rel.startsWith("s-")) {
+  if (p.rel === "highs") {
+    conditions.push(highOrSocialHigh());
+  } else if (p.rel.startsWith("s-")) {
     conditions.push(
       eq(
         feedItems.socialRelevance,
