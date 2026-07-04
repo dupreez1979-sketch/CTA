@@ -14,6 +14,78 @@ const baseProps: ShowcaseEmailProps = {
   baseUrl: "https://example.org",
 };
 
+describe("ShowcaseEmail manual stories", () => {
+  it("hides Read More links when a story has no post URL", async () => {
+    const html = await render(
+      React.createElement(ShowcaseEmail, {
+        ...baseProps,
+        companies: [
+          {
+            name: "Monkey Baa",
+            hex: "#FFB83D",
+            colorName: "yellow",
+            shape: "plus",
+            items: [
+              {
+                heading: "A hand-written story",
+                summary: "Written directly in the builder.",
+                postUrl: "",
+                showTitle: null,
+                showBlurb: null,
+                showUrl: null,
+                imageUrl: null,
+                ageRange: null,
+              },
+            ],
+          },
+        ],
+        social: [
+          {
+            company: "Monkey Baa",
+            heading: "Social by hand",
+            summary: "Also written directly.",
+            postUrl: "",
+            imageUrl: null,
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("A hand-written story");
+    expect(html).toContain("Social by hand");
+    expect(html).not.toContain("Read More");
+  });
+
+  it("keeps Read More links for stories with a post URL", async () => {
+    const html = await render(
+      React.createElement(ShowcaseEmail, {
+        ...baseProps,
+        companies: [
+          {
+            name: "Monkey Baa",
+            hex: "#FFB83D",
+            colorName: "yellow",
+            shape: "plus",
+            items: [
+              {
+                heading: "A feed story",
+                summary: "Came in from the feed.",
+                postUrl: "https://example.org/post",
+                showTitle: null,
+                showBlurb: null,
+                showUrl: null,
+                imageUrl: null,
+                ageRange: null,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("Read More");
+    expect(html).toContain("https://example.org/post");
+  });
+});
+
 describe("ShowcaseEmail footer", () => {
   it("shows the test-list copy and no unsubscribe link on test sends", async () => {
     const html = await render(React.createElement(ShowcaseEmail, baseProps));

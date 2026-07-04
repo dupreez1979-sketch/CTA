@@ -72,6 +72,9 @@ export async function assembleIssue(
       and(
         gte(feedItems.publishedAt, window.start),
         lt(feedItems.publishedAt, window.end),
+        // Stories written by hand in the Showcase builder belong to The
+        // Showcase only, never to the cadence newsletter.
+        eq(feedItems.source, "feed"),
       ),
     )
     .orderBy(feedItems.publishedAt);

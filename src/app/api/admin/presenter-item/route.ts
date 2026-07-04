@@ -8,6 +8,7 @@ import {
   addShowToEdition,
   getEdition,
   moveEditionItem,
+  moveEditionShow,
   removeItemFromEdition,
   setEditionItemFeatured,
   setEditionItemSocial,
@@ -54,6 +55,23 @@ export async function POST(request: NextRequest) {
     if (!moved)
       return redirect(action === "move-up" ? "Already first" : "Already last");
     return redirect(action === "move-up" ? "Moved up" : "Moved down");
+  }
+
+  // Spotlight show reordering: same fast path, id is the show's id.
+  if (action === "move-show-up" || action === "move-show-down") {
+    const editionIdForMove = Number(form.get("edition"));
+    if (!Number.isInteger(editionIdForMove) || editionIdForMove <= 0)
+      return redirect("Invalid input");
+    const moved = await moveEditionShow(
+      editionIdForMove,
+      id,
+      action === "move-show-up" ? "up" : "down",
+    );
+    if (!moved)
+      return redirect(
+        action === "move-show-up" ? "Already first" : "Already last",
+      );
+    return redirect(action === "move-show-up" ? "Moved up" : "Moved down");
   }
 
   const [item] = await db()

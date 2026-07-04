@@ -12,22 +12,25 @@ import { useState, useTransition } from "react";
 export default function MoveButtons({
   editionId,
   itemId,
+  kind = "story",
 }: {
   editionId: number;
+  /** The story's feed-item id, or the show's id when kind is "show". */
   itemId: number;
+  kind?: "story" | "show";
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const move = async (action: "move-up" | "move-down") => {
+  const move = async (dir: "up" | "down") => {
     if (busy || pending) return;
     setBusy(true);
     try {
       await fetch("/api/admin/presenter-item", {
         method: "POST",
         body: new URLSearchParams({
-          action,
+          action: kind === "show" ? `move-show-${dir}` : `move-${dir}`,
           id: String(itemId),
           edition: String(editionId),
         }),
@@ -58,7 +61,7 @@ export default function MoveButtons({
         type="button"
         aria-label="Move up"
         disabled={busy || pending}
-        onClick={() => move("move-up")}
+        onClick={() => move("up")}
         style={style}
       >
         ▲
@@ -67,7 +70,7 @@ export default function MoveButtons({
         type="button"
         aria-label="Move down"
         disabled={busy || pending}
-        onClick={() => move("move-down")}
+        onClick={() => move("down")}
         style={style}
       >
         ▼

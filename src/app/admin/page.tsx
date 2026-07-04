@@ -1780,14 +1780,19 @@ function StoryPoolTable({
                     </td>
                     <td style={td}>
                       {p.aiHeading.slice(0, 70)}
-                      {p.aiHeading.length > 70 ? "…" : ""}{" "}
-                      <a
-                        href={p.postUrl}
-                        target="_blank"
-                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                      >
-                        ↗
-                      </a>
+                      {p.aiHeading.length > 70 ? "…" : ""}
+                      {p.postUrl && (
+                        <>
+                          {" "}
+                          <a
+                            href={p.postUrl}
+                            target="_blank"
+                            style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                          >
+                            ↗
+                          </a>
+                        </>
+                      )}
                       {usedDates.has(p.id) && (
                         <span
                           style={{
@@ -2045,7 +2050,34 @@ async function EditionBuilder({
         <EditionRecipientsCard editionId={edition.id} sp={sp} />
       )}
 
-      <section className="admin-card">
+      {editable && (
+        <section
+          className="admin-card"
+          id="add-stories"
+          style={{ background: "#FFECCA" }}
+        >
+          <h2 style={h2}>Add stories</h2>
+          <p style={muted}>
+            Stories not yet in this Showcase, ready to add to the sections
+            below. High relevance is shown by default; switch the rating
+            filter, search, or page further back to dig deeper. Stories
+            marked <strong>Sent</strong> have already appeared in a past
+            Showcase but can be added again on purpose.
+          </p>
+          <StoryPoolTable
+            pool={pool}
+            usedDates={usedDates}
+            nameByKey={nameByKey}
+            companyRows={companyRows}
+            mode="add"
+            editionId={edition.id}
+            params={params}
+            anchor="add-stories"
+          />
+        </section>
+      )}
+
+      <section className="admin-card" id="news-stories">
         <h2 style={h2}>News stories in this Showcase</h2>
         {editable ? (
           <p style={muted}>
@@ -2059,7 +2091,7 @@ async function EditionBuilder({
         )}
         {newsEntries.length === 0 && (
           <p style={{ ...muted, marginBottom: 0 }}>
-            No news stories yet. Add some from the list below.
+            No news stories yet. Add some from the list above.
           </p>
         )}
         {!editable &&
@@ -2096,10 +2128,18 @@ async function EditionBuilder({
               showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
             />
           ))}
+        {editable && (
+          <ManualStoryForm
+            editionId={edition.id}
+            social={false}
+            companyRows={companyRows}
+            anchor="news-stories"
+          />
+        )}
       </section>
 
       {editable && (
-        <section className="admin-card">
+        <section className="admin-card" id="social-stories">
           <h2 style={h2}>Social Theatre</h2>
           <p style={muted}>
             Stories told through the social lens. They appear in the mint
@@ -2125,27 +2165,11 @@ async function EditionBuilder({
               showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
             />
           ))}
-        </section>
-      )}
-
-      {editable && (
-        <section className="admin-card" id="add-stories">
-          <h2 style={h2}>Add stories</h2>
-          <p style={muted}>
-            Stories not yet in this Showcase. High relevance is shown by
-            default; switch the rating filter, search, or page further back
-            to dig deeper. Stories marked <strong>Sent</strong> have already
-            appeared in a past Showcase but can be added again on purpose.
-          </p>
-          <StoryPoolTable
-            pool={pool}
-            usedDates={usedDates}
-            nameByKey={nameByKey}
-            companyRows={companyRows}
-            mode="add"
+          <ManualStoryForm
             editionId={edition.id}
-            params={params}
-            anchor="add-stories"
+            social={true}
+            companyRows={companyRows}
+            anchor="social-stories"
           />
         </section>
       )}
@@ -2153,10 +2177,27 @@ async function EditionBuilder({
       <section className="admin-card" id="edition-shows">
         <h2 style={h2}>Spotlight shows in this Showcase</h2>
         <p style={muted}>
-          The show grid at the bottom of this edition, two cards per row.
+          The show grid at the bottom of this edition, two cards per row, in
+          the order below.
           {editable &&
-            " Remove a show from this edition here; manage the full registry on the main Showcase page."}
+            " Use the ▲ ▼ arrows to reorder and Remove to take a show out of this edition."}
         </p>
+        {editable && (
+          <p style={{ marginTop: 0, marginBottom: 14 }}>
+            <Link
+              prefetch={false}
+              href="/admin?tab=presenters#registry"
+              style={{
+                ...smallButton,
+                display: "inline-block",
+                textDecoration: "none",
+                background: "var(--cta-white)",
+              }}
+            >
+              Edit show details in Shows in the Spotlight →
+            </Link>
+          </p>
+        )}
         {editable && editionShows.length % 2 === 1 && (
           <p
             style={{
@@ -2198,15 +2239,18 @@ async function EditionBuilder({
               {s.ageRange ? ` · ${s.ageRange}` : ""}
             </span>
             {editable && (
-              <form action="/api/admin/showcase-edition" method="post">
-                <input type="hidden" name="anchor" value="edition-shows" />
-                <input type="hidden" name="action" value="remove-show" />
-                <input type="hidden" name="id" value={edition.id} />
-                <input type="hidden" name="showId" value={s.id} />
-                <button type="submit" style={dangerButton}>
-                  Remove
-                </button>
-              </form>
+              <>
+                <MoveButtons editionId={edition.id} itemId={s.id} kind="show" />
+                <form action="/api/admin/showcase-edition" method="post">
+                  <input type="hidden" name="anchor" value="edition-shows" />
+                  <input type="hidden" name="action" value="remove-show" />
+                  <input type="hidden" name="id" value={edition.id} />
+                  <input type="hidden" name="showId" value={s.id} />
+                  <button type="submit" style={dangerButton}>
+                    Remove
+                  </button>
+                </form>
+              </>
             )}
           </div>
         ))}
@@ -2319,14 +2363,19 @@ function BuilderStoryCard({
                   {it.presenterResearchedAt
                     ? `researched ${it.presenterResearchedAt.toISOString().slice(0, 10)}`
                     : "not researched yet"}
-                  {" · "}
-                  <a
-                    href={it.postUrl}
-                    target="_blank"
-                    style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                  >
-                    original post ↗
-                  </a>
+                  {it.postUrl && (
+                    <>
+                      {" · "}
+                      <a
+                        href={it.postUrl}
+                        target="_blank"
+                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                      >
+                        original post ↗
+                      </a>
+                    </>
+                  )}
+                  {it.source === "manual" && " · written by hand"}
                 </div>
 
                 <form action="/api/admin/presenter-item" method="post" id={`sc-${it.id}`}>
@@ -2987,5 +3036,120 @@ async function EditionRecipientsCard({
         }}
       />
     </section>
+  );
+}
+
+/**
+ * "Write a story by hand": creates a manual story (outside the RSS
+ * pathway) directly in this edition's news or Social Theatre section.
+ * Collapsed by default so the card stays tidy.
+ */
+function ManualStoryForm({
+  editionId,
+  social,
+  companyRows,
+  anchor,
+}: {
+  editionId: number;
+  social: boolean;
+  companyRows: { key: string; name: string }[];
+  anchor: string;
+}) {
+  const field: React.CSSProperties = { ...inputStyle, width: "100%" };
+  return (
+    <details
+      style={{
+        marginTop: 16,
+        border: "2px solid var(--cta-ink)",
+        borderRadius: 12,
+        background: "#FFECCA",
+        padding: "10px 14px",
+      }}
+    >
+      <summary
+        style={{
+          cursor: "pointer",
+          fontWeight: 700,
+          fontSize: 13.5,
+          color: "var(--cta-ink)",
+        }}
+      >
+        + Write a story by hand
+      </summary>
+      <p style={{ ...muted, marginTop: 10 }}>
+        For news that never came through the feed. It lands straight in{" "}
+        {social ? "Social Theatre" : "the news stories"} of this Showcase and
+        stays fully editable afterwards. Manual stories never appear in the
+        daily, weekly or fortnightly newsletters.
+      </p>
+      <form
+        action="/api/admin/manual-story"
+        method="post"
+        style={{ display: "grid", gap: 10 }}
+      >
+        <input type="hidden" name="edition" value={editionId} />
+        <input type="hidden" name="social" value={social ? "1" : "0"} />
+        <input type="hidden" name="anchor" value={anchor} />
+        <div>
+          <label style={fieldLabel}>Company</label>
+          <select name="companyKey" required style={field}>
+            <option value="">Pick a company…</option>
+            {companyRows.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={fieldLabel}>Heading</label>
+          <input type="text" name="heading" required style={field} />
+        </div>
+        <div>
+          <label style={fieldLabel}>Summary</label>
+          <textarea name="summary" required rows={3} style={{ ...field, resize: "vertical" }} />
+        </div>
+        <div>
+          <label style={fieldLabel}>Story link (optional)</label>
+          <input
+            type="url"
+            name="postUrl"
+            placeholder="https://… (leave empty for no Read More link)"
+            style={field}
+          />
+        </div>
+        {!social && (
+          <>
+            <div>
+              <label style={fieldLabel}>Show title (optional)</label>
+              <input type="text" name="showTitle" style={field} />
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 140px" }}>
+                <label style={fieldLabel}>Age range (optional)</label>
+                <input type="text" name="showAgeRange" placeholder="4 to 8" style={field} />
+              </div>
+              <div style={{ flex: "2 1 220px" }}>
+                <label style={fieldLabel}>Show page link (optional)</label>
+                <input type="url" name="showUrl" placeholder="https://…" style={field} />
+              </div>
+            </div>
+            <div>
+              <label style={fieldLabel}>Show blurb (optional)</label>
+              <textarea name="showBlurb" rows={2} style={{ ...field, resize: "vertical" }} />
+            </div>
+          </>
+        )}
+        <div>
+          <label style={fieldLabel}>Image link (optional)</label>
+          <input type="url" name="imageUrl" placeholder="https://…" style={field} />
+        </div>
+        <div>
+          <button type="submit" style={{ ...buttonStyle, background: "var(--cta-yellow)" }}>
+            Add the story
+          </button>
+        </div>
+      </form>
+    </details>
   );
 }

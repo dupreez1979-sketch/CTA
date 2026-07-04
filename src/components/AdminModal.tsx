@@ -70,7 +70,7 @@ export default function AdminModal({
           border: "3px solid var(--cta-ink)",
           borderRadius: 18,
           boxShadow: "10px 10px 0 var(--cta-ink)",
-          maxWidth: 440,
+          maxWidth: 560,
           width: "100%",
           padding: "26px 26px 22px",
         }}
@@ -95,8 +95,7 @@ export default function AdminModal({
             color: "var(--text-body, var(--cta-ink))",
             margin: "0 0 20px",
             overflowWrap: "break-word",
-            maxHeight: "60vh",
-            overflowY: "auto",
+            whiteSpace: "normal",
           }}
         >
           {message}

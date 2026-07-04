@@ -67,6 +67,11 @@ export const feedItems = pgTable(
     id: serial("id").primaryKey(),
     guid: text("guid").notNull(),
     companyKey: text("company_key").notNull(),
+    // "feed" rows come from the RSS pipeline; "manual" rows are written by
+    // hand in the Showcase builder and stay out of the cadence newsletters.
+    source: text("source", { enum: ["feed", "manual"] })
+      .notNull()
+      .default("feed"),
     postUrl: text("post_url").notNull(),
     rawTitle: text("raw_title"),
     // The feed's page/author name — kept for diagnosing and re-filing
@@ -203,6 +208,9 @@ export const showcaseEditionShows = pgTable(
     id: serial("id").primaryKey(),
     editionId: integer("edition_id").notNull(),
     showId: integer("show_id").notNull(),
+    // Order of the Spotlight grid within the edition. Gaps are fine: moves
+    // swap with the next row by position order, not by adjacency.
+    position: integer("position").notNull().default(0),
   },
   (t) => [uniqueIndex("sc_edition_show_idx").on(t.editionId, t.showId)],
 );

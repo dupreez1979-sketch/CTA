@@ -26,6 +26,7 @@ function item(overrides: Partial<FeedItem>): FeedItem {
     rawTitle: null,
     creator: null,
     reviewed: false,
+    source: "feed",
     publishedAt: new Date("2026-07-01T00:00:00Z"),
     aiHeading: `Heading ${id}`,
     aiSummary: `Summary ${id}`,
@@ -188,21 +189,22 @@ describe("buildShowcaseProps", () => {
     ]);
   });
 
-  it("lists registry shows sorted by company then title", () => {
+  it("keeps Spotlight shows in the given (edition) order", () => {
     const listings = [
       show({ companyKey: "terrapin", title: "Zeb" }),
       show({ companyKey: "monkey-baa", title: "Alpha", imageUrl: "/api/img/alpha" }),
       show({ companyKey: "terrapin", title: "Arc" }),
     ];
     const out = buildShowcaseProps([], listings, NAMES, BASE, "4 July 2026")!;
+    // The order set with the builder's arrows wins; no alphabetical re-sort.
     expect(out.props.shows.map((s) => `${s.company}: ${s.title}`)).toEqual([
+      "Terrapin: Zeb",
       "Monkey Baa Theatre Co: Alpha",
       "Terrapin: Arc",
-      "Terrapin: Zeb",
     ]);
     // Spotlight card images are absolutised like every other stored image
-    expect(out.props.shows[0].imageUrl).toBe(`${BASE}/api/img/alpha`);
-    expect(out.props.shows[1].imageUrl).toBeNull();
+    expect(out.props.shows[1].imageUrl).toBe(`${BASE}/api/img/alpha`);
+    expect(out.props.shows[0].imageUrl).toBeNull();
     expect(out.itemCount).toBe(0);
   });
 });

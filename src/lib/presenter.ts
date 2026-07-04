@@ -193,7 +193,8 @@ export async function getEditionShows(editionId: number): Promise<Show[]> {
     .select({ show: shows })
     .from(showcaseEditionShows)
     .innerJoin(shows, eq(showcaseEditionShows.showId, shows.id))
-    .where(eq(showcaseEditionShows.editionId, editionId));
+    .where(eq(showcaseEditionShows.editionId, editionId))
+    .orderBy(asc(showcaseEditionShows.position), asc(shows.title));
   return rows.map((r) => r.show);
 }
 
@@ -244,15 +245,23 @@ export async function createEditionFromPool(): Promise<{
     await db().insert(showcaseEditionItems).values(rows);
   }
 
+  // Snapshot the active registry in the order the email always used
+  // (company, then title); the builder can reorder from there.
   const activeShows = await db()
     .select({ id: shows.id })
     .from(shows)
-    .where(eq(shows.status, "active"));
+    .leftJoin(companies, eq(companies.key, shows.companyKey))
+    .where(eq(shows.status, "active"))
+    .orderBy(asc(companies.name), asc(shows.title));
   if (activeShows.length > 0) {
     await db()
       .insert(showcaseEditionShows)
       .values(
-        activeShows.map((s) => ({ editionId: edition.id, showId: s.id })),
+        activeShows.map((s, i) => ({
+          editionId: edition.id,
+          showId: s.id,
+          position: i,
+        })),
       );
   }
 
@@ -291,7 +300,13 @@ export async function duplicateEdition(id: number): Promise<number | null> {
   if (showRows.length > 0) {
     await db()
       .insert(showcaseEditionShows)
-      .values(showRows.map((s) => ({ editionId: copy.id, showId: s.showId })));
+      .values(
+        showRows.map((s) => ({
+          editionId: copy.id,
+          showId: s.showId,
+          position: s.position,
+        })),
+      );
   }
   return copy.id;
 }
@@ -471,10 +486,55 @@ export async function addShowToEdition(
   editionId: number,
   showId: number,
 ): Promise<void> {
-  await db()
-    .insert(showcaseEditionShows)
-    .values({ editionId, showId })
-    .onConflictDoNothing();
+  await db().execute(sql`
+    insert into ${showcaseEditionShows} (edition_id, show_id, position)
+    select ${editionId}, ${showId},
+      coalesce((select max(position) + 1 from ${showcaseEditionShows}
+                where edition_id = ${editionId}), 0)
+    on conflict do nothing
+  `);
+}
+
+/**
+ * Swap a Spotlight show with its neighbour in ONE statement, mirroring
+ * moveEditionItem: the CTE finds the target (only in editable editions)
+ * and the next show by position, then both rows trade positions.
+ */
+export async function moveEditionShow(
+  editionId: number,
+  showId: number,
+  dir: "up" | "down",
+): Promise<boolean> {
+  const cmp = dir === "up" ? sql`<` : sql`>`;
+  const ord = dir === "up" ? sql`desc` : sql`asc`;
+  const rows = await db().execute(sql`
+    with target as (
+      select es.show_id, es.position
+      from ${showcaseEditionShows} es
+      join ${showcaseEditions} e
+        on e.id = es.edition_id and e.status in ('draft', 'failed')
+      where es.edition_id = ${editionId} and es.show_id = ${showId}
+    ),
+    neighbour as (
+      select es.show_id, es.position
+      from ${showcaseEditionShows} es, target t
+      where es.edition_id = ${editionId}
+        and (es.position ${cmp} t.position
+             or (es.position = t.position and es.show_id ${cmp} t.show_id))
+      order by es.position ${ord}, es.show_id ${ord}
+      limit 1
+    )
+    update ${showcaseEditionShows} es
+    set position = case
+      when es.show_id = t.show_id then n.position
+      else t.position
+    end
+    from target t, neighbour n
+    where es.edition_id = ${editionId}
+      and es.show_id in (t.show_id, n.show_id)
+    returning es.show_id
+  `);
+  return rows.length === 2;
 }
 
 export async function removeShowFromEdition(
@@ -714,14 +774,9 @@ export function buildShowcaseProps(
     },
   );
 
-  const listings = [...showList]
-    .sort(
-      (a, b) =>
-        companyNameFrom(nameByKey, a.companyKey).localeCompare(
-          companyNameFrom(nameByKey, b.companyKey),
-        ) || a.title.localeCompare(b.title),
-    )
-    .map((s) => ({
+  // Spotlight cards render in the order given (the edition's own order,
+  // set with the ▲ ▼ arrows in the builder).
+  const listings = showList.map((s) => ({
       title: decodeEntities(s.title),
       company: companyNameFrom(nameByKey, s.companyKey),
       blurb: clean(s.blurb),

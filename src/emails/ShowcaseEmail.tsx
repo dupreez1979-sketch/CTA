@@ -495,6 +495,7 @@ export default function ShowcaseEmail({
                       >
                         {p.summary}
                       </Text>
+                      {p.postUrl && (
                       <Text style={{ margin: p.showTitle || p.showUrl ? "0 0 18px" : 0 }}>
                         <Link
                           href={p.postUrl}
@@ -513,6 +514,7 @@ export default function ShowcaseEmail({
                           Read More →
                         </Link>
                       </Text>
+                      )}
 
                       {/* The show: evergreen official info, distinct block */}
                       {p.showTitle && (
@@ -726,6 +728,7 @@ export default function ShowcaseEmail({
                                   >
                                     {it.summary}
                                   </Text>
+                                  {it.postUrl && (
                                   <Text style={{ margin: 0 }}>
                                     <Link
                                       href={it.postUrl}
@@ -743,6 +746,7 @@ export default function ShowcaseEmail({
                                       Read More →
                                     </Link>
                                   </Text>
+                                  )}
                                 </td>
                               </tr>
 
@@ -1012,6 +1016,7 @@ export default function ShowcaseEmail({
                         >
                           {it.summary}
                         </Text>
+                        {it.postUrl && (
                         <Text style={{ margin: 0 }}>
                           <Link
                             href={it.postUrl}
@@ -1029,6 +1034,7 @@ export default function ShowcaseEmail({
                             Read More →
                           </Link>
                         </Text>
+                        )}
                       </td>
                     </tr>
                   </tbody>

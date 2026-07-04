@@ -99,6 +99,13 @@
       "when": 1783199121912,
       "tag": "0013_deliveries",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783200321007,
+      "tag": "0014_show-order-manual-stories",
+      "breakpoints": true
     }
   ]
 }
