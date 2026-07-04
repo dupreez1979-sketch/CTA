@@ -38,15 +38,70 @@ export const EMPTY_RESEARCH: ShowResearchResult = {
   showImageUrl: null,
 };
 
-function decodeEntities(s: string): string {
+// Common named HTML entities seen in website copy. Unknown names are left
+// as-is rather than guessed.
+const NAMED_ENTITIES: Record<string, string> = {
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  ndash: "–",
+  mdash: "—",
+  hellip: "…",
+  middot: "·",
+  bull: "•",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+  deg: "°",
+  frac12: "½",
+  times: "×",
+  shy: "",
+  aacute: "á",
+  agrave: "à",
+  auml: "ä",
+  ccedil: "ç",
+  eacute: "é",
+  egrave: "è",
+  iacute: "í",
+  ntilde: "ñ",
+  oacute: "ó",
+  ouml: "ö",
+  uacute: "ú",
+  uuml: "ü",
+};
+
+function fromCodePointSafe(code: number): string {
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Decode HTML entities in text pulled from websites: numeric forms
+ * (&#8217; and &#x2019;), the common named forms above, and &amp; last so
+ * it can't manufacture new entities. Also collapses whitespace. Safe to
+ * run on already-clean text.
+ */
+export function decodeEntities(s: string): string {
   return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
+      fromCodePointSafe(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, dec) => fromCodePointSafe(parseInt(dec, 10)))
+    .replace(/&([a-z]+[0-9]*);/gi, (match, name) => {
+      const lower = name.toLowerCase();
+      if (lower === "amp") return match; // handled last
+      if (lower === "lt") return "<";
+      if (lower === "gt") return ">";
+      return NAMED_ENTITIES[lower] ?? match;
+    })
     .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
-    .replace(/&#8217;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
 }

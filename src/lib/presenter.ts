@@ -19,7 +19,7 @@ import { getSetting, setSetting } from "./settings";
 import { companyNameMap } from "./company-store";
 import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
 import { absolutizeImage } from "./send";
-import { researchItem } from "./show-research";
+import { decodeEntities, researchItem } from "./show-research";
 import ShowcaseEmail, {
   type ShowcaseEmailProps,
   type ShowcaseProfile,
@@ -541,6 +541,10 @@ export function buildShowcaseProps(
 ): AssembledShowcase | null {
   if (entries.length === 0 && showList.length === 0) return null;
 
+  // Website copy can carry HTML entities (stored before decoding was
+  // comprehensive, or pasted by hand) — decode once more at assembly.
+  const clean = (s: string | null) => (s === null ? null : decodeEntities(s));
+
   const featuredEntries = entries
     .filter((e) => e.featured)
     .slice(0, MAX_PROFILES);
@@ -554,8 +558,8 @@ export function buildShowcaseProps(
     summary: it.aiSummary,
     postUrl: it.postUrl,
     // The show (evergreen official info, rendered as a distinct block)
-    showTitle: it.showTitle,
-    showBlurb: it.showBlurb,
+    showTitle: clean(it.showTitle),
+    showBlurb: clean(it.showBlurb),
     ageRange: it.showAgeRange,
     showUrl: it.showUrl,
     imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
@@ -582,8 +586,8 @@ export function buildShowcaseProps(
           heading: it.aiHeading,
           summary: it.aiSummary,
           postUrl: it.postUrl,
-          showTitle: it.showTitle,
-          showBlurb: it.showBlurb,
+          showTitle: clean(it.showTitle),
+          showBlurb: clean(it.showBlurb),
           showUrl: it.showUrl,
           imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
           ageRange: it.showAgeRange,
@@ -600,9 +604,9 @@ export function buildShowcaseProps(
         ) || a.title.localeCompare(b.title),
     )
     .map((s) => ({
-      title: s.title,
+      title: decodeEntities(s.title),
       company: companyNameFrom(nameByKey, s.companyKey),
-      blurb: s.blurb,
+      blurb: clean(s.blurb),
       url: s.url,
       ageRange: s.ageRange,
     }));
