@@ -77,7 +77,7 @@ describe("buildShowcaseProps", () => {
     expect(out.profileCount).toBe(2);
     // The third featured item falls back into the grouped sections
     const sectionItems = out.props.companies.flatMap((c) => c.items);
-    expect(sectionItems.map((i) => i.heading)).toContain("Show C");
+    expect(sectionItems.map((i) => i.heading)).toContain(items[2].aiHeading);
     expect(out.itemCount).toBe(4);
   });
 
@@ -95,7 +95,7 @@ describe("buildShowcaseProps", () => {
     expect(monkeyBaa!.items).toHaveLength(2);
   });
 
-  it("prefers official show copy and falls back to AI copy", () => {
+  it("keeps the announcement and the show as separate profile fields", () => {
     const withOfficial = item({
       presenterFeatured: true,
       showTitle: "The Peasant Prince",
@@ -109,10 +109,28 @@ describe("buildShowcaseProps", () => {
       BASE,
       "4 July 2026",
     )!;
-    expect(out.props.profiles[0].title).toBe("The Peasant Prince");
-    expect(out.props.profiles[0].blurb).toBe("Official blurb.");
-    expect(out.props.profiles[1].title).toBe(withoutOfficial.aiHeading);
-    expect(out.props.profiles[1].blurb).toBe(withoutOfficial.aiSummary);
+    // The announcement is always the AI copy
+    expect(out.props.profiles[0].heading).toBe(withOfficial.aiHeading);
+    expect(out.props.profiles[0].summary).toBe(withOfficial.aiSummary);
+    // The show block passes official fields through untouched
+    expect(out.props.profiles[0].showTitle).toBe("The Peasant Prince");
+    expect(out.props.profiles[0].showBlurb).toBe("Official blurb.");
+    // No official info: announcement only, show block stays empty
+    expect(out.props.profiles[1].heading).toBe(withoutOfficial.aiHeading);
+    expect(out.props.profiles[1].showTitle).toBeNull();
+    expect(out.props.profiles[1].showBlurb).toBeNull();
+  });
+
+  it("uses announcement copy for The latest news items", () => {
+    const it1 = item({
+      showTitle: "Official Title",
+      showBlurb: "Official blurb.",
+    });
+    const out = buildShowcaseProps([it1], [], NAMES, BASE, "4 July 2026")!;
+    const listItem = out.props.companies[0].items[0];
+    expect(listItem.heading).toBe(it1.aiHeading);
+    expect(listItem.summary).toBe(it1.aiSummary);
+    expect(listItem.showUrl).toBeNull();
   });
 
   it("absolutises relative image paths and prefers the show image", () => {
@@ -184,7 +202,7 @@ describe("buildShowcaseProps ordering", () => {
       item({ companyKey: "terrapin", showTitle: "T2" }),
     ];
     const out = buildShowcaseProps(items, [], NAMES, BASE, "4 July 2026")!;
-    expect(out.props.profiles.map((p) => p.title)).toEqual([
+    expect(out.props.profiles.map((p) => p.showTitle)).toEqual([
       "First Profile",
       "Second Profile",
     ]);
@@ -194,8 +212,8 @@ describe("buildShowcaseProps ordering", () => {
       "Monkey Baa Theatre Co",
     ]);
     expect(out.props.companies[0].items.map((i) => i.heading)).toEqual([
-      "T1",
-      "T2",
+      items[2].aiHeading,
+      items[4].aiHeading,
     ]);
   });
 });

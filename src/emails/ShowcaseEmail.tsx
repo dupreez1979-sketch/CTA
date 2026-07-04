@@ -35,13 +35,17 @@ import {
 export interface ShowcaseProfile {
   company: string;
   hex: string;
-  title: string;
-  blurb: string;
+  /** The announcement: what the post actually said. Always present. */
+  heading: string;
+  summary: string;
+  /** The original announcement post. */
+  postUrl: string;
+  /** The show: evergreen official info, rendered as a distinct block. */
+  showTitle: string | null;
+  showBlurb: string | null;
   ageRange: string | null;
   /** Official show page on the company's website, when known. */
   showUrl: string | null;
-  /** The original announcement post. */
-  postUrl: string;
   imageUrl: string | null;
 }
 
@@ -161,7 +165,7 @@ export default function ShowcaseEmail({
         <style>{MOBILE_STYLES}</style>
       </Head>
       <Preview>
-        {`Shows ready to travel from Australia's theatre makers for young audiences`}
+        {`Shows from Australia's children's theatre makers`}
       </Preview>
       <Body
         style={{
@@ -244,15 +248,14 @@ export default function ShowcaseEmail({
           {/* Intro line */}
           <Section className="px" style={{ padding: "22px 34px 4px" }}>
             <Text className="intro-h" style={display(26, 0.94)}>
-              Shows from Australia&#39;s leading theatre makers for young
-              audiences, ready to travel.
+              Shows from Australia&#39;s children&#39;s theatre makers.
             </Text>
           </Section>
 
           {/* Profile cards */}
           {profiles.map((p) => (
             <Section
-              key={p.postUrl + p.title}
+              key={p.postUrl + p.heading}
               className="px"
               style={{ padding: "18px 34px 6px" }}
             >
@@ -279,7 +282,7 @@ export default function ShowcaseEmail({
                         width="100%"
                         height={330}
                         radius={0}
-                        alt={p.title}
+                        alt={p.showTitle ?? p.heading}
                         cls="feat-img"
                       />
                     </td>
@@ -319,17 +322,13 @@ export default function ShowcaseEmail({
                           {p.company}
                         </span>
                       </Text>
+                      {/* The announcement: what the post said */}
                       <Text
                         className="feat-h"
                         style={{ ...display(30, 0.95), margin: "0 0 10px" }}
                       >
-                        {p.title}
+                        {p.heading}
                       </Text>
-                      {p.ageRange && (
-                        <Text style={{ margin: "0 0 10px" }}>
-                          <AgeChip ageRange={p.ageRange} />
-                        </Text>
-                      )}
                       <Text
                         className="feat-p"
                         style={{
@@ -337,34 +336,12 @@ export default function ShowcaseEmail({
                           fontSize: 15,
                           lineHeight: 1.55,
                           color: COLORS.textBody,
-                          margin: "0 0 14px",
+                          margin: "0 0 10px",
                         }}
                       >
-                        {p.blurb}
+                        {p.summary}
                       </Text>
-                      <Text style={{ margin: 0 }}>
-                        {p.showUrl && (
-                          <Link
-                            href={p.showUrl}
-                            className="feat-btn"
-                            style={{
-                              display: "inline-block",
-                              fontFamily: FONT_BODY,
-                              fontWeight: 700,
-                              fontSize: 13,
-                              color: INK,
-                              backgroundColor: COLORS.yellow,
-                              border: `2px solid ${INK}`,
-                              borderRadius: 12,
-                              padding: "9px 16px",
-                              textDecoration: "none",
-                              boxShadow: `3px 3px 0 ${INK}`,
-                              marginRight: 14,
-                            }}
-                          >
-                            Visit the show page →
-                          </Link>
-                        )}
+                      <Text style={{ margin: p.showTitle || p.showUrl ? "0 0 18px" : 0 }}>
                         <Link
                           href={p.postUrl}
                           className="item-link"
@@ -382,6 +359,111 @@ export default function ShowcaseEmail({
                           Read the announcement →
                         </Link>
                       </Text>
+
+                      {/* The show: evergreen official info, distinct block */}
+                      {p.showTitle && (
+                        <table
+                          role="presentation"
+                          width="100%"
+                          cellPadding={0}
+                          cellSpacing={0}
+                          style={{
+                            borderCollapse: "separate",
+                            backgroundColor: COLORS.creamWarm,
+                            border: `2px solid ${INK}`,
+                            borderRadius: 14,
+                          }}
+                        >
+                          <tbody>
+                            <tr>
+                              <td style={{ padding: "14px 18px 16px" }}>
+                                <Text
+                                  style={{
+                                    fontFamily: FONT_BODY,
+                                    fontWeight: 700,
+                                    fontSize: 10,
+                                    letterSpacing: "0.14em",
+                                    textTransform: "uppercase",
+                                    color: COLORS.textMuted,
+                                    margin: "0 0 7px",
+                                  }}
+                                >
+                                  The show
+                                </Text>
+                                <Text
+                                  className="item-h"
+                                  style={{ ...display(24, 0.96), margin: "0 0 8px" }}
+                                >
+                                  {p.showTitle}
+                                </Text>
+                                {p.ageRange && (
+                                  <Text style={{ margin: "0 0 8px" }}>
+                                    <AgeChip ageRange={p.ageRange} />
+                                  </Text>
+                                )}
+                                {p.showBlurb && (
+                                  <Text
+                                    className="item-p"
+                                    style={{
+                                      fontFamily: FONT_BODY,
+                                      fontSize: 14,
+                                      lineHeight: 1.55,
+                                      color: COLORS.textBody,
+                                      margin: "0 0 12px",
+                                    }}
+                                  >
+                                    {p.showBlurb}
+                                  </Text>
+                                )}
+                                {p.showUrl && (
+                                  <Link
+                                    href={p.showUrl}
+                                    className="feat-btn"
+                                    style={{
+                                      display: "inline-block",
+                                      fontFamily: FONT_BODY,
+                                      fontWeight: 700,
+                                      fontSize: 13,
+                                      color: INK,
+                                      backgroundColor: COLORS.yellow,
+                                      border: `2px solid ${INK}`,
+                                      borderRadius: 12,
+                                      padding: "9px 16px",
+                                      textDecoration: "none",
+                                      boxShadow: `3px 3px 0 ${INK}`,
+                                    }}
+                                  >
+                                    Visit the show page →
+                                  </Link>
+                                )}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      )}
+                      {!p.showTitle && p.showUrl && (
+                        <Text style={{ margin: 0 }}>
+                          <Link
+                            href={p.showUrl}
+                            className="feat-btn"
+                            style={{
+                              display: "inline-block",
+                              fontFamily: FONT_BODY,
+                              fontWeight: 700,
+                              fontSize: 13,
+                              color: INK,
+                              backgroundColor: COLORS.yellow,
+                              border: `2px solid ${INK}`,
+                              borderRadius: 12,
+                              padding: "9px 16px",
+                              textDecoration: "none",
+                              boxShadow: `3px 3px 0 ${INK}`,
+                            }}
+                          >
+                            Visit the show page →
+                          </Link>
+                        </Text>
+                      )}
                     </td>
                   </tr>
                 </tbody>
@@ -392,7 +474,7 @@ export default function ShowcaseEmail({
           {/* Also on the move */}
           {companies.length > 0 && (
             <Section className="px" style={{ padding: "26px 34px 6px" }}>
-              <SectionHeading>Also on the move</SectionHeading>
+              <SectionHeading>The latest news</SectionHeading>
               {companies.map((co) => (
                 <table
                   key={co.name}
@@ -555,7 +637,7 @@ export default function ShowcaseEmail({
           {/* What's happening */}
           {shows.length > 0 && (
             <Section className="px" style={{ padding: "30px 34px 6px" }}>
-              <SectionHeading>What&#39;s happening</SectionHeading>
+              <SectionHeading>Other happenings</SectionHeading>
               <Text
                 style={{
                   fontFamily: FONT_BODY,
@@ -566,7 +648,7 @@ export default function ShowcaseEmail({
                 }}
               >
                 Productions from the companies working together in the
-                Alliance that are available now.
+                Alliance.
               </Text>
               <table
                 role="presentation"
@@ -650,6 +732,72 @@ export default function ShowcaseEmail({
               </table>
             </Section>
           )}
+
+          {/* Alliance website */}
+          <Section className="px" style={{ padding: "30px 34px 6px" }}>
+            <table
+              role="presentation"
+              width="100%"
+              cellPadding={0}
+              cellSpacing={0}
+              style={{
+                borderCollapse: "separate",
+                backgroundColor: COLORS.white,
+                border: `3px solid ${INK}`,
+                borderRadius: 18,
+                boxShadow: `6px 6px 0 ${INK}`,
+              }}
+            >
+              <tbody>
+                <tr>
+                  <td align="center" style={{ padding: "24px 22px 26px" }}>
+                    <Text
+                      className="item-h"
+                      style={{
+                        ...display(24, 0.96),
+                        textAlign: "center" as const,
+                        margin: "0 0 8px",
+                      }}
+                    >
+                      Learn more about the Alliance
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                        color: COLORS.textBody,
+                        textAlign: "center" as const,
+                        margin: "0 0 16px",
+                      }}
+                    >
+                      The national platform of Australia&#39;s professional
+                      theatre companies making work for children.
+                    </Text>
+                    <Link
+                      href="https://www.childrenstheatrealliance.com.au/"
+                      className="feat-btn"
+                      style={{
+                        display: "inline-block",
+                        fontFamily: FONT_BODY,
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: INK,
+                        backgroundColor: COLORS.yellow,
+                        border: `2px solid ${INK}`,
+                        borderRadius: 12,
+                        padding: "11px 20px",
+                        textDecoration: "none",
+                        boxShadow: `4px 4px 0 ${INK}`,
+                      }}
+                    >
+                      Visit childrenstheatrealliance.com.au →
+                    </Link>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </Section>
 
           {/* Footer */}
           <Section

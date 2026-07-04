@@ -269,11 +269,15 @@ export function buildShowcaseProps(
     .map((it) => ({
       company: companyNameFrom(nameByKey, it.companyKey),
       hex: FEATURED_STYLE.hex,
-      title: it.showTitle ?? it.aiHeading,
-      blurb: it.showBlurb ?? it.aiSummary,
+      // The announcement (the news itself)
+      heading: it.aiHeading,
+      summary: it.aiSummary,
+      postUrl: it.postUrl,
+      // The show (evergreen official info, rendered as a distinct block)
+      showTitle: it.showTitle,
+      showBlurb: it.showBlurb,
       ageRange: it.showAgeRange,
       showUrl: it.showUrl,
-      postUrl: it.postUrl,
       imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
     }));
   const profiledIds = new Set(
@@ -298,9 +302,11 @@ export function buildShowcaseProps(
         hex: style.hex,
         colorName: style.colorName,
         shape: style.shape,
+        // "The latest news" is announcement-first: the AI copy tells the
+        // news; the official show page stays one link away.
         items: list.map((it) => ({
-          heading: it.showTitle ?? it.aiHeading,
-          summary: it.showBlurb ?? it.aiSummary,
+          heading: it.aiHeading,
+          summary: it.aiSummary,
           showUrl: it.showUrl,
           postUrl: it.postUrl,
           imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
@@ -405,7 +411,7 @@ export async function sendShowcase(): Promise<ShowcaseSendResult> {
 
   try {
     const html = await renderShowcaseHtml(assembled);
-    const subject = `The Showcase: shows from the Alliance ready to travel (${sydneyDateLabel()})`;
+    const subject = `The Showcase: Australia's Children's Theatre Alliance (${sydneyDateLabel()})`;
 
     if (process.env.SEND_DRY_RUN === "1") {
       console.log(
