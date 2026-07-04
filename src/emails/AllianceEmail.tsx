@@ -80,8 +80,8 @@ const MOBILE_STYLES = `
 @media only screen and (max-width: 480px) {
   .px { padding-left: 20px !important; padding-right: 20px !important; }
   .logo { height: 88px !important; }
-  .footer-logo { height: 48px !important; }
-  .ncti-logo { height: 30px !important; }
+  .footer-logo { height: 72px !important; }
+  .ncti-logo { height: 44px !important; }
   .date-meta { font-size: 13px !important; }
   .intro-h { font-size: 30px !important; }
   .chip { font-size: 12px !important; }
@@ -514,8 +514,8 @@ export default function AllianceEmail({
                   src={logo}
                   alt="The Children's Theatre Alliance"
                   className="footer-logo"
-                  height={34}
-                  style={{ display: "block", height: 34, width: "auto" }}
+                  height={52}
+                  style={{ display: "block", height: 52, width: "auto" }}
                 />
               </Column>
               <Column align="right" style={{ verticalAlign: "middle" }}>
@@ -523,10 +523,10 @@ export default function AllianceEmail({
                   src={`${baseUrl}/ncti-logo.png`}
                   alt="National Children's Theatre Initiative"
                   className="ncti-logo"
-                  height={24}
+                  height={36}
                   style={{
                     display: "block",
-                    height: 24,
+                    height: 36,
                     width: "auto",
                     marginLeft: "auto",
                   }}

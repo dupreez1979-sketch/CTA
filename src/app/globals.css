@@ -301,9 +301,11 @@ body {
 /* ---- Admin console ---- */
 
 .admin-main {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 48px 24px 96px;
+  /* Full-bleed admin: use the whole screen with fluid gutters, unlike
+     the emails, which stay a fixed-width centered column. */
+  max-width: none;
+  margin: 0;
+  padding: 40px clamp(16px, 3vw, 56px) 96px;
 }
 
 .admin-title {

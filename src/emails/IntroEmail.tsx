@@ -45,8 +45,8 @@ const MOBILE_STYLES = `
   .cta-btn { font-size: 15px !important; padding: 13px 22px !important; }
   .footer-p { font-size: 14px !important; }
   .footer-link { font-size: 14px !important; }
-  .footer-logo { height: 60px !important; }
-  .ncti-logo { height: 36px !important; }
+  .footer-logo { height: 90px !important; }
+  .ncti-logo { height: 54px !important; }
 }
 `;
 
@@ -383,8 +383,8 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                   src={logo}
                   alt="The Children's Theatre Alliance"
                   className="footer-logo"
-                  height={56}
-                  style={{ display: "block", height: 56, width: "auto" }}
+                  height={84}
+                  style={{ display: "block", height: 84, width: "auto" }}
                 />
               </Column>
               <Column align="right" style={{ verticalAlign: "middle" }}>
@@ -392,10 +392,10 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                   src={`${baseUrl}/ncti-logo.png`}
                   alt="National Children's Theatre Initiative"
                   className="ncti-logo"
-                  height={36}
+                  height={54}
                   style={{
                     display: "block",
-                    height: 36,
+                    height: 54,
                     width: "auto",
                     marginLeft: "auto",
                   }}
