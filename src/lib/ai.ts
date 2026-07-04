@@ -36,6 +36,15 @@ export const COPY_SCHEMA = {
       description:
         "Exactly one sentence, sentence case, plain-spoken, that summarises the post for a newsletter reader. Include concrete details (dates, places, numbers) when present. Never use relative time words (today, tonight, tomorrow, yesterday, this weekend, next week): readers may see this days or weeks after the post. Convert them to absolute dates using the posted date, e.g. 'on Saturday 12 July' or 'in mid July'.",
     },
+    // presenterReason comes BEFORE the two ratings: with structured
+    // outputs the model generates properties in schema order, so writing
+    // the reasoning first makes it commit to ratings after thinking, not
+    // before.
+    presenterReason: {
+      type: "string",
+      description:
+        "One or two short sentences weighing the post against both rating scales below, written before choosing the ratings.",
+    },
     presenterRelevance: {
       type: "string",
       enum: ["low", "medium", "high"],
@@ -46,25 +55,21 @@ export const COPY_SCHEMA = {
       type: "string",
       enum: ["low", "medium", "high"],
       description:
-        "Relevance to Social Theatre, a section about theatre embedded as social infrastructure. 'high': theatre genuinely working in social settings, such as performances or programmes in hospitals and health care, work with and for children with disability, relaxed or sensory-adapted performances, removing barriers to access, community wellbeing partnerships, or theatre reaching children who otherwise could not attend. 'medium': a post partly about such work. 'low': everything else. Education and learning programmes, school workshops and classes are NOT social theatre, and neither is fundraising.",
+        "Relevance to Social Theatre, a section about theatre embedded as social infrastructure. 'high': theatre genuinely working in social settings, such as performances or programmes in hospitals and health care, work with and for children with disability, relaxed or sensory-adapted performances, removing barriers to access, community wellbeing partnerships, or theatre reaching children who otherwise could not attend. 'medium': a post partly about such work, or theatre brought to children in the community beyond regular venues. 'low': everything else. Education and learning programmes, school workshops and classes are NOT social theatre, and neither is fundraising. Do not default to 'low' out of caution: when a post shows theatre genuinely reaching children in a social setting, rate it 'medium' or 'high'.",
     },
     showTitle: {
       type: ["string", "null"],
       description:
         "The production's title exactly as written in the post, or null when relevance is low or no clear title is given.",
     },
-    presenterReason: {
-      type: "string",
-      description: "One short sentence explaining the relevance rating.",
-    },
   },
   required: [
     "heading",
     "summary",
+    "presenterReason",
     "presenterRelevance",
     "socialRelevance",
     "showTitle",
-    "presenterReason",
   ],
   additionalProperties: false,
 } as const;
@@ -155,21 +160,37 @@ export async function pickFeatured(
 const REASSESS_SCHEMA = {
   type: "object",
   properties: {
-    presenterRelevance: COPY_SCHEMA.properties.presenterRelevance,
-    socialRelevance: COPY_SCHEMA.properties.socialRelevance,
+    // Reason first: the model reasons before committing to the ratings.
     presenterReason: {
       type: "string",
-      description: "One short sentence explaining the two ratings.",
+      description:
+        "One or two short sentences weighing the story against both scales, written before choosing the ratings.",
     },
+    presenterRelevance: COPY_SCHEMA.properties.presenterRelevance,
+    socialRelevance: COPY_SCHEMA.properties.socialRelevance,
   },
-  required: ["presenterRelevance", "socialRelevance", "presenterReason"],
+  required: ["presenterReason", "presenterRelevance", "socialRelevance"],
   additionalProperties: false,
 } as const;
+
+// Calibration examples for the two Showcase scales, from editorial review
+// of real ratings. Included verbatim in the re-rate prompt.
+const RATING_EXAMPLES = `Calibration examples:
+- "Company announces the national tour of a titled show" -> show high
+- "Premiere season of a new titled production" -> show high
+- "Tickets on sale for this weekend's local performances" -> show low
+- "A company shares its creative practice at a community organisation's gathering for disadvantaged families" -> social high
+- "A show performed in a children's hospital ward" -> social high
+- "A company tours theatre to children in remote towns who otherwise could not attend" -> social medium or high
+- "A post celebrating that every child deserves to be seen and heard, tied to access work" -> social medium
+- "A school workshop or drama class" -> social low (education is not Social Theatre)
+- "A fundraising appeal" -> social low`;
 
 /**
  * Re-rate a story that was ingested before the current rating rules
  * existed (or that the classifier got wrong). Works from the stored
- * headline, summary and raw post text; one small Haiku call.
+ * headline, summary and raw post title. Manual, low-volume and
+ * judgment-heavy, so it uses a stronger model than the bulk ingest call.
  */
 export async function reassessRatings(item: {
   heading: string;
@@ -182,14 +203,14 @@ export async function reassessRatings(item: {
   presenterReason: string;
 }> {
   const response = await client().messages.create({
-    model: MODEL,
-    max_tokens: 250,
+    model: "claude-opus-4-8",
+    max_tokens: 400,
     system: VOICE,
     output_config: { format: { type: "json_schema", schema: REASSESS_SCHEMA } },
     messages: [
       {
         role: "user",
-        content: `Rate this story on two independent scales, each low, medium or high. Judge each scale on its own merits — a story can be high on one and low on the other.\n\npresenterRelevance — ${COPY_SCHEMA.properties.presenterRelevance.description}\n\nsocialRelevance — ${COPY_SCHEMA.properties.socialRelevance.description}\n\nStory by ${item.company}:\nHeadline: ${item.heading}\nSummary: ${item.summary}\nOriginal post title: ${(item.rawTitle ?? "").slice(0, 1500) || "(none)"}`,
+        content: `Rate this story on two independent scales, each low, medium or high. Judge each scale on its own merits — a story can be high on one and low on the other. Write your reasoning first, then commit to the ratings. Do not default to low out of caution.\n\npresenterRelevance — ${COPY_SCHEMA.properties.presenterRelevance.description}\n\nsocialRelevance — ${COPY_SCHEMA.properties.socialRelevance.description}\n\n${RATING_EXAMPLES}\n\nStory by ${item.company}:\nHeadline: ${item.heading}\nSummary: ${item.summary}\nOriginal post title: ${(item.rawTitle ?? "").slice(0, 1500) || "(none)"}`,
       },
     ],
   });

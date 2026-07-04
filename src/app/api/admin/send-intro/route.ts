@@ -1,26 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendIntro } from "@/lib/send";
+import { sendIntro, type IntroKind } from "@/lib/send";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Admin: send the one-off introduction email to a pasted list of
- * addresses. Recipients are parsed, deduplicated, emailed and then
- * forgotten — nothing is written to the database.
+ * Admin: send a one-off introduction email (Alliance-first or
+ * newsletter-first) to a pasted list of addresses. Recipients are parsed,
+ * deduplicated, emailed and then forgotten — nothing is written to the
+ * database.
  */
 export async function POST(request: NextRequest) {
   const form = await request.formData();
   const raw = String(form.get("emails") ?? "");
+  const kind: IntroKind =
+    String(form.get("kind") ?? "") === "newsletter" ? "newsletter" : "alliance";
   const redirect = (message: string) =>
     NextResponse.redirect(
       new URL(
-        `/admin?tab=sending&message=${encodeURIComponent(message)}`,
+        `/admin?tab=editions&message=${encodeURIComponent(message)}`,
         request.url,
       ),
       { status: 303 },
     );
   try {
-    const result = await sendIntro(raw);
+    const result = await sendIntro(raw, kind);
     if (result.sent === 0) {
       return redirect(
         result.invalid.length > 0

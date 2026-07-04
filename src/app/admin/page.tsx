@@ -1,14 +1,17 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import {
   db,
+  deliveries,
   subscribers,
   issues,
   companies,
   feedItems,
   showcaseEditions,
   shows,
+  type Delivery,
   type FeedItem,
   type ShowcaseEdition,
+  type Subscriber,
 } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
 import { getAiSpend } from "@/lib/ai-spend";
@@ -44,10 +47,10 @@ const CADENCES = ["daily", "weekly", "fortnightly"] as const;
 
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "sending", label: "Sending" },
+  { id: "editions", label: "Editions" },
+  { id: "presenters", label: "The Showcase" },
   { id: "subscribers", label: "Subscribers" },
   { id: "companies", label: "Companies" },
-  { id: "presenters", label: "The Showcase" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -139,7 +142,10 @@ export default async function AdminPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const { message, tab: rawTab } = sp;
+  const { message, tab: requested } = sp;
+  // The Editions tab was called "Sending" until July 2026: old links and
+  // bookmarks still land in the right place.
+  const rawTab = requested === "sending" ? "editions" : requested;
   const tab: Tab = (TABS.find((t) => t.id === rawTab)?.id ?? "overview") as Tab;
 
   return (
@@ -193,8 +199,8 @@ export default async function AdminPage({
       )}
 
       {tab === "overview" && <OverviewTab />}
-      {tab === "sending" && <SendingTab />}
-      {tab === "subscribers" && <SubscribersTab />}
+      {tab === "editions" && <EditionsTab sp={sp} />}
+      {tab === "subscribers" && <SubscribersTab sp={sp} />}
       {tab === "companies" && <CompaniesTab />}
       {tab === "presenters" && <ShowcaseTab sp={sp} />}
     </main>
@@ -316,7 +322,19 @@ async function OverviewTab() {
                   <td style={td}>{i.windowKey}</td>
                   <td style={td}>{i.status}</td>
                   <td style={td}>{i.itemCount}</td>
-                  <td style={td}>{i.recipientCount}</td>
+                  <td style={td}>
+                    {i.status === "sent" && i.recipientCount > 0 ? (
+                      <Link
+                        prefetch={false}
+                        href={`/admin?tab=editions&issue=${i.id}`}
+                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                      >
+                        {i.recipientCount}
+                      </Link>
+                    ) : (
+                      i.recipientCount
+                    )}
+                  </td>
                   <td style={td}>
                     {i.sentAt
                       ? i.sentAt.toISOString().replace("T", " ").slice(0, 16)
@@ -434,7 +452,11 @@ async function AiCreditsCard() {
   );
 }
 
-function SendingTab() {
+async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
+  const issueId = Number(sp.issue);
+  if (Number.isInteger(issueId) && issueId > 0) {
+    return <IssueRecipientsView issueId={issueId} sp={sp} />;
+  }
   return (
     <>
       <section className="admin-card">
@@ -498,14 +520,18 @@ function SendingTab() {
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Introduce the Alliance</h2>
+        <h2 style={h2}>Introduction emails</h2>
         <p style={muted}>
-          A one-off branded email introducing the Alliance and the
-          newsletter, for funders, presenters and friends (including
-          international). Paste addresses separated by commas or new lines.
-          Recipients are emailed once and <strong>never stored</strong>.
+          Two one-off branded emails for funders, presenters and friends
+          (including international). <strong>Introduce the Alliance</strong>{" "}
+          leads with who we are; <strong>Introduce the newsletter</strong>{" "}
+          leads with the editions and how to sign up, with the Alliance as
+          the secondary story. Paste addresses separated by commas or new
+          lines. Recipients are emailed once and <strong>never stored</strong>.
         </p>
-        <div style={{ marginBottom: 12 }}>
+        <div
+          style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}
+        >
           <a
             href="/admin/preview/intro"
             target="_blank"
@@ -515,10 +541,35 @@ function SendingTab() {
               background: "var(--cta-white)",
             }}
           >
-            Preview the introduction ↗
+            Preview: the Alliance ↗
+          </a>
+          <a
+            href="/admin/preview/intro?kind=newsletter"
+            target="_blank"
+            style={{
+              ...buttonStyle,
+              textDecoration: "none",
+              background: "var(--cta-white)",
+            }}
+          >
+            Preview: the newsletter ↗
           </a>
         </div>
         <form action="/api/admin/send-intro" method="post">
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <select name="kind" style={inputStyle}>
+              <option value="alliance">Introduce the Alliance</option>
+              <option value="newsletter">Introduce the newsletter</option>
+            </select>
+          </div>
           <textarea
             name="emails"
             required
@@ -533,7 +584,7 @@ function SendingTab() {
             }}
           />
           <ConfirmSubmit
-            message="Send the introduction email to everyone in the list now? Each address is emailed once and not saved."
+            message="Send the chosen introduction email to everyone in the list now? Each address is emailed once and not saved."
             style={buttonStyle}
           >
             Send introduction
@@ -566,7 +617,15 @@ function SendingTab() {
   );
 }
 
-async function SubscribersTab() {
+async function SubscribersTab({
+  sp,
+}: {
+  sp: Record<string, string | undefined>;
+}) {
+  const subscriberId = Number(sp.subscriber);
+  if (Number.isInteger(subscriberId) && subscriberId > 0) {
+    return <SubscriberDetailView subscriberId={subscriberId} sp={sp} />;
+  }
   const [counts, showcaseCount, recent, notifyEmails] = await Promise.all([
     db()
       .select({
@@ -689,7 +748,17 @@ async function SubscribersTab() {
             {recent.map((s) => (
               <tr key={s.id}>
                 <td style={td}>
-                  {s.firstName} {s.lastName}
+                  <Link
+                    prefetch={false}
+                    href={`/admin?tab=subscribers&subscriber=${s.id}`}
+                    style={{
+                      color: "var(--cta-ink)",
+                      fontWeight: 600,
+                      textDecorationThickness: 2,
+                    }}
+                  >
+                    {s.firstName} {s.lastName}
+                  </Link>
                 </td>
                 <td style={td}>{s.email}</td>
                 <td style={td}>
@@ -755,6 +824,62 @@ async function SubscribersTab() {
           </tbody>
         </table>
       </div>
+    </section>
+
+    <section className="admin-card">
+      <h2 style={h2}>Add a subscriber</h2>
+      <p style={muted}>
+        Adds someone directly, exactly as if they signed up themselves. If
+        the address is already subscribed, their details and choices are
+        updated instead.
+      </p>
+      <form
+        action="/api/admin/add-subscriber"
+        method="post"
+        style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
+      >
+        <input
+          type="text"
+          name="firstName"
+          required
+          placeholder="First name"
+          style={{ ...inputStyle, flex: "1 1 130px", minWidth: 120 }}
+        />
+        <input
+          type="text"
+          name="lastName"
+          required
+          placeholder="Last name"
+          style={{ ...inputStyle, flex: "1 1 130px", minWidth: 120 }}
+        />
+        <input
+          type="email"
+          name="email"
+          required
+          placeholder="them@example.org"
+          style={{ ...inputStyle, flex: "2 1 200px", minWidth: 180 }}
+        />
+        <select name="cadence" defaultValue="weekly" style={inputStyle}>
+          {CADENCES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+          <option value="none">Showcase only</option>
+        </select>
+        <select
+          name="showcase"
+          defaultValue="1"
+          title="The Showcase Edition"
+          style={{ ...inputStyle, background: "var(--cta-mint)" }}
+        >
+          <option value="1">+ Showcase</option>
+          <option value="0">no Showcase</option>
+        </select>
+        <button type="submit" style={buttonStyle}>
+          Add subscriber
+        </button>
+      </form>
     </section>
 
     <section className="admin-card">
@@ -1916,6 +2041,10 @@ async function EditionBuilder({
         </div>
       </section>
 
+      {edition.status === "sent" && (
+        <EditionRecipientsCard editionId={edition.id} sp={sp} />
+      )}
+
       <section className="admin-card">
         <h2 style={h2}>News stories in this Showcase</h2>
         {editable ? (
@@ -2404,5 +2533,459 @@ function BuilderStoryCard({
               </details>
               <MoveButtons editionId={editionId} itemId={it.id} />
             </div>
+  );
+}
+
+// ------------------------------------------------------- delivery history
+
+const KIND_LABEL: Record<Delivery["kind"], string> = {
+  issue: "Newsletter",
+  showcase: "The Showcase Edition",
+};
+
+const NO_HISTORY_NOTE =
+  "Nothing recorded yet. Deliveries are tracked from July 2026 onward, so older sends are not listed.";
+
+/** One subscriber: who they are and every email they have received. */
+async function SubscriberDetailView({
+  subscriberId,
+  sp,
+}: {
+  subscriberId: number;
+  sp: Record<string, string | undefined>;
+}) {
+  const [[sub], rows] = await Promise.all([
+    db()
+      .select()
+      .from(subscribers)
+      .where(eq(subscribers.id, subscriberId))
+      .limit(1),
+    db()
+      .select()
+      .from(deliveries)
+      .where(eq(deliveries.subscriberId, subscriberId))
+      .orderBy(desc(deliveries.sentAt))
+      .limit(500),
+  ]);
+
+  const backLink = (
+    <Link
+      prefetch={false}
+      href="/admin?tab=subscribers"
+      style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
+    >
+      ← All subscribers
+    </Link>
+  );
+
+  if (!sub) {
+    return (
+      <section className="admin-card">
+        <h2 style={h2}>Subscriber not found</h2>
+        <p style={muted}>This subscriber no longer exists; they may have been deleted.</p>
+        {backLink}
+      </section>
+    );
+  }
+
+  // Filter + sort in memory: capped at the latest 500 deliveries.
+  const kind = sp.dkind === "issue" || sp.dkind === "showcase" ? sp.dkind : "all";
+  const q = (sp.dq ?? "").trim().toLowerCase();
+  const dsort = ["date", "newsletter", "subject"].includes(sp.dsort ?? "")
+    ? (sp.dsort as "date" | "newsletter" | "subject")
+    : "date";
+  const ddir = sp.ddir === "asc" ? "asc" : "desc";
+  const filtered = rows
+    .filter((d) => (kind === "all" ? true : d.kind === kind))
+    .filter((d) => (q ? d.subject.toLowerCase().includes(q) : true))
+    .sort((a, b) => {
+      const cmp =
+        dsort === "newsletter"
+          ? KIND_LABEL[a.kind].localeCompare(KIND_LABEL[b.kind])
+          : dsort === "subject"
+            ? a.subject.localeCompare(b.subject)
+            : a.sentAt.getTime() - b.sentAt.getTime();
+      return ddir === "asc" ? cmp : -cmp;
+    });
+
+  const sortLink = (key: string, label: string) => {
+    const nextDir = dsort === key && ddir === "desc" ? "asc" : "desc";
+    const params = new URLSearchParams({
+      tab: "subscribers",
+      subscriber: String(subscriberId),
+      dsort: key,
+      ddir: nextDir,
+    });
+    if (kind !== "all") params.set("dkind", kind);
+    if (q) params.set("dq", sp.dq ?? "");
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${params.toString()}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {dsort === key ? (ddir === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
+
+  const receives =
+    sub.cadence === "none"
+      ? "The Showcase Edition only"
+      : sub.showcase
+        ? `${sub.cadence} newsletter plus The Showcase Edition`
+        : `${sub.cadence} newsletter`;
+
+  return (
+    <>
+      <section className="admin-card">
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "center",
+            marginBottom: 10,
+          }}
+        >
+          <h2 style={{ ...h2, margin: 0 }}>
+            {sub.firstName} {sub.lastName}
+          </h2>
+          <span
+            style={badge(
+              sub.status === "active" ? "var(--cta-emerald)" : "var(--cta-pink)",
+            )}
+          >
+            {sub.status}
+          </span>
+        </div>
+        <p style={muted}>
+          {sub.email} · receives the {receives} · joined{" "}
+          {sub.createdAt.toISOString().slice(0, 10)}
+        </p>
+        {backLink}
+      </section>
+
+      <section className="admin-card">
+        <h2 style={h2}>What they have received</h2>
+        <form
+          method="get"
+          action="/admin"
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+            marginBottom: 14,
+          }}
+        >
+          <input type="hidden" name="tab" value="subscribers" />
+          <input type="hidden" name="subscriber" value={subscriberId} />
+          <select name="dkind" defaultValue={kind} style={smallInput}>
+            <option value="all">All emails</option>
+            <option value="issue">Newsletter only</option>
+            <option value="showcase">The Showcase Edition only</option>
+          </select>
+          <input
+            type="text"
+            name="dq"
+            defaultValue={sp.dq ?? ""}
+            placeholder="Search subjects"
+            style={{ ...smallInput, minWidth: 180 }}
+          />
+          <button type="submit" style={smallButton}>
+            Filter
+          </button>
+        </form>
+        <div className="table-scroll" style={{ maxHeight: 480, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>{sortLink("date", "Sent")}</th>
+                <th style={th}>{sortLink("newsletter", "Type")}</th>
+                <th style={th}>{sortLink("subject", "Subject")}</th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((d) => (
+                <tr key={d.id}>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {d.sentAt.toISOString().slice(0, 10)}
+                  </td>
+                  <td style={td}>
+                    <span
+                      style={badge(
+                        d.kind === "showcase" ? "var(--cta-teal)" : "var(--cta-yellow)",
+                      )}
+                    >
+                      {KIND_LABEL[d.kind]}
+                    </span>
+                  </td>
+                  <td style={td}>{d.subject}</td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {d.kind === "issue" && d.issueId && (
+                      <Link
+                        prefetch={false}
+                        href={`/admin?tab=editions&issue=${d.issueId}`}
+                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                      >
+                        All recipients
+                      </Link>
+                    )}
+                    {d.kind === "showcase" && d.editionId && (
+                      <Link
+                        prefetch={false}
+                        href={`/admin?tab=presenters&edition=${d.editionId}`}
+                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                      >
+                        Open edition
+                      </Link>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td style={td} colSpan={4}>
+                    {rows.length === 0
+                      ? NO_HISTORY_NOTE
+                      : "No deliveries match the filter."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+}
+
+/**
+ * Recipient table shared by the per-issue and per-edition views:
+ * sortable by name, email and date, with a search box.
+ */
+function RecipientTable({
+  rows,
+  sp,
+  baseParams,
+}: {
+  rows: { delivery: Delivery; subscriber: Subscriber | null }[];
+  sp: Record<string, string | undefined>;
+  baseParams: Record<string, string>;
+}) {
+  const q = (sp.rq ?? "").trim().toLowerCase();
+  const rsort = ["name", "email", "date"].includes(sp.rsort ?? "")
+    ? (sp.rsort as "name" | "email" | "date")
+    : "name";
+  const rdir = sp.rdir === "desc" ? "desc" : "asc";
+  const nameOf = (s: Subscriber | null) =>
+    s ? `${s.firstName} ${s.lastName}` : "(deleted subscriber)";
+  const filtered = rows
+    .filter(({ subscriber: s }) =>
+      q
+        ? nameOf(s).toLowerCase().includes(q) ||
+          (s?.email ?? "").toLowerCase().includes(q)
+        : true,
+    )
+    .sort((a, b) => {
+      const cmp =
+        rsort === "email"
+          ? (a.subscriber?.email ?? "").localeCompare(b.subscriber?.email ?? "")
+          : rsort === "date"
+            ? a.delivery.sentAt.getTime() - b.delivery.sentAt.getTime()
+            : nameOf(a.subscriber).localeCompare(nameOf(b.subscriber));
+      return rdir === "asc" ? cmp : -cmp;
+    });
+
+  const sortLink = (key: string, label: string) => {
+    const nextDir = rsort === key && rdir === "asc" ? "desc" : "asc";
+    const params = new URLSearchParams({ ...baseParams, rsort: key, rdir: nextDir });
+    if (q) params.set("rq", sp.rq ?? "");
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${params.toString()}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {rsort === key ? (rdir === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
+
+  return (
+    <>
+      <form
+        method="get"
+        action="/admin"
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginBottom: 14,
+        }}
+      >
+        {Object.entries(baseParams).map(([k, v]) => (
+          <input key={k} type="hidden" name={k} value={v} />
+        ))}
+        <input
+          type="text"
+          name="rq"
+          defaultValue={sp.rq ?? ""}
+          placeholder="Search name or email"
+          style={{ ...smallInput, minWidth: 200 }}
+        />
+        <button type="submit" style={smallButton}>
+          Filter
+        </button>
+      </form>
+      <div className="table-scroll" style={{ maxHeight: 480, overflowY: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={th}>{sortLink("name", "Name")}</th>
+              <th style={th}>{sortLink("email", "Email")}</th>
+              <th style={th}>{sortLink("date", "Sent")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(({ delivery: d, subscriber: s }) => (
+              <tr key={d.id}>
+                <td style={td}>
+                  {s ? (
+                    <Link
+                      prefetch={false}
+                      href={`/admin?tab=subscribers&subscriber=${s.id}`}
+                      style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                    >
+                      {nameOf(s)}
+                    </Link>
+                  ) : (
+                    nameOf(s)
+                  )}
+                </td>
+                <td style={td}>{s?.email ?? ""}</td>
+                <td style={{ ...td, whiteSpace: "nowrap" }}>
+                  {d.sentAt.toISOString().slice(0, 16).replace("T", " ")}
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td style={td} colSpan={3}>
+                  {rows.length === 0
+                    ? NO_HISTORY_NOTE
+                    : "No recipients match the filter."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** One sent newsletter issue: its details and everyone who received it. */
+async function IssueRecipientsView({
+  issueId,
+  sp,
+}: {
+  issueId: number;
+  sp: Record<string, string | undefined>;
+}) {
+  const [[issue], rows] = await Promise.all([
+    db().select().from(issues).where(eq(issues.id, issueId)).limit(1),
+    db()
+      .select({ delivery: deliveries, subscriber: subscribers })
+      .from(deliveries)
+      .leftJoin(subscribers, eq(subscribers.id, deliveries.subscriberId))
+      .where(eq(deliveries.issueId, issueId))
+      .limit(2000),
+  ]);
+
+  const backLink = (
+    <Link
+      prefetch={false}
+      href="/admin?tab=overview"
+      style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
+    >
+      ← Back
+    </Link>
+  );
+
+  if (!issue) {
+    return (
+      <section className="admin-card">
+        <h2 style={h2}>Issue not found</h2>
+        <p style={muted}>This issue no longer exists.</p>
+        {backLink}
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <section className="admin-card">
+        <h2 style={h2}>
+          {issue.cadence[0].toUpperCase() + issue.cadence.slice(1)} issue ·{" "}
+          {issue.windowKey}
+        </h2>
+        <p style={muted}>
+          Status {issue.status}
+          {issue.sentAt ? ` · sent ${issue.sentAt.toISOString().slice(0, 10)}` : ""} ·{" "}
+          {issue.itemCount} stor{issue.itemCount === 1 ? "y" : "ies"} ·{" "}
+          {issue.recipientCount} recipient{issue.recipientCount === 1 ? "" : "s"}
+        </p>
+        {backLink}
+      </section>
+      <section className="admin-card">
+        <h2 style={h2}>Who received it</h2>
+        <RecipientTable
+          rows={rows}
+          sp={sp}
+          baseParams={{ tab: "editions", issue: String(issueId) }}
+        />
+      </section>
+    </>
+  );
+}
+
+/** Who received a sent Showcase edition (live sends only). */
+async function EditionRecipientsCard({
+  editionId,
+  sp,
+}: {
+  editionId: number;
+  sp: Record<string, string | undefined>;
+}) {
+  const rows = await db()
+    .select({ delivery: deliveries, subscriber: subscribers })
+    .from(deliveries)
+    .leftJoin(subscribers, eq(subscribers.id, deliveries.subscriberId))
+    .where(eq(deliveries.editionId, editionId))
+    .limit(2000);
+  return (
+    <section className="admin-card">
+      <h2 style={h2}>Who received it</h2>
+      <p style={muted}>
+        Everyone this Showcase went to when it was sent live. Test sends are
+        not listed here.
+      </p>
+      <RecipientTable
+        rows={rows}
+        sp={sp}
+        baseParams={{
+          tab: "presenters",
+          edition: String(editionId),
+        }}
+      />
+    </section>
   );
 }

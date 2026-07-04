@@ -19,7 +19,7 @@ import {
 import { getSetting, setSetting } from "./settings";
 import { companyNameMap } from "./company-store";
 import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
-import { absolutizeImage } from "./send";
+import { absolutizeImage, recordDeliveries } from "./send";
 import { decodeEntities, researchItem } from "./show-research";
 import ShowcaseEmail, {
   type ShowcaseEmailProps,
@@ -928,6 +928,14 @@ export async function sendEditionLive(
         const { error } = await resend.batch.send(batch);
         if (error) throw new Error(`Resend batch failed: ${error.message}`);
       }
+      await recordDeliveries(
+        recipients.map((r) => ({
+          subscriberId: r.id,
+          kind: "showcase" as const,
+          editionId,
+          subject,
+        })),
+      );
     }
 
     await db()

@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(feedItems.id, id));
       return redirect(
-        `AI re-rated "${item.aiHeading.slice(0, 40)}": show ${rated.presenterRelevance}, social ${rated.socialRelevance}`,
+        `Show relevance: ${rated.presenterRelevance}. Social Theatre: ${rated.socialRelevance}. ${rated.presenterReason}`,
       );
     } catch (err) {
       return redirect(`Could not re-rate: ${err}`, false);

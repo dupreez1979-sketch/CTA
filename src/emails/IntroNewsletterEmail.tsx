@@ -16,18 +16,20 @@ import {
 import { COLORS } from "../lib/tokens";
 
 /**
- * One-off outreach email introducing the Alliance and the newsletter to
- * funders, presenters and friends (including international recipients, so
- * Australia is stated up front). Recipients are pasted into admin and are
+ * One-off outreach email introducing the NEWSLETTER: what the editions
+ * are, how often they arrive, and how to sign up. The Alliance itself and
+ * the website appear as the secondary section (the companion IntroEmail
+ * does it the other way around). Recipients are pasted into admin and are
  * never stored. Copy contains no em-dashes by request.
  */
 
-export interface IntroEmailProps {
+export interface IntroNewsletterEmailProps {
   /** Absolute origin for assets and the sign-up link. */
   baseUrl: string;
 }
 
 const WEBSITE = "https://www.childrenstheatrealliance.com.au/";
+const PRIVACY = "https://www.childrenstheatrealliance.com.au/privacy-policy";
 
 const FONT_DISPLAY =
   "'Impact','Haettenschweiler','Arial Narrow Bold',sans-serif";
@@ -68,7 +70,42 @@ const body = (size = 15): React.CSSProperties => ({
   margin: "0 0 16px",
 });
 
-export default function IntroEmail({ baseUrl }: IntroEmailProps) {
+const card: React.CSSProperties = {
+  borderCollapse: "separate",
+  backgroundColor: COLORS.white,
+  border: `3px solid ${INK}`,
+  borderRadius: 22,
+  boxShadow: `10px 10px 0 ${INK}`,
+};
+
+function Chip({ label, hex }: { label: string; hex: string }) {
+  return (
+    <span
+      className="chip"
+      style={{
+        display: "inline-block",
+        backgroundColor: hex,
+        color: INK,
+        fontFamily: FONT_BODY,
+        fontWeight: 700,
+        fontSize: 12,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        padding: "5px 12px",
+        border: `2px solid ${INK}`,
+        borderRadius: 999,
+        marginRight: 8,
+        marginBottom: 8,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+export default function IntroNewsletterEmail({
+  baseUrl,
+}: IntroNewsletterEmailProps) {
   const logo = `${baseUrl}/logo-full.png`;
   return (
     <Html lang="en">
@@ -87,8 +124,8 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
         <style>{MOBILE_STYLES}</style>
       </Head>
       <Preview>
-        Introducing the Children&#39;s Theatre Alliance, Australia&#39;s
-        national platform for professional children&#39;s theatre.
+        The newsletter of Australia&#39;s professional children&#39;s theatre
+        makers: choose how you hear from us.
       </Preview>
       <Body
         style={{
@@ -123,7 +160,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
               </Column>
               <Column align="right" style={{ verticalAlign: "top" }}>
                 <Img
-                  src={`${baseUrl}/shapes/circle-teal.png`}
+                  src={`${baseUrl}/shapes/plus-yellow.png`}
                   alt=""
                   width={56}
                   height={56}
@@ -136,7 +173,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                 <span
                   style={{
                     display: "inline-block",
-                    backgroundColor: COLORS.yellow,
+                    backgroundColor: COLORS.teal,
                     color: INK,
                     fontFamily: FONT_BODY,
                     fontWeight: 600,
@@ -149,151 +186,130 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                     boxShadow: `3px 3px 0 ${INK}`,
                   }}
                 >
-                  From Australia
+                  The newsletter
                 </span>
               </Column>
             </Row>
           </Section>
 
-          {/* Greeting */}
+          {/* Greeting + headline */}
           <Section className="px" style={{ padding: "26px 40px 0" }}>
             <Text className="body-p" style={{ ...body(16), margin: "0 0 10px" }}>
               Hello,
             </Text>
             <Text className="body-p" style={{ ...body(16), margin: "0 0 6px" }}>
-              We thought you might like to learn more about the
-              Children&#39;s Theatre Alliance, the new national platform of
-              Australia&#39;s professional theatre companies making work for
-              children.
+              Australia&#39;s professional children&#39;s theatre makers now
+              share their news in one place. Here is how to get it delivered
+              to your inbox, as often as you like.
             </Text>
           </Section>
 
-          {/* Headline + intro copy */}
           <Section className="px" style={{ padding: "18px 40px 4px" }}>
-            <Text className="intro-h" style={{ ...display(32, 0.94), margin: "0 0 16px" }}>
-              Australia&#39;s professional children&#39;s theatre makers,
-              working together
+            <Text
+              className="intro-h"
+              style={{ ...display(32, 0.94), margin: "0 0 16px" }}
+            >
+              One newsletter, every company, your pace
             </Text>
             <Text className="body-p" style={body()}>
-              Together we collaborate to ensure every Australian child grows
-              up with theatre as part of their life.
+              Every edition gathers the latest from the companies of the
+              Children&#39;s Theatre Alliance: new shows, tours, seasons and
+              stories, grouped by company with a short, readable summary for
+              each.
             </Text>
           </Section>
 
-          {/* Logo grid of the companies working together in the Alliance */}
-          <Section className="px" style={{ padding: "8px 40px 4px" }}>
-            <table
-              role="presentation"
-              width="100%"
-              cellPadding={0}
-              cellSpacing={0}
-              style={{
-                borderCollapse: "separate",
-                backgroundColor: COLORS.white,
-                border: `3px solid ${INK}`,
-                borderRadius: 22,
-                boxShadow: `10px 10px 0 ${INK}`,
-              }}
-            >
+          {/* The regular dispatch */}
+          <Section className="px" style={{ padding: "12px 40px 6px" }}>
+            <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={card}>
               <tbody>
                 <tr>
-                  <td style={{ padding: "20px 18px" }}>
-                    <Img
-                      src={`${baseUrl}/intro-members.png`}
-                      alt="The companies working together in the Children's Theatre Alliance"
-                      width={494}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        maxWidth: 494,
-                        height: "auto",
-                        margin: "0 auto",
-                      }}
-                    />
+                  <td style={{ padding: "24px 24px 22px" }}>
+                    <Text
+                      className="card-h"
+                      style={{ ...display(24, 0.95), margin: "0 0 10px" }}
+                    >
+                      The Alliance dispatch
+                    </Text>
+                    <Text
+                      className="body-p"
+                      style={{ ...body(14.5), margin: "0 0 14px" }}
+                    >
+                      The news roundup, on the schedule you choose:
+                    </Text>
+                    <div>
+                      <Chip label="Daily" hex={COLORS.yellow} />
+                      <Chip label="Weekly" hex={COLORS.purple} />
+                      <Chip label="Fortnightly" hex={COLORS.mint} />
+                    </div>
+                    <Text
+                      className="body-p"
+                      style={{ ...body(13.5), margin: "10px 0 0" }}
+                    >
+                      Weekly and fortnightly editions open with a featured
+                      story picked from across the Alliance.
+                    </Text>
                   </td>
                 </tr>
               </tbody>
             </table>
           </Section>
 
-          {/* Age-range copy sits below the logo grid */}
-          <Section className="px" style={{ padding: "16px 40px 4px" }}>
-            <Text className="body-p" style={body()}>
-              We cover theatre for children aged 0 to 14, with a focused lens
-              on children aged 0 to 8. These are the early and primary years
-              where the case for theatre is strongest, and where the gap
-              between what children need and what they can access is
-              greatest.
-            </Text>
-          </Section>
-
-          {/* Newsletter card */}
+          {/* The Showcase Edition */}
           <Section className="px" style={{ padding: "22px 40px 6px" }}>
             <table
               role="presentation"
               width="100%"
               cellPadding={0}
               cellSpacing={0}
-              style={{
-                borderCollapse: "separate",
-                backgroundColor: COLORS.white,
-                border: `3px solid ${INK}`,
-                borderRadius: 22,
-                boxShadow: `10px 10px 0 ${INK}`,
-              }}
+              style={{ ...card, backgroundColor: COLORS.mint }}
             >
               <tbody>
                 <tr>
-                  <td style={{ padding: "24px 24px 26px" }}>
+                  <td style={{ padding: "24px 24px 22px" }}>
                     <Text
                       className="card-h"
                       style={{ ...display(24, 0.95), margin: "0 0 10px" }}
                     >
-                      The Alliance newsletter
+                      The Showcase Edition
                     </Text>
-                    <Text className="body-p" style={{ ...body(14.5), margin: "0 0 16px" }}>
-                      The latest from the companies working together in the
-                      Alliance, grouped by company. Choose daily, weekly or
-                      fortnightly.
-                    </Text>
-                    <Link
-                      href={baseUrl}
-                      className="cta-btn"
-                      style={{
-                        display: "inline-block",
-                        fontFamily: FONT_BODY,
-                        fontWeight: 700,
-                        fontSize: 14,
-                        color: INK,
-                        backgroundColor: COLORS.purple,
-                        border: `2px solid ${INK}`,
-                        borderRadius: 12,
-                        padding: "11px 18px",
-                        textDecoration: "none",
-                        boxShadow: `3px 3px 0 ${INK}`,
-                      }}
+                    <Text
+                      className="body-p"
+                      style={{ ...body(14.5), margin: 0 }}
                     >
-                      Sign up to the newsletter →
-                    </Link>
+                      Show news for presenters, programmers and partners:
+                      productions that can tour, profiled with their official
+                      show pages and age ranges. It has no fixed schedule; it
+                      arrives when there is show news worth sharing. Every
+                      subscriber can receive it, or you can choose it on its
+                      own.
+                    </Text>
                   </td>
                 </tr>
               </tbody>
             </table>
           </Section>
 
-          {/* Website CTA — the loudest block on the page */}
+          {/* Sign-up CTA — the loudest block on the page */}
           <Section
             className="px"
             style={{ padding: "26px 40px 8px", textAlign: "center" }}
           >
             <Text
               className="card-h"
-              style={{ ...display(26, 0.95), margin: "0 0 14px" }}
+              style={{ ...display(26, 0.95), margin: "0 0 6px" }}
             >
-              Explore the Alliance
+              Signing up takes 30 seconds
+            </Text>
+            <Text
+              className="body-p"
+              style={{ ...body(14), margin: "0 0 14px" }}
+            >
+              Pick your frequency, tick The Showcase Edition if you want it,
+              and you are done. Unsubscribe any time with one click.
             </Text>
             <Link
-              href={WEBSITE}
+              href={baseUrl}
               className="cta-btn"
               style={{
                 display: "inline-block",
@@ -309,12 +325,12 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                 boxShadow: `6px 6px 0 ${INK}`,
               }}
             >
-              childrenstheatrealliance.com.au ↗
+              Sign up to the newsletter →
             </Link>
           </Section>
 
-          {/* Get involved — deliberately quiet */}
-          <Section className="px" style={{ padding: "22px 40px 8px" }}>
+          {/* About the Alliance — deliberately secondary */}
+          <Section className="px" style={{ padding: "24px 40px 8px" }}>
             <table
               role="presentation"
               width="100%"
@@ -330,10 +346,8 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
               <tbody>
                 <tr>
                   <td style={{ padding: "16px 20px" }}>
-                    <Text
-                      style={{ ...display(18, 1), margin: "0 0 6px" }}
-                    >
-                      Get involved?
+                    <Text style={{ ...display(18, 1), margin: "0 0 6px" }}>
+                      About the Alliance
                     </Text>
                     <Text
                       style={{
@@ -341,24 +355,27 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                         fontSize: 13,
                         lineHeight: 1.55,
                         color: COLORS.textBody,
-                        margin: 0,
+                        margin: "0 0 8px",
                       }}
                     >
-                      Do you create or present theatre for children?{" "}
-                      <Link
-                        href="mailto:kevin@childrenstheatre.com.au"
-                        style={{
-                          fontFamily: FONT_BODY,
-                          fontWeight: 700,
-                          fontSize: 13,
-                          color: INK,
-                          textDecoration: "underline",
-                        }}
-                      >
-                        Get in touch
-                      </Link>{" "}
-                      to learn more.
+                      The Children&#39;s Theatre Alliance is the national
+                      platform of Australia&#39;s professional theatre
+                      companies making work for children aged 0 to 14.
+                      Together we collaborate to ensure every Australian child
+                      grows up with theatre as part of their life.
                     </Text>
+                    <Link
+                      href={WEBSITE}
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: INK,
+                        textDecoration: "underline",
+                      }}
+                    >
+                      childrenstheatrealliance.com.au ↗
+                    </Link>
                   </td>
                 </tr>
               </tbody>
@@ -429,13 +446,11 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
               >
                 childrenstheatrealliance.com.au
               </Link>
-              <span
-                style={{ fontFamily: FONT_BODY, color: INK, padding: "0 8px" }}
-              >
+              <span style={{ fontFamily: FONT_BODY, color: INK, padding: "0 8px" }}>
                 ·
               </span>
               <Link
-                href="https://www.childrenstheatrealliance.com.au/privacy-policy"
+                href={PRIVACY}
                 className="footer-link"
                 style={{
                   fontFamily: FONT_BODY,
@@ -459,8 +474,8 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
               }}
             >
               You received this one-off introduction because we think the
-              Alliance is relevant to you. We will not email you again unless
-              you subscribe.
+              newsletter is relevant to you. We will not email you again
+              unless you subscribe.
               <br />
               Managed by National Children&#39;s Theatre Initiative
             </Text>

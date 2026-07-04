@@ -1197,6 +1197,28 @@ export default function ShowcaseEmail({
                 >
                   Unsubscribe
                 </Link>
+                <span
+                  style={{
+                    fontFamily: FONT_BODY,
+                    color: INK,
+                    padding: "0 8px",
+                  }}
+                >
+                  ·
+                </span>
+                <Link
+                  href="https://www.childrenstheatrealliance.com.au/privacy-policy"
+                  className="footer-link"
+                  style={{
+                    fontFamily: FONT_BODY,
+                    fontWeight: 700,
+                    fontSize: 12,
+                    color: INK,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Privacy
+                </Link>
               </Text>
             )}
             <Text

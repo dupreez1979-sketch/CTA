@@ -19,8 +19,8 @@ export async function GET(
     return new NextResponse(
       messagePageHtml(
         "No such preview",
-        "Previews exist for the daily, weekly and fortnightly dispatches. Use the preview buttons on the Sending tab.",
-        { backHref: "/admin?tab=sending", backLabel: "Back to Sending" },
+        "Previews exist for the daily, weekly and fortnightly dispatches. Use the preview buttons on the Editions tab.",
+        { backHref: "/admin?tab=editions", backLabel: "Back to Editions" },
       ),
       {
         status: 404,
@@ -34,8 +34,8 @@ export async function GET(
     return new NextResponse(
       messagePageHtml(
         "Nothing in this window yet",
-        `There are no posts in the ${cadence} window (${window.dateRange}), so there is no issue to preview. Click "Fetch new posts now" on the Sending tab, or check back once the companies have posted.`,
-        { backHref: "/admin?tab=sending", backLabel: "Back to Sending" },
+        `There are no posts in the ${cadence} window (${window.dateRange}), so there is no issue to preview. Click "Fetch new posts now" on the Editions tab, or check back once the companies have posted.`,
+        { backHref: "/admin?tab=editions", backLabel: "Back to Editions" },
       ),
       { headers: { "content-type": "text/html; charset=utf-8" } },
     );

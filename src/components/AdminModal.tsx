@@ -94,6 +94,9 @@ export default function AdminModal({
             lineHeight: 1.55,
             color: "var(--text-body, var(--cta-ink))",
             margin: "0 0 20px",
+            overflowWrap: "break-word",
+            maxHeight: "60vh",
+            overflowY: "auto",
           }}
         >
           {message}

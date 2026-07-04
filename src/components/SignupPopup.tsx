@@ -152,7 +152,7 @@ export default function SignupPopup({ onClose }: { onClose?: () => void }) {
             <p className="disclaimer">
               By signing up you agree to receive updates from us and accept our{" "}
               <a
-                href="https://www.childrenstheatrealliance.com.au/"
+                href="https://www.childrenstheatrealliance.com.au/privacy-policy"
                 target="_blank"
                 rel="noreferrer"
               >

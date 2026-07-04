@@ -2,7 +2,14 @@ import { and, eq, gte, lt } from "drizzle-orm";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
-import { db, feedItems, issues, subscribers, type FeedItem } from "./db";
+import {
+  db,
+  deliveries,
+  feedItems,
+  issues,
+  subscribers,
+  type FeedItem,
+} from "./db";
 import type { Cadence } from "./db/schema";
 import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
 import { companyNameMap } from "./company-store";
@@ -14,6 +21,7 @@ import AllianceEmail, {
   type EmailFeatured,
 } from "../emails/AllianceEmail";
 import IntroEmail from "../emails/IntroEmail";
+import IntroNewsletterEmail from "../emails/IntroNewsletterEmail";
 
 /**
  * Issue assembly + delivery. An issue is idempotent per cadence+window:
@@ -169,6 +177,23 @@ export interface SendResult {
 }
 
 /**
+ * Write one delivery row per recipient after a successful live send. The
+ * emails are already out, so a bookkeeping failure must never fail the
+ * send: log and move on.
+ */
+export async function recordDeliveries(
+  rows: (typeof deliveries.$inferInsert)[],
+): Promise<void> {
+  try {
+    for (let i = 0; i < rows.length; i += 1000) {
+      await db().insert(deliveries).values(rows.slice(i, i + 1000));
+    }
+  } catch (err) {
+    console.error("Recording deliveries failed:", err);
+  }
+}
+
+/**
  * Send the issue for a cadence window to all its active subscribers.
  * Claims the issues row first (unique on cadence+window) for idempotency.
  */
@@ -265,6 +290,15 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
       if (error) throw new Error(`Resend batch failed: ${error.message}`);
     }
 
+    await recordDeliveries(
+      recipients.map((r) => ({
+        subscriberId: r.id,
+        kind: "issue" as const,
+        issueId,
+        subject,
+      })),
+    );
+
     await finish("sent", assembled.itemCount, recipients.length);
     return {
       status: "sent",
@@ -277,14 +311,26 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
   }
 }
 
-const INTRO_SUBJECT = "Introducing the Children's Theatre Alliance";
+/** The two one-off introduction emails: the Alliance-first original and
+ * the newsletter-first variant (how to sign up, with the Alliance as the
+ * secondary section). */
+export type IntroKind = "alliance" | "newsletter";
+
+const INTRO_SUBJECT: Record<IntroKind, string> = {
+  alliance: "Introducing the Children's Theatre Alliance",
+  newsletter: "The newsletter of Australia's children's theatre makers",
+};
 const MAX_INTRO_RECIPIENTS = 200;
 
-export async function renderIntroHtml(): Promise<string> {
+export async function renderIntroHtml(
+  kind: IntroKind = "alliance",
+): Promise<string> {
+  const baseUrl = env("APP_URL").replace(/\/$/, "");
   return render(
-    React.createElement(IntroEmail, {
-      baseUrl: env("APP_URL").replace(/\/$/, ""),
-    }),
+    React.createElement(
+      kind === "newsletter" ? IntroNewsletterEmail : IntroEmail,
+      { baseUrl },
+    ),
   );
 }
 
@@ -299,7 +345,10 @@ export interface IntroSendResult {
  * presenters, friends of the Alliance). Recipients are used for this send
  * only and are deliberately never stored.
  */
-export async function sendIntro(raw: string): Promise<IntroSendResult> {
+export async function sendIntro(
+  raw: string,
+  kind: IntroKind = "alliance",
+): Promise<IntroSendResult> {
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const parts = raw
     .split(/[,;\n\r]+/)
@@ -312,11 +361,11 @@ export async function sendIntro(raw: string): Promise<IntroSendResult> {
   const skipped = valid.length - recipients.length;
   if (recipients.length === 0) return { sent: 0, invalid, skipped };
 
-  const html = await renderIntroHtml();
+  const html = await renderIntroHtml(kind);
   const from = env("EMAIL_FROM");
 
   if (process.env.SEND_DRY_RUN === "1") {
-    console.log(`[dry-run] would send intro to ${recipients.length} recipients`);
+    console.log(`[dry-run] would send intro (${kind}) to ${recipients.length} recipients`);
     return { sent: recipients.length, invalid, skipped };
   }
 
@@ -325,7 +374,7 @@ export async function sendIntro(raw: string): Promise<IntroSendResult> {
     const batch = recipients.slice(i, i + BATCH_SIZE).map((to) => ({
       from,
       to,
-      subject: INTRO_SUBJECT,
+      subject: INTRO_SUBJECT[kind],
       html,
     }));
     const { error } = await resend.batch.send(batch);

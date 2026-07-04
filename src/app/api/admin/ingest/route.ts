@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
         : "";
     const message = `Fetched feed: ${result.seen} posts seen, ${result.added} new ingested${result.remaining > 0 ? `, ${result.remaining} still queued (click again)` : ""}${showcaseNote}`;
     return NextResponse.redirect(
-      new URL(`/admin?tab=sending&message=${encodeURIComponent(message)}`, request.url),
+      new URL(`/admin?tab=editions&message=${encodeURIComponent(message)}`, request.url),
       { status: 303 },
     );
   } catch (err) {
     return NextResponse.redirect(
-      new URL(`/admin?tab=sending&message=${encodeURIComponent(`Ingest failed: ${err}`)}`, request.url),
+      new URL(`/admin?tab=editions&message=${encodeURIComponent(`Ingest failed: ${err}`)}`, request.url),
       { status: 303 },
     );
   }

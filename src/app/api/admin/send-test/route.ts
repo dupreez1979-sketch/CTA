@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const redirect = (message: string) =>
     NextResponse.redirect(
       new URL(
-        `/admin?tab=sending&message=${encodeURIComponent(message)}`,
+        `/admin?tab=editions&message=${encodeURIComponent(message)}`,
         request.url,
       ),
       { status: 303 },

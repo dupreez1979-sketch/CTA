@@ -6,6 +6,7 @@ import {
   integer,
   bigint,
   boolean,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -245,6 +246,32 @@ export const issues = pgTable(
   (t) => [uniqueIndex("issues_cadence_window_idx").on(t.cadence, t.windowKey)],
 );
 
+/**
+ * One email delivered to one subscriber: cadence issues and live Showcase
+ * editions, written at send time. Powers the per-subscriber history and
+ * the per-issue / per-edition recipient lists in admin. Test sends and
+ * intro emails are not recorded (intro recipients are never stored).
+ */
+export const deliveries = pgTable(
+  "deliveries",
+  {
+    id: serial("id").primaryKey(),
+    subscriberId: integer("subscriber_id").notNull(),
+    kind: text("kind", { enum: ["issue", "showcase"] }).notNull(),
+    issueId: integer("issue_id"),
+    editionId: integer("edition_id"),
+    subject: text("subject").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("deliveries_subscriber_idx").on(t.subscriberId),
+    index("deliveries_issue_idx").on(t.issueId),
+    index("deliveries_edition_idx").on(t.editionId),
+  ],
+);
+
 /** Per-day accumulator of Anthropic API token usage by this app. */
 export const aiSpend = pgTable(
   "ai_spend",
@@ -265,6 +292,7 @@ export const settings = pgTable("settings", {
 });
 
 export type Subscriber = typeof subscribers.$inferSelect;
+export type Delivery = typeof deliveries.$inferSelect;
 export type FeedItem = typeof feedItems.$inferSelect;
 export type Issue = typeof issues.$inferSelect;
 export type Show = typeof shows.$inferSelect;
