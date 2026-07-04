@@ -1564,14 +1564,38 @@ function StoryPoolTable({
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {mode === "add" && editionId && (
-                        <form action="/api/admin/presenter-item" method="post">
-                          <input type="hidden" name="action" value="add" />
-                          <input type="hidden" name="id" value={p.id} />
-                          {passthrough}
-                          <button type="submit" style={smallButton}>
-                            Add
-                          </button>
-                        </form>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                          }}
+                        >
+                          <form action="/api/admin/presenter-item" method="post">
+                            <input type="hidden" name="action" value="add" />
+                            <input type="hidden" name="id" value={p.id} />
+                            {passthrough}
+                            <button type="submit" style={{ ...smallButton, width: "100%" }}>
+                              Add to news
+                            </button>
+                          </form>
+                          <form action="/api/admin/presenter-item" method="post">
+                            <input type="hidden" name="action" value="add" />
+                            <input type="hidden" name="social" value="1" />
+                            <input type="hidden" name="id" value={p.id} />
+                            {passthrough}
+                            <button
+                              type="submit"
+                              style={{
+                                ...smallButton,
+                                width: "100%",
+                                background: "var(--cta-mint)",
+                              }}
+                            >
+                              Add to Social Theatre
+                            </button>
+                          </form>
+                        </div>
                       )}
                     </td>
                   </tr>

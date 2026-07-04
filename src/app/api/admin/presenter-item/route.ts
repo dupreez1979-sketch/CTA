@@ -102,7 +102,11 @@ export async function POST(request: NextRequest) {
     return redirect("A sent Showcase can't be changed");
 
   if (action === "add") {
+    const asSocial = String(form.get("social") ?? "") === "1";
     const added = await addItemToEdition(editionId, id);
+    if (added && asSocial) {
+      await setEditionItemSocial(editionId, id, true);
+    }
     if (added && !item.presenterNotifiedAt) {
       // The admin is looking right at it — no need to notify later.
       await db()
@@ -112,7 +116,7 @@ export async function POST(request: NextRequest) {
     }
     return redirect(
       added
-        ? `Added "${item.aiHeading.slice(0, 50)}" to this Showcase`
+        ? `Added "${item.aiHeading.slice(0, 50)}" to ${asSocial ? "Social Theatre" : "the news stories"}`
         : "That story is already in this Showcase",
     );
   }
