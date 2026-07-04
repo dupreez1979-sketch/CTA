@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import {
   db,
   subscribers,
@@ -117,9 +117,9 @@ const tile: React.CSSProperties = {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; tab?: string }>;
+  searchParams: Promise<{ message?: string; tab?: string; find?: string }>;
 }) {
-  const { message, tab: rawTab } = await searchParams;
+  const { message, tab: rawTab, find } = await searchParams;
   const tab: Tab = (TABS.find((t) => t.id === rawTab)?.id ?? "overview") as Tab;
 
   return (
@@ -160,7 +160,7 @@ export default async function AdminPage({
       {tab === "sending" && <SendingTab />}
       {tab === "subscribers" && <SubscribersTab />}
       {tab === "companies" && <CompaniesTab />}
-      {tab === "presenters" && <ShowcaseTab />}
+      {tab === "presenters" && <ShowcaseTab find={find} />}
     </main>
   );
 }
@@ -893,7 +893,7 @@ const fieldLabel: React.CSSProperties = {
   margin: "10px 0 4px",
 };
 
-async function ShowcaseTab() {
+async function ShowcaseTab({ find }: { find?: string }) {
   const [recipients, companyRows, draftItems, registry, recentSends] =
     await Promise.all([
       getPresenterRecipients(),
@@ -906,13 +906,43 @@ async function ShowcaseTab() {
       db().select().from(shows).orderBy(asc(shows.title)),
       db().select().from(presenterSends).orderBy(desc(presenterSends.id)).limit(10),
     ]);
-  // Recent posts the classifier left out — promotable by hand.
-  const otherPosts = await db()
-    .select()
-    .from(feedItems)
-    .where(sql`${feedItems.presenterStatus} is null`)
-    .orderBy(desc(feedItems.publishedAt))
-    .limit(25);
+  // Posts the classifier left out — promotable by hand. Without a search
+  // term, just the freshest few; with one, match headline, post text and
+  // company name.
+  const FIND_LIMIT = 15;
+  const query = (find ?? "").trim();
+  const notInPipeline = sql`${feedItems.presenterStatus} is null`;
+  let otherPosts;
+  if (query) {
+    const q = `%${query}%`;
+    const matchedKeys = companyRows
+      .filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
+      .map((c) => c.key);
+    otherPosts = await db()
+      .select()
+      .from(feedItems)
+      .where(
+        and(
+          notInPipeline,
+          or(
+            ilike(feedItems.aiHeading, q),
+            ilike(feedItems.rawTitle, q),
+            ...(matchedKeys.length > 0
+              ? [inArray(feedItems.companyKey, matchedKeys)]
+              : []),
+          ),
+        ),
+      )
+      .orderBy(desc(feedItems.publishedAt))
+      .limit(FIND_LIMIT);
+  } else {
+    otherPosts = await db()
+      .select()
+      .from(feedItems)
+      .where(notInPipeline)
+      .orderBy(desc(feedItems.publishedAt))
+      .limit(8);
+  }
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
   const companyName = (key: string) => nameByKey.get(key) ?? "Around the Alliance";
 
@@ -1218,36 +1248,104 @@ async function ShowcaseTab() {
             </div>
           );
         })}
-        {otherPosts.length > 0 && (
+        <div
+          style={{
+            marginTop: 6,
+            paddingTop: 16,
+            borderTop: "2px dashed rgba(30,30,29,0.25)",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+            Classifier missed one?
+          </div>
+          <p style={{ ...muted, fontSize: 12.5 }}>
+            Search recent posts by headline, post text or company and add
+            them to the draft by hand.
+            {!query && " Showing the latest posts."}
+          </p>
           <form
-            action="/api/admin/presenter-item"
-            method="post"
+            method="get"
+            action="/admin"
             style={{
               display: "flex",
-              gap: 10,
+              gap: 8,
               flexWrap: "wrap",
               alignItems: "center",
-              marginTop: 6,
-              paddingTop: 16,
-              borderTop: "2px dashed rgba(30,30,29,0.25)",
+              marginBottom: 10,
             }}
           >
-            <input type="hidden" name="action" value="promote" />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>
-              Classifier missed one?
-            </span>
-            <select name="id" style={{ ...smallInput, maxWidth: 380 }}>
-              {otherPosts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {companyName(p.companyKey)}: {p.aiHeading.slice(0, 60)}
-                </option>
-              ))}
-            </select>
+            <input type="hidden" name="tab" value="presenters" />
+            <input
+              name="find"
+              defaultValue={query}
+              placeholder="e.g. Terrapin, tour, show title"
+              style={{ ...smallInput, flex: "1 1 220px", minWidth: 180 }}
+            />
             <button type="submit" style={smallButton}>
-              Add to draft
+              Search
             </button>
+            {query && (
+              <a
+                href="/admin?tab=presenters"
+                style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
+              >
+                Clear search
+              </a>
+            )}
           </form>
-        )}
+          {otherPosts.length === 0 ? (
+            <p style={{ ...muted, marginBottom: 0 }}>
+              {query
+                ? `No posts match "${query}".`
+                : "No posts outside The Showcase yet."}
+            </p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    {otherPosts.map((p) => (
+                      <tr key={p.id}>
+                        <td style={{ ...td, whiteSpace: "nowrap" }}>
+                          {p.publishedAt.toISOString().slice(0, 10)}
+                        </td>
+                        <td style={{ ...td, whiteSpace: "nowrap" }}>
+                          {companyName(p.companyKey)}
+                        </td>
+                        <td style={td}>
+                          {p.aiHeading.slice(0, 70)}
+                          {p.aiHeading.length > 70 ? "…" : ""}{" "}
+                          <a
+                            href={p.postUrl}
+                            target="_blank"
+                            style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                          >
+                            ↗
+                          </a>
+                        </td>
+                        <td style={{ ...td, whiteSpace: "nowrap" }}>
+                          <form action="/api/admin/presenter-item" method="post">
+                            <input type="hidden" name="action" value="promote" />
+                            <input type="hidden" name="id" value={p.id} />
+                            <button type="submit" style={smallButton}>
+                              Add to draft
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {query && otherPosts.length === FIND_LIMIT && (
+                <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
+                  Showing the first {FIND_LIMIT} matches. Refine the search to
+                  see older posts.
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </section>
 
       <section className="admin-card">
