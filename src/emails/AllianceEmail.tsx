@@ -16,6 +16,7 @@ import {
 import { COLORS } from "../lib/tokens";
 import type { ShapeName } from "../lib/shapes";
 import type { Cadence } from "../lib/db/schema";
+import Cloud from "./Cloud";
 import {
   CompanyBanner,
   FONT_BODY,
@@ -148,12 +149,12 @@ export default function AllianceEmail({
           width={680}
           style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
-          {/* Masthead */}
+          <Cloud baseUrl={baseUrl} pair="mint-creamwarm" />
+          {/* Masthead: cloud edges above and below, no hard line. */}
           <Section
             className="px"
             style={{
               backgroundColor: COLORS.creamWarm,
-              borderBottom: `3px solid ${INK}`,
               padding: "28px 40px 26px",
             }}
           >
@@ -213,6 +214,7 @@ export default function AllianceEmail({
               </Column>
             </Row>
           </Section>
+          <Cloud baseUrl={baseUrl} pair="creamwarm-cream" />
 
           {/* Intro line */}
           <Section className="px" style={{ padding: "22px 40px 4px" }}>
@@ -498,14 +500,13 @@ export default function AllianceEmail({
             ))}
           </Section>
 
-          {/* Footer */}
+          <Cloud baseUrl={baseUrl} pair="cream-purple" />
+          {/* Footer: rises out of the cream in cloud bumps, no hard line. */}
           <Section
             className="px"
             style={{
               backgroundColor: COLORS.purple,
-              borderTop: `3px solid ${INK}`,
               padding: "26px 40px",
-              marginTop: 28,
             }}
           >
             <Row style={{ marginBottom: 12 }}>

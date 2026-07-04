@@ -15,6 +15,7 @@ import {
 } from "@react-email/components";
 import { COLORS } from "../lib/tokens";
 import type { ShapeName } from "../lib/shapes";
+import Cloud from "./Cloud";
 import {
   CompanyBanner,
   FONT_BODY,
@@ -317,12 +318,12 @@ export default function ShowcaseEmail({
           width={680}
           style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
-          {/* Masthead */}
+          <Cloud baseUrl={baseUrl} pair="mint-creamwarm" />
+          {/* Masthead: cloud edges above and below, no hard line. */}
           <Section
             className="px"
             style={{
               backgroundColor: COLORS.creamWarm,
-              borderBottom: `3px solid ${INK}`,
               padding: "28px 40px 26px",
             }}
           >
@@ -382,6 +383,7 @@ export default function ShowcaseEmail({
               </Column>
             </Row>
           </Section>
+          <Cloud baseUrl={baseUrl} pair="creamwarm-cream" />
 
           {/* Intro line */}
           <Section className="px" style={{ padding: "22px 40px 4px" }}>
@@ -922,17 +924,17 @@ export default function ShowcaseEmail({
 
           {/* Social Theatre — its own world: mint band, no show cards.
               Hidden when no stories are tagged. */}
+          {social.length > 0 && <Cloud baseUrl={baseUrl} pair="cream-sky" />}
           {social.length > 0 && (
             <Section
               className="px"
               style={{
                 // Sky, not mint: the email backdrop is mint now, and the
-                // Social Theatre band must read as its own section.
+                // Social Theatre band must read as its own section. The
+                // cloud strips above and below ARE its edges, so no hard
+                // borders and no gap.
                 backgroundColor: COLORS.sky,
-                borderTop: `3px solid ${INK}`,
-                borderBottom: `3px solid ${INK}`,
                 padding: "30px 40px 24px",
-                marginTop: 30,
               }}
             >
               <Text className="intro-h" style={display(26, 0.94)}>
@@ -1046,6 +1048,7 @@ export default function ShowcaseEmail({
               ))}
             </Section>
           )}
+          {social.length > 0 && <Cloud baseUrl={baseUrl} pair="sky-cream" />}
 
           {/* Alliance website (deliberately no card, so it doesn't compete
               with the Spotlight boxes above) */}
@@ -1100,14 +1103,13 @@ export default function ShowcaseEmail({
             </Link>
           </Section>
 
-          {/* Footer */}
+          <Cloud baseUrl={baseUrl} pair="cream-purple" />
+          {/* Footer: rises out of the cream in cloud bumps, no hard line. */}
           <Section
             className="px"
             style={{
               backgroundColor: COLORS.purple,
-              borderTop: `3px solid ${INK}`,
               padding: "26px 40px",
-              marginTop: 28,
             }}
           >
             <Row style={{ marginBottom: 12 }}>

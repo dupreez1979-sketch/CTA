@@ -11,6 +11,7 @@ import {
   Preview,
 } from "@react-email/components";
 import { COLORS } from "../lib/tokens";
+import Cloud from "./Cloud";
 
 /**
  * Internal notification to the Alliance team when someone subscribes.
@@ -77,10 +78,11 @@ export default function NotifyEmail({
           width={680}
           style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
+          <Cloud baseUrl={baseUrl} pair="mint-creamwarm" />
+          {/* Masthead: cloud edges above and below, no hard line. */}
           <Section
             style={{
               backgroundColor: COLORS.creamWarm,
-              borderBottom: `3px solid ${INK}`,
               padding: "20px 40px",
             }}
           >
@@ -109,6 +111,7 @@ export default function NotifyEmail({
               New subscriber
             </span>
           </Section>
+          <Cloud baseUrl={baseUrl} pair="creamwarm-cream" />
 
           <Section style={{ padding: "24px 40px 8px" }}>
             <Text
@@ -158,12 +161,12 @@ export default function NotifyEmail({
             </table>
           </Section>
 
+          <Cloud baseUrl={baseUrl} pair="cream-purple" />
+          {/* Footer: rises out of the cream in cloud bumps, no hard line. */}
           <Section
             style={{
               backgroundColor: COLORS.purple,
-              borderTop: `3px solid ${INK}`,
               padding: "16px 40px",
-              marginTop: 24,
             }}
           >
             <Text style={{ margin: 0, fontSize: 12 }}>

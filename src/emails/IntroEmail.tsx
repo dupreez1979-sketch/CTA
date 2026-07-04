@@ -14,6 +14,7 @@ import {
   Preview,
 } from "@react-email/components";
 import { COLORS } from "../lib/tokens";
+import Cloud from "./Cloud";
 
 /**
  * One-off outreach email introducing the Alliance and the newsletter to
@@ -104,12 +105,12 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           width={680}
           style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
-          {/* Masthead */}
+          <Cloud baseUrl={baseUrl} pair="mint-creamwarm" />
+          {/* Masthead: cloud edges above and below, no hard line. */}
           <Section
             className="px"
             style={{
               backgroundColor: COLORS.creamWarm,
-              borderBottom: `3px solid ${INK}`,
               padding: "28px 40px 26px",
             }}
           >
@@ -156,6 +157,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
               </Column>
             </Row>
           </Section>
+          <Cloud baseUrl={baseUrl} pair="creamwarm-cream" />
 
           {/* Greeting */}
           <Section className="px" style={{ padding: "26px 40px 0" }}>
@@ -367,14 +369,13 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
             </table>
           </Section>
 
-          {/* Footer */}
+          <Cloud baseUrl={baseUrl} pair="cream-purple" />
+          {/* Footer: rises out of the cream in cloud bumps, no hard line. */}
           <Section
             className="px"
             style={{
               backgroundColor: COLORS.purple,
-              borderTop: `3px solid ${INK}`,
               padding: "26px 40px",
-              marginTop: 28,
             }}
           >
             <Row style={{ marginBottom: 14 }}>
