@@ -2041,77 +2041,86 @@ function BuilderStoryCard({
                       rows={2}
                       style={{ ...smallInput, width: "100%", resize: "vertical" }}
                     />
-                    <label
-                      style={
-                        it.showTitle
-                          ? fieldLabel
-                          : {
-                              ...fieldLabel,
+                    {!isSocial && (
+                      <>
+                        <label
+                          style={
+                            it.showTitle
+                              ? fieldLabel
+                              : {
+                                  ...fieldLabel,
+                                  color: "var(--cta-ink)",
+                                  fontWeight: 700,
+                                }
+                          }
+                        >
+                          Show title{!it.showTitle && " (needed for research)"}
+                        </label>
+                        <input
+                          form={`sc-${it.id}`}
+                          name="showTitle"
+                          defaultValue={it.showTitle ?? ""}
+                          placeholder="e.g. The Peasant Prince"
+                          style={
+                            it.showTitle
+                              ? { ...smallInput, width: "100%" }
+                              : {
+                                  ...smallInput,
+                                  width: "100%",
+                                  background: "#FFECCA",
+                                  boxShadow: "3px 3px 0 var(--cta-yellow)",
+                                }
+                          }
+                        />
+                        {!it.showTitle && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
                               color: "var(--cta-ink)",
-                              fontWeight: 700,
-                            }
-                      }
-                    >
-                      Show title{!it.showTitle && " (needed for research)"}
-                    </label>
-                    <input
-                      form={`sc-${it.id}`}
-                      name="showTitle"
-                      defaultValue={it.showTitle ?? ""}
-                      placeholder="e.g. The Peasant Prince"
-                      style={
-                        it.showTitle
-                          ? { ...smallInput, width: "100%" }
-                          : {
-                              ...smallInput,
-                              width: "100%",
-                              background: "#FFECCA",
-                              boxShadow: "3px 3px 0 var(--cta-yellow)",
-                            }
-                      }
-                    />
-                    {!it.showTitle && (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--cta-ink)",
-                          margin: "6px 0 2px",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        Type the show&#39;s name here, then press Save +
-                        research to fetch the official page, blurb and image.
-                      </div>
+                              margin: "6px 0 2px",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            Type the show&#39;s name here, then press Save +
+                            research to fetch the official page, blurb and
+                            image.
+                          </div>
+                        )}
+                        <label style={fieldLabel}>Age range</label>
+                        <input
+                          form={`sc-${it.id}`}
+                          name="showAgeRange"
+                          defaultValue={it.showAgeRange ?? ""}
+                          placeholder="e.g. ages 6 to 12"
+                          style={{ ...smallInput, width: "100%" }}
+                        />
+                      </>
                     )}
-                    <label style={fieldLabel}>Age range</label>
-                    <input
-                      form={`sc-${it.id}`}
-                      name="showAgeRange"
-                      defaultValue={it.showAgeRange ?? ""}
-                      placeholder="e.g. ages 6 to 12"
-                      style={{ ...smallInput, width: "100%" }}
-                    />
                   </div>
                   <div>
-                    <label style={fieldLabel}>Official show page URL</label>
-                    <input
-                      form={`sc-${it.id}`}
-                      name="showUrl"
-                      type="url"
-                      defaultValue={it.showUrl ?? ""}
-                      placeholder="https://company.com.au/shows/…"
-                      style={{ ...smallInput, width: "100%" }}
-                    />
-                    <label style={fieldLabel}>Official blurb</label>
-                    <textarea
-                      form={`sc-${it.id}`}
-                      name="showBlurb"
-                      defaultValue={it.showBlurb ?? ""}
-                      rows={3}
-                      placeholder="Official copy from the show page (falls back to the summary)"
-                      style={{ ...smallInput, width: "100%", resize: "vertical" }}
-                    />
+                    {!isSocial && (
+                      <>
+                        <label style={fieldLabel}>Official show page URL</label>
+                        <input
+                          form={`sc-${it.id}`}
+                          name="showUrl"
+                          type="url"
+                          defaultValue={it.showUrl ?? ""}
+                          placeholder="https://company.com.au/shows/…"
+                          style={{ ...smallInput, width: "100%" }}
+                        />
+                        <label style={fieldLabel}>Official blurb</label>
+                        <textarea
+                          form={`sc-${it.id}`}
+                          name="showBlurb"
+                          defaultValue={it.showBlurb ?? ""}
+                          rows={3}
+                          placeholder="Official copy from the show page (falls back to the summary)"
+                          style={{ ...smallInput, width: "100%", resize: "vertical" }}
+                        />
+                      </>
+                    )}
                     <label style={fieldLabel}>Image URL</label>
                     <input
                       form={`sc-${it.id}`}
@@ -2135,29 +2144,33 @@ function BuilderStoryCard({
                   <button form={`sc-${it.id}`} type="submit" style={smallButton}>
                     Save
                   </button>
-                  <button
-                    form={`sc-${it.id}`}
-                    type="submit"
-                    formAction="/api/admin/presenter-research"
-                    style={{ ...smallButton, background: "var(--cta-white)" }}
-                  >
-                    {it.presenterResearchedAt ? "Save + re-research" : "Save + research"}
-                  </button>
-                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                    <input
-                      type="hidden"
-                      name="action"
-                      value={featured && !isSocial ? "unfeature" : "feature"}
-                    />
-                    <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={editionId} />
+                  {!isSocial && (
                     <button
+                      form={`sc-${it.id}`}
                       type="submit"
-                      style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                      formAction="/api/admin/presenter-research"
+                      style={{ ...smallButton, background: "var(--cta-white)" }}
                     >
-                      {featured && !isSocial ? "Remove profile" : "Make profile"}
+                      {it.presenterResearchedAt ? "Save + re-research" : "Save + research"}
                     </button>
-                  </form>
+                  )}
+                  {!isSocial && (
+                    <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                      <input
+                        type="hidden"
+                        name="action"
+                        value={featured ? "unfeature" : "feature"}
+                      />
+                      <input type="hidden" name="id" value={it.id} />
+                      <input type="hidden" name="edition" value={editionId} />
+                      <button
+                        type="submit"
+                        style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                      >
+                        {featured ? "Remove profile" : "Make profile"}
+                      </button>
+                    </form>
+                  )}
                   <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
                     <input
                       type="hidden"
@@ -2186,17 +2199,19 @@ function BuilderStoryCard({
                       </button>
                     </form>
                   )}
-                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                    <input type="hidden" name="action" value="add-show" />
-                    <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={editionId} />
-                    <button
-                      type="submit"
-                      style={{ ...smallButton, background: "var(--cta-white)" }}
-                    >
-                      Add to Spotlight shows
-                    </button>
-                  </form>
+                  {!isSocial && (
+                    <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                      <input type="hidden" name="action" value="add-show" />
+                      <input type="hidden" name="id" value={it.id} />
+                      <input type="hidden" name="edition" value={editionId} />
+                      <button
+                        type="submit"
+                        style={{ ...smallButton, background: "var(--cta-white)" }}
+                      >
+                        Add to Spotlight shows
+                      </button>
+                    </form>
+                  )}
                   <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
                     <input type="hidden" name="action" value="remove" />
                     <input type="hidden" name="id" value={it.id} />
@@ -2209,7 +2224,7 @@ function BuilderStoryCard({
                     </ConfirmSubmit>
                   </form>
                 </div>
-                {!showsPageUrl && (
+                {!isSocial && !showsPageUrl && (
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
                     Research needs {company}&#39;s shows
                     page URL before it can find this show. Add it on the

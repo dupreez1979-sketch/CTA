@@ -45,18 +45,16 @@ export async function POST(request: NextRequest) {
     const aiSummary = String(form.get("aiSummary") ?? "").trim();
     if (!aiHeading || !aiSummary)
       return redirect("Heading and summary can't be empty");
-    await db()
-      .update(feedItems)
-      .set({
-        aiHeading,
-        aiSummary,
-        showTitle: val("showTitle"),
-        showUrl: val("showUrl"),
-        showBlurb: val("showBlurb"),
-        showAgeRange: val("showAgeRange"),
-        showImageUrl: val("showImageUrl"),
-      })
-      .where(eq(feedItems.id, id));
+    // Social Theatre cards submit a reduced form (no show fields) — only
+    // touch the fields that were actually present, so hidden show details
+    // survive a save.
+    const set: Partial<typeof feedItems.$inferInsert> = { aiHeading, aiSummary };
+    if (form.has("showTitle")) set.showTitle = val("showTitle");
+    if (form.has("showUrl")) set.showUrl = val("showUrl");
+    if (form.has("showBlurb")) set.showBlurb = val("showBlurb");
+    if (form.has("showAgeRange")) set.showAgeRange = val("showAgeRange");
+    if (form.has("showImageUrl")) set.showImageUrl = val("showImageUrl");
+    await db().update(feedItems).set(set).where(eq(feedItems.id, id));
     return redirect(`Saved "${item.showTitle ?? aiHeading}"`);
   }
 

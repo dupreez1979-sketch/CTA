@@ -604,7 +604,8 @@ export function buildShowcaseProps(
       heading: it.aiHeading,
       summary: it.aiSummary,
       postUrl: it.postUrl,
-      imageUrl: absolutizeImage(it.imageUrl, baseUrl),
+      // The admin Image URL field overrides the post image here too.
+      imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
     }));
   const socialIds = new Set(
     entries.filter((e) => e.social).map((e) => e.item.id),
