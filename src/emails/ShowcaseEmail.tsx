@@ -900,6 +900,58 @@ export default function ShowcaseEmail({
             </Section>
           )}
 
+          {/* Alliance website (deliberately no card, so it doesn't compete
+              with the Spotlight boxes above) */}
+          <Section
+            className="px"
+            style={{ padding: "38px 34px 12px", textAlign: "center" as const }}
+          >
+            <Img
+              src={logo}
+              alt="The Children's Theatre Alliance"
+              className="logo"
+              height={84}
+              style={{
+                display: "block",
+                height: 84,
+                width: "auto",
+                margin: "0 auto 18px",
+              }}
+            />
+            <Text
+              style={{
+                fontFamily: FONT_BODY,
+                fontSize: 14,
+                lineHeight: 1.55,
+                color: COLORS.textBody,
+                textAlign: "center" as const,
+                margin: "0 0 18px",
+              }}
+            >
+              The national platform of Australia&#39;s professional theatre
+              companies making work for children.
+            </Text>
+            <Link
+              href="https://www.childrenstheatrealliance.com.au/"
+              className="feat-btn"
+              style={{
+                display: "inline-block",
+                fontFamily: FONT_BODY,
+                fontWeight: 700,
+                fontSize: 14,
+                color: INK,
+                backgroundColor: COLORS.yellow,
+                border: `2px solid ${INK}`,
+                borderRadius: 12,
+                padding: "11px 20px",
+                textDecoration: "none",
+                boxShadow: `4px 4px 0 ${INK}`,
+              }}
+            >
+              Visit childrenstheatrealliance.com.au →
+            </Link>
+          </Section>
+
           {/* Social Theatre — its own world: mint band, no show cards.
               Hidden when no stories are tagged. */}
           {social.length > 0 && (
@@ -908,9 +960,8 @@ export default function ShowcaseEmail({
               style={{
                 backgroundColor: COLORS.mint,
                 borderTop: `3px solid ${INK}`,
-                borderBottom: `3px solid ${INK}`,
-                padding: "30px 34px 24px",
-                marginTop: 30,
+                padding: "30px 34px 28px",
+                marginTop: 34,
               }}
             >
               <Text className="intro-h" style={display(26, 0.94)}>
@@ -1023,58 +1074,6 @@ export default function ShowcaseEmail({
             </Section>
           )}
 
-          {/* Alliance website (deliberately no card, so it doesn't compete
-              with the Spotlight boxes above) */}
-          <Section
-            className="px"
-            style={{ padding: "38px 34px 12px", textAlign: "center" as const }}
-          >
-            <Img
-              src={logo}
-              alt="The Children's Theatre Alliance"
-              className="logo"
-              height={84}
-              style={{
-                display: "block",
-                height: 84,
-                width: "auto",
-                margin: "0 auto 18px",
-              }}
-            />
-            <Text
-              style={{
-                fontFamily: FONT_BODY,
-                fontSize: 14,
-                lineHeight: 1.55,
-                color: COLORS.textBody,
-                textAlign: "center" as const,
-                margin: "0 0 18px",
-              }}
-            >
-              The national platform of Australia&#39;s professional theatre
-              companies making work for children.
-            </Text>
-            <Link
-              href="https://www.childrenstheatrealliance.com.au/"
-              className="feat-btn"
-              style={{
-                display: "inline-block",
-                fontFamily: FONT_BODY,
-                fontWeight: 700,
-                fontSize: 14,
-                color: INK,
-                backgroundColor: COLORS.yellow,
-                border: `2px solid ${INK}`,
-                borderRadius: 12,
-                padding: "11px 20px",
-                textDecoration: "none",
-                boxShadow: `4px 4px 0 ${INK}`,
-              }}
-            >
-              Visit childrenstheatrealliance.com.au →
-            </Link>
-          </Section>
-
           {/* Footer */}
           <Section
             className="px"
@@ -1082,7 +1081,7 @@ export default function ShowcaseEmail({
               backgroundColor: COLORS.purple,
               borderTop: `3px solid ${INK}`,
               padding: "26px 34px",
-              marginTop: 28,
+              marginTop: social.length > 0 ? 0 : 28,
             }}
           >
             <Row style={{ marginBottom: 12 }}>
