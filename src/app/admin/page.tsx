@@ -32,7 +32,9 @@ import {
   formatSydneyDateTime,
   nextSendAt,
 } from "@/lib/cadence";
+import Link from "next/link";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
+import MoveButtons from "@/components/MoveButtons";
 
 export const dynamic = "force-dynamic";
 
@@ -147,14 +149,14 @@ export default async function AdminPage({
 
       <nav className="admin-tabs">
         {TABS.map((t) => (
-          <a
+          <Link
             key={t.id}
             href={`/admin?tab=${t.id}`}
             className="admin-tab"
             aria-current={tab === t.id}
           >
             {t.label}
-          </a>
+          </Link>
         ))}
       </nav>
 
@@ -991,13 +993,13 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const eSortLink = (key: string, label: string) => {
     const nextDir = esort === key && edir === "desc" ? "asc" : "desc";
     return (
-      <a
+      <Link
         href={`/admin?tab=presenters&esort=${key}&edir=${nextDir}`}
         style={{ color: "inherit", textDecoration: "none" }}
       >
         {label}
         {esort === key ? (edir === "asc" ? " ↑" : " ↓") : ""}
-      </a>
+      </Link>
     );
   };
 
@@ -1052,7 +1054,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                     <td style={td}>{e.recipients ?? ""}</td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {editable && (
-                        <a
+                        <Link
                           href={`/admin?tab=presenters&edition=${e.id}`}
                           style={{
                             ...smallButton,
@@ -1062,7 +1064,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                           }}
                         >
                           Edit
-                        </a>
+                        </Link>
                       )}
                       <a
                         href={`/admin/preview/presenter?edition=${e.id}`}
@@ -1389,7 +1391,7 @@ function StoryPoolTable({
     return `/admin?${q.toString()}`;
   };
   const sortLink = (key: ShowcaseListParams["sort"], label: string) => (
-    <a
+    <Link
       href={href({
         sort: key,
         dir: params.sort === key && params.dir === "desc" ? "asc" : "desc",
@@ -1398,7 +1400,7 @@ function StoryPoolTable({
     >
       {label}
       {params.sort === key ? (params.dir === "asc" ? " ↑" : " ↓") : ""}
-    </a>
+    </Link>
   );
   const passthrough = (
     <>
@@ -1464,7 +1466,7 @@ function StoryPoolTable({
           Filter
         </button>
         {isFiltered && (
-          <a
+          <Link
             href={
               editionId
                 ? `/admin?tab=presenters&edition=${editionId}`
@@ -1473,7 +1475,7 @@ function StoryPoolTable({
             style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
           >
             Clear
-          </a>
+          </Link>
         )}
       </form>
       {rows.length === 0 ? (
@@ -1481,9 +1483,9 @@ function StoryPoolTable({
           {params.pg > 1 ? (
             <>
               No more stories this far back.{" "}
-              <a href={href({})} style={{ color: "var(--cta-ink)", fontWeight: 600 }}>
+              <Link href={href({})} style={{ color: "var(--cta-ink)", fontWeight: 600 }}>
                 Back to the first page
-              </a>
+              </Link>
             </>
           ) : (
             "No stories match this view. Try All ratings or a different search."
@@ -1634,23 +1636,23 @@ function StoryPoolTable({
               }}
             >
               {params.pg > 1 && (
-                <a
+                <Link
                   href={href({ pg: params.pg - 1 })}
                   style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
                 >
                   ← Previous
-                </a>
+                </Link>
               )}
               <span style={{ color: "var(--text-muted)" }}>
                 Page {params.pg}
               </span>
               {hasMore && (
-                <a
+                <Link
                   href={href({ pg: params.pg + 1 })}
                   style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
                 >
                   Further back →
-                </a>
+                </Link>
               )}
             </div>
           )}
@@ -1727,12 +1729,12 @@ async function EditionBuilder({
             : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${socialCount} Social Theatre stor${socialCount === 1 ? "y" : "ies"}, ${entries.length - profileCount - socialCount} more stor${entries.length - profileCount - socialCount === 1 ? "y" : "ies"}, ${editionShows.length} spotlight show${editionShows.length === 1 ? "" : "s"}.`}
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <a
+          <Link
             href="/admin?tab=presenters"
             style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
           >
             ← All editions
-          </a>
+          </Link>
           <a
             href={`/admin/preview/presenter?edition=${edition.id}`}
             target="_blank"
@@ -2277,32 +2279,7 @@ function BuilderStoryCard({
                   </div>
                 )}
               </details>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <form action="/api/admin/presenter-item" method="post">
-                  <input type="hidden" name="action" value="move-up" />
-                  <input type="hidden" name="id" value={it.id} />
-                  <input type="hidden" name="edition" value={editionId} />
-                  <button
-                    type="submit"
-                    aria-label="Move up"
-                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
-                  >
-                    ▲
-                  </button>
-                </form>
-                <form action="/api/admin/presenter-item" method="post">
-                  <input type="hidden" name="action" value="move-down" />
-                  <input type="hidden" name="id" value={it.id} />
-                  <input type="hidden" name="edition" value={editionId} />
-                  <button
-                    type="submit"
-                    aria-label="Move down"
-                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
-                  >
-                    ▼
-                  </button>
-                </form>
-              </div>
+              <MoveButtons editionId={editionId} itemId={it.id} />
             </div>
   );
 }

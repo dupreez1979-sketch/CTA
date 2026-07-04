@@ -32,6 +32,22 @@ export async function POST(request: NextRequest) {
     });
   if (!Number.isInteger(id)) return redirect("Invalid input");
 
+  // Moves are the hottest button in the builder: handled first, with no
+  // preliminary lookups (the single-statement swap enforces everything).
+  if (action === "move-up" || action === "move-down") {
+    const editionIdForMove = Number(form.get("edition"));
+    if (!Number.isInteger(editionIdForMove) || editionIdForMove <= 0)
+      return redirect("Invalid input");
+    const moved = await moveEditionItem(
+      editionIdForMove,
+      id,
+      action === "move-up" ? "up" : "down",
+    );
+    if (!moved)
+      return redirect(action === "move-up" ? "Already first" : "Already last");
+    return redirect(action === "move-up" ? "Moved up" : "Moved down");
+  }
+
   const [item] = await db()
     .select()
     .from(feedItems)
@@ -179,17 +195,6 @@ export async function POST(request: NextRequest) {
     return redirect(
       action === "feature" ? "Marked as a profile" : "No longer a profile",
     );
-  }
-
-  if (action === "move-up" || action === "move-down") {
-    const moved = await moveEditionItem(
-      editionId,
-      id,
-      action === "move-up" ? "up" : "down",
-    );
-    if (!moved)
-      return redirect(action === "move-up" ? "Already first" : "Already last");
-    return redirect(action === "move-up" ? "Moved up" : "Moved down");
   }
 
   if (action === "add-show") {

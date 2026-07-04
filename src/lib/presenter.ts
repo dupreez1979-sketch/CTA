@@ -352,34 +352,48 @@ export async function removeItemFromEdition(
   );
 }
 
+/**
+ * Swap a story with its neighbour in the same group (news vs Social
+ * Theatre) in ONE statement: the CTE finds the target (only in editable
+ * editions) and its group neighbour, then both rows trade positions.
+ * Returns false at the group's edge, for unknown items, and for sent
+ * editions (zero rows updated in each case).
+ */
 export async function moveEditionItem(
   editionId: number,
   feedItemId: number,
   dir: "up" | "down",
 ): Promise<boolean> {
-  const entries = await getEditionItems(editionId);
-  const target = entries.find((e) => e.item.id === feedItemId);
-  if (!target) return false;
-  // News stories and Social Theatre stories are shown (and rendered) as
-  // separate groups, so an arrow swaps with the neighbour in the SAME
-  // group; positions stay global.
-  const group = entries.filter((e) => e.social === target.social);
-  const swapped = swapPositions(
-    group.map((e) => e.item.id),
-    feedItemId,
-    dir,
-  );
-  if (!swapped) return false;
-  const posByGroupSlot = group.map((e) => e.position);
-  const newOrder = entries.map((e) => e.item.id);
-  swapped.forEach((id, slot) => {
-    const globalIdx = entries.findIndex(
-      (e) => e.position === posByGroupSlot[slot],
-    );
-    newOrder[globalIdx] = id;
-  });
-  await renumberEdition(editionId, newOrder);
-  return true;
+  const cmp = dir === "up" ? sql`<` : sql`>`;
+  const ord = dir === "up" ? sql`desc` : sql`asc`;
+  const rows = await db().execute(sql`
+    with target as (
+      select ei.feed_item_id, ei.position, ei.social
+      from ${showcaseEditionItems} ei
+      join ${showcaseEditions} e
+        on e.id = ei.edition_id and e.status in ('draft', 'failed')
+      where ei.edition_id = ${editionId} and ei.feed_item_id = ${feedItemId}
+    ),
+    neighbour as (
+      select ei.feed_item_id, ei.position
+      from ${showcaseEditionItems} ei, target t
+      where ei.edition_id = ${editionId}
+        and ei.social = t.social
+        and ei.position ${cmp} t.position
+      order by ei.position ${ord}
+      limit 1
+    )
+    update ${showcaseEditionItems} ei
+    set position = case
+      when ei.feed_item_id = t.feed_item_id then n.position
+      else t.position
+    end
+    from target t, neighbour n
+    where ei.edition_id = ${editionId}
+      and ei.feed_item_id in (t.feed_item_id, n.feed_item_id)
+    returning ei.feed_item_id
+  `);
+  return rows.length === 2;
 }
 
 /** Returns false when a third profile was attempted. */
