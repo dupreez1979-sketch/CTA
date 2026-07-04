@@ -119,8 +119,11 @@ const MOBILE_STYLES = `
   .thumb-box { width: 100px !important; height: 100px !important; }
   .thumb-img { width: 100px !important; height: 100px !important; }
   .show-h { font-size: 22px !important; }
+  .sub-h { font-size: 15px !important; }
   .grid-cell { display: block !important; width: 100% !important; padding: 0 0 16px 0 !important; }
   .grid-img { height: 200px !important; }
+  /* Stacked cards don't need matching heights, so let titles flow free. */
+  .grid-title { font-size: 23px !important; line-height: 1.1 !important; height: auto !important; }
   .footer-p { font-size: 14px !important; }
   .footer-link { font-size: 14px !important; }
 }
@@ -136,6 +139,11 @@ const GRID_HEXES = [
   COLORS.purple,
 ];
 
+/**
+ * One Spotlight card. Every content slot has a FIXED height (empty slots
+ * keep their space) so all cards in the grid end up exactly the same
+ * height regardless of title length, missing age range or missing link.
+ */
 function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
   return (
     <table
@@ -169,8 +177,13 @@ function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
         <tr>
           <td style={{ padding: "12px 14px 14px" }}>
             <Text
-              className="show-h"
-              style={{ ...display(19, 1), margin: "0 0 4px" }}
+              className="grid-title"
+              style={{
+                ...display(19, 1.1),
+                height: 42,
+                overflow: "hidden",
+                margin: "0 0 4px",
+              }}
             >
               {s.title}
             </Text>
@@ -180,18 +193,18 @@ function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
                 fontWeight: 600,
                 fontSize: 12,
                 color: COLORS.textMuted,
+                height: 18,
+                overflow: "hidden",
                 margin: "0 0 8px",
               }}
             >
               {s.company}
             </Text>
-            {s.ageRange && (
-              <Text style={{ margin: "0 0 8px" }}>
-                <AgeChip ageRange={s.ageRange} />
-              </Text>
-            )}
-            {s.url && (
-              <Text style={{ margin: 0 }}>
+            <Text style={{ height: 30, margin: "0 0 8px" }}>
+              {s.ageRange ? <AgeChip ageRange={s.ageRange} /> : " "}
+            </Text>
+            <Text style={{ height: 20, margin: 0 }}>
+              {s.url ? (
                 <Link
                   href={s.url}
                   className="item-link"
@@ -207,8 +220,10 @@ function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
                 >
                   Show page →
                 </Link>
-              </Text>
-            )}
+              ) : (
+                " "
+              )}
+            </Text>
           </td>
         </tr>
       </tbody>
@@ -359,7 +374,7 @@ export default function ShowcaseEmail({
               Discover Australia&#39;s best children&#39;s theatre
             </Text>
             <Text
-              className="date-meta"
+              className="sub-h"
               style={{
                 fontFamily: FONT_BODY,
                 fontWeight: 700,
