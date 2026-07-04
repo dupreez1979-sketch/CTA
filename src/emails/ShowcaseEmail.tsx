@@ -223,7 +223,7 @@ function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
                     paddingBottom: 1,
                   }}
                 >
-                  Show page →
+                  Show Page →
                 </Link>
               ) : (
                 " "
@@ -502,7 +502,7 @@ export default function ShowcaseEmail({
                             paddingBottom: 1,
                           }}
                         >
-                          More →
+                          Read More →
                         </Link>
                       </Text>
 
@@ -579,7 +579,7 @@ export default function ShowcaseEmail({
                                       boxShadow: `3px 3px 0 ${INK}`,
                                     }}
                                   >
-                                    More →
+                                    Show Page →
                                   </Link>
                                 )}
                               </td>
@@ -606,7 +606,7 @@ export default function ShowcaseEmail({
                               boxShadow: `3px 3px 0 ${INK}`,
                             }}
                           >
-                            More →
+                            Show Page →
                           </Link>
                         </Text>
                       )}
@@ -732,7 +732,7 @@ export default function ShowcaseEmail({
                                         paddingBottom: 1,
                                       }}
                                     >
-                                      More →
+                                      Read More →
                                     </Link>
                                   </Text>
                                 </td>
@@ -816,7 +816,7 @@ export default function ShowcaseEmail({
                                                     paddingBottom: 1,
                                                   }}
                                                 >
-                                                  More →
+                                                  Show Page →
                                                 </Link>
                                               </Text>
                                             )}
@@ -1018,7 +1018,7 @@ export default function ShowcaseEmail({
                               paddingBottom: 1,
                             }}
                           >
-                            More →
+                            Read More →
                           </Link>
                         </Text>
                       </td>
