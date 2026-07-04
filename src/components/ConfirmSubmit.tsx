@@ -16,6 +16,7 @@ export default function ConfirmSubmit({
   form,
   title = "Just checking",
   confirmLabel = "Yes, go ahead",
+  danger = false,
 }: {
   message: string;
   children: React.ReactNode;
@@ -23,6 +24,8 @@ export default function ConfirmSubmit({
   form?: string;
   title?: string;
   confirmLabel?: string;
+  /** Pink confirm button for destructive or mass-send actions. */
+  danger?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -49,6 +52,7 @@ export default function ConfirmSubmit({
         title={title}
         message={message}
         confirmLabel={confirmLabel}
+        danger={danger}
         onConfirm={submit}
         onClose={() => setOpen(false)}
       />

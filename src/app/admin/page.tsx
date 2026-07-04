@@ -34,6 +34,7 @@ import {
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
+  issueWindow,
   nextSendAt,
 } from "@/lib/cadence";
 import Link from "next/link";
@@ -104,9 +105,12 @@ const smallButton: React.CSSProperties = {
   padding: "6px 12px",
   cursor: "pointer",
 };
+// Button colour semantics, applied everywhere in the admin:
+//   purple = constructive (save, add, create)   yellow = emails real people
+//   white  = neutral (preview, navigate, copy)  pink   = destructive
 const dangerButton: React.CSSProperties = {
   ...smallButton,
-  background: "var(--cta-white)",
+  background: "var(--cta-pink)",
 };
 const inputStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)",
@@ -348,27 +352,27 @@ async function OverviewTab({
           </div>
         </div>
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "14px 0 0" }}>
-          Issues go out with the morning pipeline run — 7:00 am Sydney time
-          during winter (AEST) and 8:00 am during daylight saving (AEDT). A
-          quiet window is skipped, never sent empty.
+          Newsletters go out with the morning pipeline run: 7:00 am Sydney
+          time during winter (AEST) and 8:00 am during daylight saving
+          (AEDT). A quiet window is skipped, never sent empty.
         </p>
       </section>
 
       <section className="admin-card">
         <h2 style={h2}>Recent sends</h2>
         <p style={muted}>
-          Every dispatched edition: the daily, weekly and fortnightly issues
-          and each live Showcase send. Click a recipient count to see exactly
-          who received it.
+          Every dispatched edition: the daily, weekly and fortnightly
+          newsletters and each live Showcase send. Click a recipient count to
+          see exactly who received it.
         </p>
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={th}>Edition</th>
+                <th style={th}>Type</th>
                 <th style={th}>Window</th>
                 <th style={th}>Status</th>
-                <th style={th}>Items</th>
+                <th style={th}>Stories</th>
                 <th style={th}>Recipients</th>
                 <th style={th}>Sent at</th>
               </tr>
@@ -384,7 +388,21 @@ async function OverviewTab({
                     )}
                   </td>
                   <td style={td}>{r.label}</td>
-                  <td style={td}>{r.status}</td>
+                  <td style={td}>
+                    <span
+                      style={badge(
+                        r.status === "sent"
+                          ? "var(--cta-emerald)"
+                          : r.status === "failed"
+                            ? "var(--cta-pink)"
+                            : r.status === "sending"
+                              ? "var(--cta-yellow)"
+                              : "var(--cta-white)",
+                      )}
+                    >
+                      {r.status}
+                    </span>
+                  </td>
                   <td style={td}>{r.items}</td>
                   <td style={td}>
                     {r.href ? (
@@ -409,9 +427,21 @@ async function OverviewTab({
               {pageSends.length === 0 && (
                 <tr>
                   <td style={td} colSpan={6}>
-                    {opg > 1
-                      ? "No sends this far back."
-                      : "No sends yet. The pipeline hasn't run."}
+                    {opg > 1 ? (
+                      "No sends this far back."
+                    ) : (
+                      <>
+                        No sends yet. Fetch posts and send from the{" "}
+                        <Link
+                          prefetch={false}
+                          href="/admin?tab=editions"
+                          style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                        >
+                          Editions tab
+                        </Link>
+                        .
+                      </>
+                    )}
                   </td>
                 </tr>
               )}
@@ -422,37 +452,34 @@ async function OverviewTab({
           <div
             style={{
               display: "flex",
-              gap: 14,
-              justifyContent: "space-between",
+              gap: 12,
+              alignItems: "center",
               marginTop: 12,
-              fontSize: 13.5,
-              fontWeight: 600,
             }}
           >
-            <span>
-              {opg > 1 && (
-                <Link
-                  prefetch={false}
-                  scroll={false}
-                  href={`/admin?tab=overview&opg=${opg - 1}`}
-                  style={{ color: "var(--cta-ink)" }}
-                >
-                  ← Newer
-                </Link>
-              )}
+            {opg > 1 && (
+              <Link
+                prefetch={false}
+                scroll={false}
+                href={`/admin?tab=overview&opg=${opg - 1}`}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+              >
+                ← Previous
+              </Link>
+            )}
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)" }}>
+              Page {opg}
             </span>
-            <span>
-              {hasMoreSends && (
-                <Link
-                  prefetch={false}
-                  scroll={false}
-                  href={`/admin?tab=overview&opg=${opg + 1}`}
-                  style={{ color: "var(--cta-ink)" }}
-                >
-                  Further back →
-                </Link>
-              )}
-            </span>
+            {hasMoreSends && (
+              <Link
+                prefetch={false}
+                scroll={false}
+                href={`/admin?tab=overview&opg=${opg + 1}`}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+              >
+                Next →
+              </Link>
+            )}
           </div>
         )}
       </section>
@@ -537,6 +564,7 @@ async function AiCreditsCard() {
             style={{ ...smallInput, width: 110 }}
             aria-label="Credits budget in USD"
           />
+          <label style={fieldLabel}>USD budget</label>
           <button type="submit" style={smallButton}>
             Set budget
           </button>
@@ -545,7 +573,7 @@ async function AiCreditsCard() {
           <input type="hidden" name="action" value="reset" />
           <ConfirmSubmit
             message="Reset the usage bar to zero? Do this after buying credits so the bar tracks the new balance."
-            style={dangerButton}
+            style={{ ...smallButton, background: "var(--cta-white)" }}
           >
             Mark as topped up
           </ConfirmSubmit>
@@ -560,6 +588,20 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   if (Number.isInteger(issueId) && issueId > 0) {
     return <IssueRecipientsView issueId={issueId} sp={sp} />;
   }
+  // What exactly would "Send now" dispatch? Show the window and audience
+  // next to the button, so the click is never a mystery.
+  const cadenceCounts = await db()
+    .select({
+      cadence: subscribers.cadence,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(subscribers)
+    .where(eq(subscribers.status, "active"))
+    .groupBy(subscribers.cadence);
+  const subsByCadence = Object.fromEntries(
+    cadenceCounts.map((c) => [c.cadence, c.count]),
+  );
+  const now = new Date();
   return (
     <>
       <section className="admin-card">
@@ -576,7 +618,11 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Preview the next issue</h2>
+        <h2 style={h2}>Preview the next newsletter</h2>
+        <p style={muted}>
+          Opens the newsletter exactly as it would send right now, using the
+          posts currently in each window. Nothing is sent.
+        </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {CADENCES.map((c) => (
             <a
@@ -597,26 +643,39 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
 
       <section className="admin-card">
         <h2 style={h2}>Send a test</h2>
+        <p style={muted}>
+          Emails the chosen newsletter to these addresses only, marked
+          [TEST]. Separate several with commas.
+        </p>
         <form
           action="/api/admin/send-test"
           method="post"
           style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}
         >
-          <input
-            type="text"
-            name="to"
-            required
-            placeholder="you@example.org, colleague@example.org"
-            style={{ ...inputStyle, minWidth: 220, flex: "1 1 220px" }}
-          />
-          <select name="cadence" style={inputStyle}>
-            {CADENCES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <button type="submit" style={buttonStyle}>
+          <div style={{ flex: "1 1 220px" }}>
+            <label style={fieldLabel}>Send to</label>
+            <input
+              type="text"
+              name="to"
+              required
+              placeholder="you@example.org, colleague@example.org"
+              style={{ ...inputStyle, width: "100%" }}
+            />
+          </div>
+          <div>
+            <label style={fieldLabel}>Newsletter</label>
+            <select name="cadence" style={inputStyle}>
+              {CADENCES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+          >
             Send test
           </button>
         </form>
@@ -625,22 +684,44 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
       <section className="admin-card">
         <h2 style={h2}>Send now</h2>
         <p style={muted}>
-          Sends the current window&#39;s issue to all active subscribers of
-          that cadence. Safe to click twice — an already-sent window is never
-          re-sent.
+          Sends the current window&#39;s newsletter to every active subscriber
+          of that cadence. A window with no posts is reported as
+          &quot;skipped&quot; and nothing goes out; an already-sent window is
+          never re-sent, so the buttons are safe to click twice.
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {CADENCES.map((c) => (
-            <form key={c} action="/api/admin/send-now" method="post">
-              <input type="hidden" name="cadence" value={c} />
-              <button
-                type="submit"
-                style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+          {CADENCES.map((c) => {
+            const w = issueWindow(c, now);
+            const n = subsByCadence[c] ?? 0;
+            return (
+              <form
+                key={c}
+                action="/api/admin/send-now"
+                method="post"
+                style={{ ...tile, flex: "1 1 200px" }}
               >
-                Send {c} now
-              </button>
-            </form>
-          ))}
+                <input type="hidden" name="cadence" value={c} />
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginBottom: 8,
+                  }}
+                >
+                  {w.dateRange} · {n} subscriber{n === 1 ? "" : "s"}
+                </div>
+                <ConfirmSubmit
+                  title="Sending for real"
+                  message={`Send the ${c} newsletter (${w.dateRange}) to ${n} subscriber${n === 1 ? "" : "s"} now? This can't be undone.`}
+                  confirmLabel="Yes, send it now"
+                  danger
+                  style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+                >
+                  Send {c} now
+                </ConfirmSubmit>
+              </form>
+            );
+          })}
         </div>
       </section>
     </>
@@ -709,7 +790,9 @@ async function SubscribersTab({
   );
 
   const subSortLink = (key: string, label: string) => {
-    const nextDir = ssort === key && sdir === "asc" ? "desc" : "asc";
+    const firstDir = key === "joined" ? "desc" : "asc";
+    const nextDir =
+      ssort === key ? (sdir === "asc" ? "desc" : "asc") : firstDir;
     const params = new URLSearchParams({
       tab: "subscribers",
       ssort: key,
@@ -923,13 +1006,24 @@ async function SubscribersTab({
                     </button>
                   </form>
                 </td>
-                <td style={td}>{s.status}</td>
+                <td style={td}>
+                  <span
+                    style={badge(
+                      s.status === "active"
+                        ? "var(--cta-emerald)"
+                        : "var(--cta-pink)",
+                    )}
+                  >
+                    {s.status}
+                  </span>
+                </td>
                 <td style={td}>{s.createdAt.toISOString().slice(0, 10)}</td>
                 <td style={td}>
                   <form action="/api/admin/delete-subscriber" method="post">
                     <input type="hidden" name="id" value={s.id} />
                     <ConfirmSubmit
-                      message={`Delete ${s.email} permanently? They will stop receiving all dispatches and their record is removed.`}
+                      message={`Delete ${s.email} permanently? They will stop receiving every email from us and their record is removed.`}
+                      danger
                       style={dangerButton}
                     >
                       Delete
@@ -950,6 +1044,10 @@ async function SubscribersTab({
           </tbody>
         </table>
       </div>
+      <p style={{ ...muted, margin: "12px 0 0", fontSize: 12.5 }}>
+        Click a name for everything that person has received. Setting someone
+        to &quot;Showcase only&quot; always includes The Showcase Edition.
+      </p>
     </section>
 
     <section className="admin-card">
@@ -957,51 +1055,64 @@ async function SubscribersTab({
       <p style={muted}>
         Adds someone directly, exactly as if they signed up themselves. If
         the address is already subscribed, their details and choices are
-        updated instead.
+        updated instead. Choosing &quot;Showcase only&quot; always includes
+        The Showcase Edition.
       </p>
       <form
         action="/api/admin/add-subscriber"
         method="post"
         style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
       >
-        <input
-          type="text"
-          name="firstName"
-          required
-          placeholder="First name"
-          style={{ ...inputStyle, flex: "1 1 130px", minWidth: 120 }}
-        />
-        <input
-          type="text"
-          name="lastName"
-          required
-          placeholder="Last name"
-          style={{ ...inputStyle, flex: "1 1 130px", minWidth: 120 }}
-        />
-        <input
-          type="email"
-          name="email"
-          required
-          placeholder="them@example.org"
-          style={{ ...inputStyle, flex: "2 1 200px", minWidth: 180 }}
-        />
-        <select name="cadence" defaultValue="weekly" style={inputStyle}>
-          {CADENCES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-          <option value="none">Showcase only</option>
-        </select>
-        <select
-          name="showcase"
-          defaultValue="1"
-          title="The Showcase Edition"
-          style={{ ...inputStyle, background: "var(--cta-mint)" }}
-        >
-          <option value="1">+ Showcase</option>
-          <option value="0">no Showcase</option>
-        </select>
+        <div style={{ flex: "1 1 130px" }}>
+          <label style={fieldLabel}>First name</label>
+          <input
+            type="text"
+            name="firstName"
+            required
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
+        <div style={{ flex: "1 1 130px" }}>
+          <label style={fieldLabel}>Last name</label>
+          <input
+            type="text"
+            name="lastName"
+            required
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
+        <div style={{ flex: "2 1 200px" }}>
+          <label style={fieldLabel}>Email</label>
+          <input
+            type="email"
+            name="email"
+            required
+            placeholder="them@example.org"
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
+        <div>
+          <label style={fieldLabel}>Receives</label>
+          <select name="cadence" defaultValue="weekly" style={inputStyle}>
+            {CADENCES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            <option value="none">Showcase only</option>
+          </select>
+        </div>
+        <div>
+          <label style={fieldLabel}>Showcase Edition</label>
+          <select
+            name="showcase"
+            defaultValue="1"
+            style={{ ...inputStyle, background: "var(--cta-mint)" }}
+          >
+            <option value="1">+ Showcase</option>
+            <option value="0">no Showcase</option>
+          </select>
+        </div>
         <button type="submit" style={buttonStyle}>
           Add subscriber
         </button>
@@ -1079,11 +1190,15 @@ async function SettingsTab() {
               marginBottom: 12,
             }}
           >
-            <select name="kind" style={inputStyle}>
-              <option value="alliance">Introduce the Alliance</option>
-              <option value="newsletter">Introduce the newsletter</option>
-            </select>
+            <div>
+              <label style={fieldLabel}>Which introduction</label>
+              <select name="kind" style={inputStyle}>
+                <option value="alliance">Introduce the Alliance</option>
+                <option value="newsletter">Introduce the newsletter</option>
+              </select>
+            </div>
           </div>
+          <label style={fieldLabel}>Recipient addresses</label>
           <textarea
             name="emails"
             required
@@ -1098,8 +1213,11 @@ async function SettingsTab() {
             }}
           />
           <ConfirmSubmit
+            title="Sending for real"
             message="Send the chosen introduction email to everyone in the list now? Each address is emailed once and not saved."
-            style={buttonStyle}
+            confirmLabel="Yes, send it"
+            danger
+            style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
           >
             Send introduction
           </ConfirmSubmit>
@@ -1126,13 +1244,16 @@ async function SettingsTab() {
           alignItems: "center",
         }}
       >
-        <input
-          type="text"
-          name="emails"
-          defaultValue={notifyEmails.join(", ")}
-          placeholder="you@example.com, colleague@example.com"
-          style={{ ...inputStyle, flex: "1 1 280px", minWidth: 220 }}
-        />
+        <div style={{ flex: "1 1 280px" }}>
+          <label style={fieldLabel}>Notification addresses</label>
+          <input
+            type="text"
+            name="emails"
+            defaultValue={notifyEmails.join(", ")}
+            placeholder="you@example.com, colleague@example.com"
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
         <button type="submit" style={buttonStyle}>
           Save
         </button>
@@ -1204,6 +1325,7 @@ async function SettingsTab() {
                     <input type="hidden" name="id" value={c.id} />
                     <ConfirmSubmit
                       message={`Remove ${c.name} from the Alliance's companies? Their future posts will file under "Around the Alliance".`}
+                      danger
                       style={dangerButton}
                     >
                       Remove
@@ -1229,23 +1351,27 @@ async function SettingsTab() {
         }}
       >
         <input type="hidden" name="action" value="add" />
-        <input
-          name="name"
-          required
-          placeholder="Company name"
-          style={{ ...inputStyle, minWidth: 200, flex: "1 1 200px" }}
-        />
-        <input
-          name="match"
-          placeholder="Match words (e.g. brymore, brymoreproductions)"
-          style={{ ...inputStyle, minWidth: 240, flex: "2 1 240px" }}
-        />
-        <input
-          name="showsPageUrl"
-          type="url"
-          placeholder="Shows page URL (optional)"
-          style={{ ...inputStyle, minWidth: 200, flex: "1 1 200px" }}
-        />
+        <div style={{ minWidth: 200, flex: "1 1 200px" }}>
+          <label style={fieldLabel}>Company name</label>
+          <input name="name" required style={{ ...inputStyle, width: "100%" }} />
+        </div>
+        <div style={{ minWidth: 240, flex: "2 1 240px" }}>
+          <label style={fieldLabel}>Match words</label>
+          <input
+            name="match"
+            placeholder="e.g. brymore, brymoreproductions"
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
+        <div style={{ minWidth: 200, flex: "1 1 200px" }}>
+          <label style={fieldLabel}>Shows page URL (optional)</label>
+          <input
+            name="showsPageUrl"
+            type="url"
+            placeholder="https://…"
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
         <button type="submit" style={buttonStyle}>
           Add company
         </button>
@@ -1439,7 +1565,9 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const hasMoreEditions = sorted.length > epg * EDITIONS_PAGE;
 
   const eSortLink = (key: string, label: string) => {
-    const nextDir = esort === key && edir === "desc" ? "asc" : "desc";
+    const firstDir = key === "status" ? "asc" : "desc";
+    const nextDir =
+      esort === key ? (edir === "asc" ? "desc" : "asc") : firstDir;
     return (
       <Link
             prefetch={false}
@@ -1471,10 +1599,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           style={{ marginBottom: 16 }}
         >
           <input type="hidden" name="action" value="create" />
-          <button
-            type="submit"
-            style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
-          >
+          <button type="submit" style={buttonStyle}>
             New Showcase
           </button>
         </form>
@@ -1511,7 +1636,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                             href={`/admin?tab=presenters&edition=${e.id}`}
                             style={{ color: "var(--cta-ink)", fontWeight: 600 }}
                           >
-                            {`${e.recipientCount} subscriber${e.recipientCount === 1 ? "" : "s"}`}
+                            {`${e.recipientCount} recipient${e.recipientCount === 1 ? "" : "s"}`}
                           </Link>
                         ) : (
                           ""
@@ -1570,7 +1695,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                             <input type="hidden" name="mode" value="test" />
                             <ConfirmSubmit
                               message={`Send a test of this Showcase to ${recipients.join(", ")}? The draft stays a draft.`}
-                              style={{ ...smallButton, background: "var(--cta-white)" }}
+                              style={{ ...smallButton, background: "var(--cta-yellow)" }}
                             >
                               Send test
                             </ConfirmSubmit>
@@ -1586,6 +1711,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                               title="Sending for real"
                               message={`Send this Showcase to all ${subscriberCount} subscriber${subscriberCount === 1 ? "" : "s"} who receive The Showcase Edition? This can't be undone.`}
                               confirmLabel="Yes, send it live"
+                              danger
                               style={{ ...smallButton, background: "var(--cta-yellow)" }}
                             >
                               Send live
@@ -1606,7 +1732,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                               ? "Delete this sent Showcase from the history? Its stories become available to future editions again."
                               : "Delete this Showcase draft?"
                           }
-                          style={dangerButton}
+                          danger
+                      style={dangerButton}
                         >
                           Delete
                         </ConfirmSubmit>
@@ -1631,42 +1758,39 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           <div
             style={{
               display: "flex",
-              gap: 14,
-              justifyContent: "space-between",
+              gap: 12,
+              alignItems: "center",
               marginTop: 12,
-              fontSize: 13.5,
-              fontWeight: 600,
             }}
           >
-            <span>
-              {epg > 1 && (
-                <Link
-                  prefetch={false}
-                  scroll={false}
-                  href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg - 1}`}
-                  style={{ color: "var(--cta-ink)" }}
-                >
-                  ← Newer
-                </Link>
-              )}
+            {epg > 1 && (
+              <Link
+                prefetch={false}
+                scroll={false}
+                href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg - 1}`}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+              >
+                ← Previous
+              </Link>
+            )}
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)" }}>
+              Page {epg}
             </span>
-            <span>
-              {hasMoreEditions && (
-                <Link
-                  prefetch={false}
-                  scroll={false}
-                  href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg + 1}`}
-                  style={{ color: "var(--cta-ink)" }}
-                >
-                  Further back →
-                </Link>
-              )}
-            </span>
+            {hasMoreEditions && (
+              <Link
+                prefetch={false}
+                scroll={false}
+                href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg + 1}`}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+              >
+                Next →
+              </Link>
+            )}
           </div>
         )}
       </section>
 
-      <section className="admin-card">
+      <section className="admin-card" id="test-recipients">
         <h2 style={h2}>Test recipients</h2>
         <p style={muted}>
           Send test delivers a draft to this list only, and new-story
@@ -1678,13 +1802,16 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           method="post"
           style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
         >
-          <input
-            type="text"
-            name="emails"
-            defaultValue={recipients.join(", ")}
-            placeholder="kevin@monkeybaa.com.au"
-            style={{ ...inputStyle, flex: "1 1 280px", minWidth: 220 }}
-          />
+          <div style={{ flex: "1 1 280px" }}>
+            <label style={fieldLabel}>Test addresses</label>
+            <input
+              type="text"
+              name="emails"
+              defaultValue={recipients.join(", ")}
+              placeholder="kevin@monkeybaa.com.au"
+              style={{ ...inputStyle, width: "100%" }}
+            />
+          </div>
           <button type="submit" style={buttonStyle}>
             Save test list
           </button>
@@ -1698,8 +1825,10 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           for show relevance and once for Social Theatre (theatre in health,
           access and community settings, not education or fundraising).
           Stories rated <strong>High</strong> on either scale are offered to
-          each New Showcase automatically, in the matching section. Change a
-          rating here to promote a missed story or keep one out for good.
+          each New Showcase automatically, in the matching section, and are
+          what this list shows by default; switch the rating filter to see
+          medium and low rated stories. Change a rating here to promote a
+          missed story or keep one out for good.
         </p>
         <StoryPoolTable
           pool={pool}
@@ -1811,7 +1940,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                       <input type="hidden" name="id" value={s.id} />
                       <ConfirmSubmit
                         message={`Delete ${s.title} from the show list permanently?`}
-                        style={dangerButton}
+                        danger
+                      style={dangerButton}
                       >
                         Delete
                       </ConfirmSubmit>
@@ -1844,35 +1974,32 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
         >
           <input type="hidden" name="anchor" value="registry" />
           <input type="hidden" name="action" value="add" />
-          <input
-            name="title"
-            required
-            placeholder="Show title"
-            style={{ ...inputStyle, minWidth: 180, flex: "1 1 180px" }}
-          />
-          <select name="companyKey" style={inputStyle}>
-            {companyRows.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <input
-            name="url"
-            type="url"
-            placeholder="Show page URL (optional)"
-            style={{ ...inputStyle, minWidth: 180, flex: "1 1 180px" }}
-          />
-          <input
-            name="imageUrl"
-            placeholder="Image URL (optional)"
-            style={{ ...inputStyle, minWidth: 160, flex: "1 1 160px" }}
-          />
-          <input
-            name="ageRange"
-            placeholder="Ages (optional)"
-            style={{ ...inputStyle, width: 130 }}
-          />
+          <div style={{ minWidth: 180, flex: "1 1 180px" }}>
+            <label style={fieldLabel}>Show title</label>
+            <input name="title" required style={{ ...inputStyle, width: "100%" }} />
+          </div>
+          <div>
+            <label style={fieldLabel}>Company</label>
+            <select name="companyKey" style={inputStyle}>
+              {companyRows.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ minWidth: 180, flex: "1 1 180px" }}>
+            <label style={fieldLabel}>Show page URL (optional)</label>
+            <input name="url" type="url" style={{ ...inputStyle, width: "100%" }} />
+          </div>
+          <div style={{ minWidth: 160, flex: "1 1 160px" }}>
+            <label style={fieldLabel}>Image URL (optional)</label>
+            <input name="imageUrl" style={{ ...inputStyle, width: "100%" }} />
+          </div>
+          <div style={{ width: 130 }}>
+            <label style={fieldLabel}>Ages (optional)</label>
+            <input name="ageRange" style={{ ...inputStyle, width: "100%" }} />
+          </div>
           <button type="submit" style={buttonStyle}>
             Add show
           </button>
@@ -1914,7 +2041,7 @@ function StoryPoolTable({
     const merged = { ...params, pg: 1, ...over };
     const q = new URLSearchParams({ tab: "presenters" });
     if (editionId) q.set("edition", String(editionId));
-    if (merged.rel !== "high") q.set("rel", merged.rel);
+    if (merged.rel !== "highs") q.set("rel", merged.rel);
     if (merged.co) q.set("co", merged.co);
     if (merged.q) q.set("q", merged.q);
     if (merged.sort !== "date") q.set("sort", merged.sort);
@@ -1927,7 +2054,14 @@ function StoryPoolTable({
             prefetch={false}
       href={href({
         sort: key,
-        dir: params.sort === key && params.dir === "desc" ? "asc" : "desc",
+        dir:
+          params.sort === key
+            ? params.dir === "asc"
+              ? "desc"
+              : "asc"
+            : key === "date"
+              ? "desc"
+              : "asc",
       })}
       scroll={false}
       style={{ color: "inherit", textDecoration: "none" }}
@@ -1937,7 +2071,7 @@ function StoryPoolTable({
     </Link>
   );
   const isFiltered =
-    params.rel !== "high" ||
+    params.rel !== "highs" ||
     params.co ||
     params.q ||
     params.sort !== "date" ||
@@ -2153,7 +2287,7 @@ function StoryPoolTable({
                   scroll={false}
                   style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
                 >
-                  Further back →
+                  Next →
                 </Link>
               )}
             </div>
@@ -2238,15 +2372,50 @@ async function EditionBuilder({
         <p style={muted}>
           {edition.status === "sent"
             ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? `${edition.recipientCount} subscriber${edition.recipientCount === 1 ? "" : "s"}`}. Sent editions are read-only; duplicate to reuse it.`
-            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${socialCount} Social Theatre stor${socialCount === 1 ? "y" : "ies"}, ${entries.length - profileCount - socialCount} more stor${entries.length - profileCount - socialCount === 1 ? "y" : "ies"}, ${editionShows.length} spotlight show${editionShows.length === 1 ? "" : "s"}.`}
+            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. New Showcases start pre-filled with every unused story rated high on either scale, plus the active Spotlight shows; the numbered sections below walk through the edition top to bottom.`}
         </p>
+        {editable && (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 14,
+            }}
+          >
+            <span style={badge("var(--cta-white)")}>
+              {newsEntries.length} news stor{newsEntries.length === 1 ? "y" : "ies"}
+            </span>
+            <span style={badge("var(--cta-yellow)")}>
+              {profileCount}/2 profiles
+            </span>
+            <span style={badge("var(--cta-mint)")}>
+              {socialCount} Social Theatre
+            </span>
+            <span
+              style={badge(
+                editionShows.length % 2 === 0
+                  ? "var(--cta-emerald)"
+                  : "var(--cta-yellow)",
+              )}
+            >
+              {editionShows.length} spotlight show
+              {editionShows.length === 1 ? "" : "s"}
+              {editionShows.length % 2 === 0 ? " ✓" : ", needs an even number"}
+            </span>
+            <span style={badge("var(--cta-teal)")}>
+              {subscriberCount} will receive it
+            </span>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <Link
             prefetch={false}
             href="/admin?tab=presenters"
             style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
           >
-            ← All editions
+            ← Back to all editions
           </Link>
           <a
             href={`/admin/preview/presenter?edition=${edition.id}`}
@@ -2262,7 +2431,7 @@ async function EditionBuilder({
                 <input type="hidden" name="mode" value="test" />
                 <ConfirmSubmit
                   message={`Send a test of this Showcase to ${recipients.join(", ")}? The draft stays a draft.`}
-                  style={{ ...buttonStyle, background: "var(--cta-white)" }}
+                  style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
                 >
                   Send test
                 </ConfirmSubmit>
@@ -2274,6 +2443,7 @@ async function EditionBuilder({
                   title="Sending for real"
                   message={`Send this Showcase to all ${subscriberCount} subscriber${subscriberCount === 1 ? "" : "s"} who receive The Showcase Edition? This can't be undone.`}
                   confirmLabel="Yes, send it live"
+                  danger
                   style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
                 >
                   Send live
@@ -2297,12 +2467,27 @@ async function EditionBuilder({
                   ? "Delete this sent Showcase from the history? Its stories become available to future editions again."
                   : "Delete this Showcase draft?"
               }
-              style={{ ...buttonStyle, background: "var(--cta-white)" }}
+              danger
+              style={{ ...buttonStyle, background: "var(--cta-pink)" }}
             >
               Delete
             </ConfirmSubmit>
           </form>
         </div>
+        {editable && (
+          <p style={{ ...muted, margin: "12px 0 0" }}>
+            Send test goes to {recipients.join(", ")} ·{" "}
+            <Link
+              prefetch={false}
+              href="/admin?tab=presenters#test-recipients"
+              style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+            >
+              change the test list
+            </Link>
+            . Send live goes to every subscriber opted in to The Showcase
+            Edition.
+          </p>
+        )}
       </section>
 
       {edition.status === "sent" && (
@@ -2313,14 +2498,15 @@ async function EditionBuilder({
         <section
           className="admin-card"
           id="add-stories"
-          style={{ background: "#FFECCA" }}
+          style={{ background: "var(--cta-cream-deep)" }}
         >
-          <h2 style={h2}>Add stories</h2>
+          <h2 style={h2}>1 · Add stories</h2>
           <p style={muted}>
             Stories not yet in this Showcase, ready to add to the sections
             below. Stories rated high for shows or for Social Theatre are
-            shown by default; switch the rating filter, search, or page
-            further back to dig deeper. Stories
+            shown by default; medium and low rated stories are hidden until
+            you change the rating filter. Search, or page further back, to
+            dig deeper. Stories
             marked <strong>Sent</strong> have already appeared in a past
             Showcase but can be added again on purpose.
           </p>
@@ -2338,7 +2524,7 @@ async function EditionBuilder({
       )}
 
       <section className="admin-card" id="news-stories">
-        <h2 style={h2}>News stories in this Showcase</h2>
+        <h2 style={h2}>{editable ? "2 · " : ""}News stories in this Showcase</h2>
         {editable ? (
           <p style={muted}>
             Listed in the order they will appear in the email: use the ▲ ▼
@@ -2400,7 +2586,7 @@ async function EditionBuilder({
 
       {editable && (
         <section className="admin-card" id="social-stories">
-          <h2 style={h2}>Social Theatre</h2>
+          <h2 style={h2}>3 · Social Theatre</h2>
           <p style={muted}>
             Stories told through the social lens. They appear in the mint
             Social Theatre band of the email, without a show card, in the
@@ -2435,7 +2621,9 @@ async function EditionBuilder({
       )}
 
       <section className="admin-card" id="edition-shows">
-        <h2 style={h2}>Spotlight shows in this Showcase</h2>
+        <h2 style={h2}>
+          {editable ? "4 · " : ""}Spotlight shows in this Showcase
+        </h2>
         <p style={muted}>
           The show grid at the bottom of this edition, two cards per row, in
           the order below.
@@ -2567,6 +2755,7 @@ function BuilderStoryCard({
   return (
             <div
               key={it.id}
+              id={`story-${it.id}`}
               style={{
                 display: "flex",
                 gap: 8,
@@ -2642,6 +2831,7 @@ function BuilderStoryCard({
                   <input type="hidden" name="action" value="update" />
                   <input type="hidden" name="id" value={it.id} />
                   <input type="hidden" name="edition" value={editionId} />
+                  <input type="hidden" name="anchor" value={`story-${it.id}`} />
                 </form>
                 <div
                   style={{
@@ -2694,7 +2884,7 @@ function BuilderStoryCard({
                               : {
                                   ...smallInput,
                                   width: "100%",
-                                  background: "#FFECCA",
+                                  background: "var(--cta-cream-deep)",
                                   boxShadow: "3px 3px 0 var(--cta-yellow)",
                                 }
                           }
@@ -2788,7 +2978,7 @@ function BuilderStoryCard({
                         id: it.id,
                         edition: editionId,
                       }}
-                      style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                      style={smallButton}
                     >
                       {featured ? "Remove profile" : "Make profile"}
                     </QuickAction>
@@ -2816,6 +3006,7 @@ function BuilderStoryCard({
                       <input type="hidden" name="action" value="add-show" />
                       <input type="hidden" name="id" value={it.id} />
                       <input type="hidden" name="edition" value={editionId} />
+                      <input type="hidden" name="anchor" value={`story-${it.id}`} />
                       <button
                         type="submit"
                         style={{ ...smallButton, background: "var(--cta-white)" }}
@@ -2878,13 +3069,20 @@ async function SubscriberDetailView({
   ]);
 
   const backLink = (
-    <Link
-      prefetch={false}
-      href="/admin?tab=subscribers"
-      style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
-    >
-      ← All subscribers
-    </Link>
+    <p style={{ margin: "0 0 14px" }}>
+      <Link
+        prefetch={false}
+        href="/admin?tab=subscribers"
+        style={{
+          ...smallButton,
+          display: "inline-block",
+          textDecoration: "none",
+          background: "var(--cta-white)",
+        }}
+      >
+        ← Back to all subscribers
+      </Link>
+    </p>
   );
 
   if (!sub) {
@@ -2918,7 +3116,9 @@ async function SubscriberDetailView({
     });
 
   const sortLink = (key: string, label: string) => {
-    const nextDir = dsort === key && ddir === "desc" ? "asc" : "desc";
+    const firstDir = key === "date" ? "desc" : "asc";
+    const nextDir =
+      dsort === key ? (ddir === "asc" ? "desc" : "asc") : firstDir;
     const params = new URLSearchParams({
       tab: "subscribers",
       subscriber: String(subscriberId),
@@ -2950,6 +3150,7 @@ async function SubscriberDetailView({
   return (
     <>
       <section className="admin-card">
+        {backLink}
         <div
           style={{
             display: "flex",
@@ -2974,7 +3175,6 @@ async function SubscriberDetailView({
           {sub.email} · receives the {receives} · joined{" "}
           {sub.createdAt.toISOString().slice(0, 10)}
         </p>
-        {backLink}
       </section>
 
       <section className="admin-card">
@@ -3007,6 +3207,16 @@ async function SubscriberDetailView({
           <button type="submit" style={smallButton}>
             Filter
           </button>
+          {(kind !== "all" || q) && (
+            <Link
+              prefetch={false}
+              href={`/admin?tab=subscribers&subscriber=${subscriberId}`}
+              scroll={false}
+              style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
+            >
+              Clear
+            </Link>
+          )}
         </form>
         <div className="table-scroll" style={{ maxHeight: 480, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -3038,7 +3248,7 @@ async function SubscriberDetailView({
                     {d.kind === "issue" && d.issueId && (
                       <Link
                         prefetch={false}
-                        href={`/admin?tab=editions&issue=${d.issueId}`}
+                        href={`/admin?tab=editions&issue=${d.issueId}&back=subscriber-${subscriberId}`}
                         style={{ color: "var(--cta-ink)", fontWeight: 600 }}
                       >
                         All recipients
@@ -3111,7 +3321,9 @@ function RecipientTable({
     });
 
   const sortLink = (key: string, label: string) => {
-    const nextDir = rsort === key && rdir === "asc" ? "desc" : "asc";
+    const firstDir = key === "date" ? "desc" : "asc";
+    const nextDir =
+      rsort === key ? (rdir === "asc" ? "desc" : "asc") : firstDir;
     const params = new URLSearchParams({ ...baseParams, rsort: key, rdir: nextDir });
     if (q) params.set("rq", sp.rq ?? "");
     return (
@@ -3153,6 +3365,16 @@ function RecipientTable({
         <button type="submit" style={smallButton}>
           Filter
         </button>
+        {q && (
+          <Link
+            prefetch={false}
+            href={`/admin?${new URLSearchParams(baseParams).toString()}`}
+            scroll={false}
+            style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
+          >
+            Clear
+          </Link>
+        )}
       </form>
       <div className="table-scroll" style={{ maxHeight: 480, overflowY: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -3219,21 +3441,34 @@ async function IssueRecipientsView({
       .limit(2000),
   ]);
 
+  // Came from a subscriber's history page? Go back there, not to Overview.
+  const backSub = /^subscriber-(\d+)$/.exec(sp.back ?? "");
   const backLink = (
-    <Link
-      prefetch={false}
-      href="/admin?tab=overview"
-      style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
-    >
-      ← Back
-    </Link>
+    <p style={{ margin: "0 0 14px" }}>
+      <Link
+        prefetch={false}
+        href={
+          backSub
+            ? `/admin?tab=subscribers&subscriber=${backSub[1]}`
+            : "/admin?tab=overview"
+        }
+        style={{
+          ...smallButton,
+          display: "inline-block",
+          textDecoration: "none",
+          background: "var(--cta-white)",
+        }}
+      >
+        {backSub ? "← Back to the subscriber" : "← Back to Overview"}
+      </Link>
+    </p>
   );
 
   if (!issue) {
     return (
       <section className="admin-card">
-        <h2 style={h2}>Issue not found</h2>
-        <p style={muted}>This issue no longer exists.</p>
+        <h2 style={h2}>Newsletter not found</h2>
+        <p style={muted}>This newsletter no longer exists.</p>
         {backLink}
       </section>
     );
@@ -3242,20 +3477,35 @@ async function IssueRecipientsView({
   return (
     <>
       <section className="admin-card">
+        {backLink}
         <h2 style={h2}>
-          {issue.cadence[0].toUpperCase() + issue.cadence.slice(1)} issue ·{" "}
+          {issue.cadence[0].toUpperCase() + issue.cadence.slice(1)} newsletter
+          {" · "}
           {issue.windowKey}
         </h2>
         <p style={muted}>
-          Status {issue.status}
+          <span
+            style={badge(
+              issue.status === "sent"
+                ? "var(--cta-emerald)"
+                : issue.status === "failed"
+                  ? "var(--cta-pink)"
+                  : "var(--cta-white)",
+            )}
+          >
+            {issue.status}
+          </span>
           {issue.sentAt ? ` · sent ${issue.sentAt.toISOString().slice(0, 10)}` : ""} ·{" "}
           {issue.itemCount} stor{issue.itemCount === 1 ? "y" : "ies"} ·{" "}
           {issue.recipientCount} recipient{issue.recipientCount === 1 ? "" : "s"}
         </p>
-        {backLink}
       </section>
       <section className="admin-card">
         <h2 style={h2}>Who received it</h2>
+        <p style={muted}>
+          Everyone this newsletter was delivered to. Click a name for
+          everything that person has received.
+        </p>
         <RecipientTable
           rows={rows}
           sp={sp}
@@ -3322,7 +3572,7 @@ function ManualStoryForm({
         marginTop: 16,
         border: "2px solid var(--cta-ink)",
         borderRadius: 12,
-        background: "#FFECCA",
+        background: "var(--cta-cream-deep)",
         padding: "10px 14px",
       }}
     >
@@ -3405,7 +3655,7 @@ function ManualStoryForm({
           <input type="url" name="imageUrl" placeholder="https://…" style={field} />
         </div>
         <div>
-          <button type="submit" style={{ ...buttonStyle, background: "var(--cta-yellow)" }}>
+          <button type="submit" style={buttonStyle}>
             Add the story
           </button>
         </div>

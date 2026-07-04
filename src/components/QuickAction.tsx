@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import AdminModal from "./AdminModal";
+import Toast, { useToast } from "./Toast";
 
 /**
  * A button that performs an admin action in the background and refreshes
@@ -30,6 +31,7 @@ export default function QuickAction({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const { toast, show } = useToast();
   const [pending, startTransition] = useTransition();
 
   const run = async () => {
@@ -53,6 +55,10 @@ export default function QuickAction({
       } else if (announce) {
         const data = await res.json().catch(() => null);
         setDone(data?.message ?? "Done.");
+      } else {
+        // Quiet success still deserves a confirmation the eye can catch.
+        const data = await res.json().catch(() => null);
+        show(data?.message ?? "Done");
       }
       startTransition(() => router.refresh());
     } finally {
@@ -96,6 +102,7 @@ export default function QuickAction({
         message={done ?? ""}
         onClose={() => setDone(null)}
       />
+      <Toast message={toast} />
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import AdminModal from "./AdminModal";
+import Toast, { useToast } from "./Toast";
 
 const selectStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)",
@@ -48,6 +49,7 @@ export default function RatingsForm({
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast, show: showToast } = useToast();
   const [, startTransition] = useTransition();
 
   const save = async () => {
@@ -70,6 +72,7 @@ export default function RatingsForm({
       } else {
         setSaved(true);
         setTimeout(() => setSaved(false), 1500);
+        showToast("Ratings saved");
       }
       startTransition(() => router.refresh());
     } finally {
@@ -130,6 +133,7 @@ export default function RatingsForm({
         message={error ?? ""}
         onClose={() => setError(null)}
       />
+      <Toast message={toast} />
     </div>
   );
 }

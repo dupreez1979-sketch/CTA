@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       : `New-subscriber notifications will go to ${emails.join(", ")}`;
   return NextResponse.redirect(
     new URL(
-      `/admin?tab=subscribers&message=${encodeURIComponent(message)}`,
+      `/admin?tab=settings&message=${encodeURIComponent(message)}`,
       request.url,
     ),
     { status: 303 },

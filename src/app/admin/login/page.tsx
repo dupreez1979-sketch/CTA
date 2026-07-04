@@ -83,12 +83,26 @@ export default async function AdminLoginPage({
           </p>
         )}
         <form method="post" action="/api/admin-login">
+          <label
+            htmlFor="admin-password"
+            style={{
+              display: "block",
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "var(--text-muted)",
+              marginBottom: 6,
+            }}
+          >
+            Password
+          </label>
           <input
+            id="admin-password"
             type="password"
             name="password"
             required
             autoFocus
-            placeholder="Password"
             style={{
               fontFamily: "var(--font-body)",
               fontSize: 16,

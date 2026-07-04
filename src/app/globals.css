@@ -13,6 +13,7 @@
   --cta-ink: #1e1e1d;
   --cta-cream: #efeee4;
   --cta-cream-warm: #fff8e7;
+  --cta-cream-deep: #ffecca;
   --cta-white: #ffffff;
   --text-body: #2c2c2b;
   --text-muted: #5a5a57;
@@ -344,6 +345,11 @@ body {
 .admin-tab[aria-current="true"] {
   background: var(--cta-purple);
   box-shadow: 3px 3px 0 var(--cta-ink);
+}
+
+/* A light hover wash makes dense table rows easier to track */
+.admin-card tbody tr:hover td {
+  background: rgba(172, 158, 252, 0.12);
 }
 
 /* Tables scroll sideways inside their card instead of squashing */
