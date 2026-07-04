@@ -576,13 +576,15 @@ export function buildShowcaseProps(
         hex: style.hex,
         colorName: style.colorName,
         shape: style.shape,
-        // "The latest news" is announcement-first: the AI copy tells the
-        // news; the official show page stays one link away.
+        // Each item carries the announcement (AI copy) and, separately,
+        // the official show info for the "About the show" block.
         items: list.map((it) => ({
           heading: it.aiHeading,
           summary: it.aiSummary,
-          showUrl: it.showUrl,
           postUrl: it.postUrl,
+          showTitle: it.showTitle,
+          showBlurb: it.showBlurb,
+          showUrl: it.showUrl,
           imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
           ageRange: it.showAgeRange,
         })),
@@ -730,7 +732,7 @@ export async function sendEdition(
 // ----------------------------------------------------------------- registry
 
 /**
- * Copy a story's show details into the "Other happenings" registry.
+ * Copy a story's show details into the "Shows in the Spotlight" registry.
  * Returns the show's id (existing or new), or null when the story is gone.
  */
 export async function addShowFromItem(itemId: number): Promise<number | null> {

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const assembled = await assembleEdition(id);
   if (!assembled) {
     return page(
-      "This Showcase is empty. Add stories or happenings in the builder first.",
+      "This Showcase is empty. Add stories or spotlight shows in the builder first.",
     );
   }
   const html = await renderShowcaseHtml(assembled);

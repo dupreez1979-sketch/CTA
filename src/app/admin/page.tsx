@@ -955,7 +955,7 @@ async function ShowcaseTab({ sp }: { sp: ShowcaseParams }) {
 /**
  * The Showcase home: editions table (New / Edit / Preview / Duplicate /
  * Send / Delete), test recipients, the story pool with relevance controls,
- * and the "Other happenings" show registry.
+ * and the "Shows in the Spotlight" registry.
  */
 async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const params = parseShowcaseListParams(sp);
@@ -1011,7 +1011,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
         <p style={muted}>
           The Showcase is built one edition at a time. New Showcase starts a
           draft pre-filled with the latest high-relevance stories and the
-          current Other happenings list; edit it, preview it, then send it to
+          current Shows in the Spotlight list; edit it, preview it, then send it to
           the test list. Sent editions stay here as history.
         </p>
         <form
@@ -1187,7 +1187,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Other happenings</h2>
+        <h2 style={h2}>Shows in the Spotlight</h2>
         <p style={muted}>
           The registry of shows available now. New Showcases start with all
           active shows; each edition can then drop or re-add them. Archive a
@@ -1600,7 +1600,7 @@ function StoryPoolTable({
   );
 }
 
-/** The builder for one edition: header, stories, add panel, happenings. */
+/** The builder for one edition: header, stories, add panel, spotlight shows. */
 async function EditionBuilder({
   edition,
   sp,
@@ -1659,7 +1659,7 @@ async function EditionBuilder({
         <p style={muted}>
           {edition.status === "sent"
             ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? ""}. Sent editions are read-only; duplicate to reuse it.`
-            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${entries.length - profileCount} more stor${entries.length - profileCount === 1 ? "y" : "ies"}, ${editionShows.length} happening${editionShows.length === 1 ? "" : "s"}.`}
+            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${entries.length - profileCount} more stor${entries.length - profileCount === 1 ? "y" : "ies"}, ${editionShows.length} spotlight show${editionShows.length === 1 ? "" : "s"}.`}
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <a
@@ -1958,7 +1958,7 @@ async function EditionBuilder({
                       type="submit"
                       style={{ ...smallButton, background: "var(--cta-white)" }}
                     >
-                      Add to Other happenings
+                      Add to Spotlight shows
                     </button>
                   </form>
                   <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
@@ -2033,7 +2033,7 @@ async function EditionBuilder({
       )}
 
       <section className="admin-card">
-        <h2 style={h2}>Other happenings in this Showcase</h2>
+        <h2 style={h2}>Spotlight shows in this Showcase</h2>
         <p style={muted}>
           The show list at the bottom of this edition.
           {editable &&

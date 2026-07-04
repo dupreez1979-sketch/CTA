@@ -132,12 +132,19 @@ describe("buildShowcaseProps", () => {
     expect(out.props.profiles[1].showBlurb).toBeNull();
   });
 
-  it("uses announcement copy for The latest news items", () => {
-    const e = entry({ showTitle: "Official Title", showBlurb: "Official." });
+  it("gives latest-news items the announcement copy plus show details", () => {
+    const e = entry({
+      showTitle: "Official Title",
+      showBlurb: "Official.",
+      showAgeRange: "ages 3 to 8",
+    });
     const out = buildShowcaseProps([e], [], NAMES, BASE, "4 July 2026")!;
     const listItem = out.props.companies[0].items[0];
     expect(listItem.heading).toBe(e.item.aiHeading);
     expect(listItem.summary).toBe(e.item.aiSummary);
+    expect(listItem.showTitle).toBe("Official Title");
+    expect(listItem.showBlurb).toBe("Official.");
+    expect(listItem.ageRange).toBe("ages 3 to 8");
     expect(listItem.showUrl).toBeNull();
   });
 

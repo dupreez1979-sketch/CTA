@@ -117,7 +117,7 @@ export const feedItems = pgTable(
   (t) => [uniqueIndex("feed_items_guid_idx").on(t.guid)],
 );
 
-/** Curated show registry powering The Showcase's "What's happening" list. */
+/** Curated show registry powering The Showcase's "Shows in the Spotlight" list. */
 export const shows = pgTable(
   "shows",
   {
@@ -144,7 +144,7 @@ export const shows = pgTable(
 /**
  * A Showcase edition: one email built in the admin builder. Owns its story
  * selection (showcase_edition_items, with per-edition order and up to two
- * featured "profiles") and its "Other happenings" show list
+ * featured "profiles") and its "Shows in the Spotlight" list
  * (showcase_edition_shows). Draft and failed editions are editable; sent
  * editions are history (preview, duplicate, delete only).
  */

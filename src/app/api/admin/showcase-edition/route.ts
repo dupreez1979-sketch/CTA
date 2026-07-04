@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 /**
  * Admin: manage whole Showcase editions — create (pre-filled from unused
  * high-relevance stories + the active show registry), duplicate, delete,
- * and manage an edition's "Other happenings" show list.
+ * and manage an edition's "Shows in the Spotlight" list.
  */
 export async function POST(request: NextRequest) {
   const form = await request.formData();
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   if (action === "create") {
     const created = await createEditionFromPool();
     return redirect(
-      `New Showcase draft created with ${created.itemCount} stor${created.itemCount === 1 ? "y" : "ies"} and ${created.showCount} happening${created.showCount === 1 ? "" : "s"}`,
+      `New Showcase draft created with ${created.itemCount} stor${created.itemCount === 1 ? "y" : "ies"} and ${created.showCount} spotlight show${created.showCount === 1 ? "" : "s"}`,
       created.id,
     );
   }

@@ -26,8 +26,8 @@ import {
 /**
  * The Showcase — the presenter and international partner edition. Same
  * brand system as the Alliance newsletter, different structure: one or two
- * show Profiles up top, a compact "Also on the move" list of further show
- * news, and a "What's happening" list from the curated show registry.
+ * show Profiles up top, a compact "The latest news" list of further show
+ * news, and a "Shows in the Spotlight" list from the curated show registry.
  * Currently a test edition sent to a small settings-managed list, so the
  * footer has no unsubscribe machinery.
  */
@@ -50,10 +50,14 @@ export interface ShowcaseProfile {
 }
 
 export interface ShowcaseSectionItem {
+  /** The announcement: what the post actually said. */
   heading: string;
   summary: string;
-  showUrl: string | null;
   postUrl: string;
+  /** About the show: evergreen official info, rendered as its own block. */
+  showTitle: string | null;
+  showBlurb: string | null;
+  showUrl: string | null;
   imageUrl: string | null;
   ageRange: string | null;
 }
@@ -388,7 +392,7 @@ export default function ShowcaseEmail({
                                     margin: "0 0 7px",
                                   }}
                                 >
-                                  The show
+                                  About the show
                                 </Text>
                                 <Text
                                   className="item-h"
@@ -550,6 +554,7 @@ export default function ShowcaseEmail({
                                   </div>
                                 </td>
                                 <td style={{ verticalAlign: "top" }}>
+                                  {/* The announcement */}
                                   <Text
                                     className="item-h"
                                     style={{
@@ -559,11 +564,6 @@ export default function ShowcaseEmail({
                                   >
                                     {it.heading}
                                   </Text>
-                                  {it.ageRange && (
-                                    <Text style={{ margin: "0 0 7px" }}>
-                                      <AgeChip ageRange={it.ageRange} />
-                                    </Text>
-                                  )}
                                   <Text
                                     className="item-p"
                                     style={{
@@ -571,40 +571,19 @@ export default function ShowcaseEmail({
                                       fontSize: 13.5,
                                       lineHeight: 1.5,
                                       color: COLORS.textBody,
-                                      margin: "0 0 11px",
+                                      margin: "0 0 8px",
                                     }}
                                   >
                                     {it.summary}
                                   </Text>
-                                  <Text style={{ margin: 0 }}>
-                                    {it.showUrl && (
-                                      <>
-                                        <Link
-                                          href={it.showUrl}
-                                          className="item-link"
-                                          style={{
-                                            fontFamily: FONT_BODY,
-                                            fontWeight: 700,
-                                            fontSize: 12.5,
-                                            color: INK,
-                                            textDecoration: "none",
-                                            borderBottom: `2px solid ${co.hex}`,
-                                            paddingBottom: 1,
-                                          }}
-                                        >
-                                          Show page →
-                                        </Link>
-                                        <span
-                                          style={{
-                                            fontFamily: FONT_BODY,
-                                            color: COLORS.textMuted,
-                                            padding: "0 8px",
-                                          }}
-                                        >
-                                          ·
-                                        </span>
-                                      </>
-                                    )}
+                                  <Text
+                                    style={{
+                                      margin:
+                                        it.showTitle || it.showBlurb || it.showUrl
+                                          ? "0 0 12px"
+                                          : 0,
+                                    }}
+                                  >
                                     <Link
                                       href={it.postUrl}
                                       className="item-link"
@@ -618,9 +597,95 @@ export default function ShowcaseEmail({
                                         paddingBottom: 1,
                                       }}
                                     >
-                                      Announcement →
+                                      Read the announcement →
                                     </Link>
                                   </Text>
+
+                                  {/* About the show */}
+                                  {(it.showTitle || it.showBlurb || it.showUrl) && (
+                                    <table
+                                      role="presentation"
+                                      width="100%"
+                                      cellPadding={0}
+                                      cellSpacing={0}
+                                      style={{
+                                        borderCollapse: "separate",
+                                        backgroundColor: COLORS.white,
+                                        border: `2px solid ${INK}`,
+                                        borderRadius: 12,
+                                      }}
+                                    >
+                                      <tbody>
+                                        <tr>
+                                          <td style={{ padding: "10px 14px 12px" }}>
+                                            <Text
+                                              style={{
+                                                fontFamily: FONT_BODY,
+                                                fontWeight: 700,
+                                                fontSize: 9,
+                                                letterSpacing: "0.14em",
+                                                textTransform: "uppercase",
+                                                color: COLORS.textMuted,
+                                                margin: "0 0 5px",
+                                              }}
+                                            >
+                                              About the show
+                                            </Text>
+                                            {it.showTitle && (
+                                              <Text
+                                                style={{
+                                                  ...display(18, 0.98),
+                                                  margin: "0 0 6px",
+                                                }}
+                                              >
+                                                {it.showTitle}
+                                              </Text>
+                                            )}
+                                            {it.ageRange && (
+                                              <Text style={{ margin: "0 0 6px" }}>
+                                                <AgeChip ageRange={it.ageRange} />
+                                              </Text>
+                                            )}
+                                            {it.showBlurb && (
+                                              <Text
+                                                className="item-p"
+                                                style={{
+                                                  fontFamily: FONT_BODY,
+                                                  fontSize: 13,
+                                                  lineHeight: 1.5,
+                                                  color: COLORS.textBody,
+                                                  margin: it.showUrl
+                                                    ? "0 0 9px"
+                                                    : 0,
+                                                }}
+                                              >
+                                                {it.showBlurb}
+                                              </Text>
+                                            )}
+                                            {it.showUrl && (
+                                              <Text style={{ margin: 0 }}>
+                                                <Link
+                                                  href={it.showUrl}
+                                                  className="item-link"
+                                                  style={{
+                                                    fontFamily: FONT_BODY,
+                                                    fontWeight: 700,
+                                                    fontSize: 12.5,
+                                                    color: INK,
+                                                    textDecoration: "none",
+                                                    borderBottom: `2px solid ${co.hex}`,
+                                                    paddingBottom: 1,
+                                                  }}
+                                                >
+                                                  Visit the show page →
+                                                </Link>
+                                              </Text>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  )}
                                 </td>
                               </tr>
                             </tbody>
@@ -634,10 +699,10 @@ export default function ShowcaseEmail({
             </Section>
           )}
 
-          {/* What's happening */}
+          {/* Shows in the Spotlight */}
           {shows.length > 0 && (
             <Section className="px" style={{ padding: "30px 34px 6px" }}>
-              <SectionHeading>Other happenings</SectionHeading>
+              <SectionHeading>Shows in the Spotlight</SectionHeading>
               <Text
                 style={{
                   fontFamily: FONT_BODY,

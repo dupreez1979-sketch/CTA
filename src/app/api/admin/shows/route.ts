@@ -5,7 +5,7 @@ import { db, shows } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 /**
- * Admin: manage the "What's happening" show registry that appears at the
+ * Admin: manage the "Shows in the Spotlight" registry that appears at the
  * bottom of The Showcase. Archived shows stay on file but leave the email.
  */
 export async function POST(request: NextRequest) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       .returning({ id: shows.id });
     return redirect(
       inserted.length > 0
-        ? `Added ${title} to What's happening`
+        ? `Added ${title} to Shows in the Spotlight`
         : "That company already has a show with this title",
     );
   }
@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
     if (updated.length === 0) return redirect("Show not found");
     return redirect(
       status === "archived"
-        ? `${updated[0].title} archived — it leaves the next Showcase`
-        : `${updated[0].title} is back in What's happening`,
+        ? `${updated[0].title} archived, it leaves new Showcases`
+        : `${updated[0].title} is back in Shows in the Spotlight`,
     );
   }
 

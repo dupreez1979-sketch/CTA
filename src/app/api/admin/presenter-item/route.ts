@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     if (showId === null) return redirect("Story not found");
     await addShowToEdition(editionId, showId);
     return redirect(
-      `"${item.showTitle ?? item.aiHeading}" is in Other happenings and linked to this Showcase`,
+      `"${item.showTitle ?? item.aiHeading}" is in Shows in the Spotlight and linked to this Showcase`,
     );
   }
 
