@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildShowcaseProps } from "@/lib/presenter";
+import { buildShowcaseProps, compareDrafts } from "@/lib/presenter";
 import { COPY_SCHEMA } from "@/lib/ai";
 import type { FeedItem, Show } from "@/lib/db/schema";
 
@@ -34,6 +34,7 @@ function item(overrides: Partial<FeedItem>): FeedItem {
     showAgeRange: null,
     showImageUrl: null,
     presenterFeatured: false,
+    presenterPosition: null,
     presenterResearchedAt: null,
     presenterNotifiedAt: null,
     presenterSendId: null,
@@ -142,6 +143,60 @@ describe("buildShowcaseProps", () => {
       "Terrapin: Zeb",
     ]);
     expect(out.itemCount).toBe(0);
+  });
+});
+
+describe("compareDrafts", () => {
+  it("orders positioned items first, ascending", () => {
+    const items = [
+      item({ presenterPosition: 2 }),
+      item({ presenterPosition: 0 }),
+      item({ presenterPosition: 1 }),
+    ];
+    const sorted = [...items].sort(compareDrafts);
+    expect(sorted.map((i) => i.presenterPosition)).toEqual([0, 1, 2]);
+  });
+
+  it("puts unpositioned items after positioned ones, newest first", () => {
+    const older = item({
+      presenterPosition: null,
+      publishedAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    const newer = item({
+      presenterPosition: null,
+      publishedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+    const positioned = item({ presenterPosition: 5 });
+    const sorted = [older, newer, positioned].sort(compareDrafts);
+    expect(sorted[0].id).toBe(positioned.id);
+    expect(sorted[1].id).toBe(newer.id);
+    expect(sorted[2].id).toBe(older.id);
+  });
+});
+
+describe("buildShowcaseProps ordering", () => {
+  it("preserves the given item order in profiles and sections", () => {
+    const items = [
+      item({ presenterFeatured: true, showTitle: "First Profile" }),
+      item({ presenterFeatured: true, showTitle: "Second Profile" }),
+      item({ companyKey: "terrapin", showTitle: "T1" }),
+      item({ companyKey: "monkey-baa", showTitle: "M1" }),
+      item({ companyKey: "terrapin", showTitle: "T2" }),
+    ];
+    const out = buildShowcaseProps(items, [], NAMES, BASE, "4 July 2026")!;
+    expect(out.props.profiles.map((p) => p.title)).toEqual([
+      "First Profile",
+      "Second Profile",
+    ]);
+    // Sections follow first appearance; items keep order within a company
+    expect(out.props.companies.map((c) => c.name)).toEqual([
+      "Terrapin",
+      "Monkey Baa Theatre Co",
+    ]);
+    expect(out.props.companies[0].items.map((i) => i.heading)).toEqual([
+      "T1",
+      "T2",
+    ]);
   });
 });
 

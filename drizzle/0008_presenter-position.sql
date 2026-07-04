@@ -1,0 +1,1 @@
+ALTER TABLE "feed_items" ADD COLUMN "presenter_position" integer;

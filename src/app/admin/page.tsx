@@ -11,7 +11,7 @@ import {
 import { loadCompanies } from "@/lib/company-store";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
-import { getPresenterRecipients } from "@/lib/presenter";
+import { compareDrafts, getPresenterRecipients } from "@/lib/presenter";
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
@@ -902,11 +902,7 @@ async function ShowcaseTab() {
         .select()
         .from(feedItems)
         .where(inArray(feedItems.presenterStatus, ["draft", "excluded"]))
-        .orderBy(
-          asc(feedItems.presenterStatus),
-          desc(feedItems.publishedAt),
-        )
-        .limit(30),
+        .limit(60),
       db().select().from(shows).orderBy(asc(shows.title)),
       db().select().from(presenterSends).orderBy(desc(presenterSends.id)).limit(10),
     ]);
@@ -920,7 +916,14 @@ async function ShowcaseTab() {
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
   const companyName = (key: string) => nameByKey.get(key) ?? "Around the Alliance";
 
-  const drafts = draftItems.filter((i) => i.presenterStatus === "draft");
+  // Email order (position, then newest) for drafts; excluded items last.
+  const drafts = draftItems
+    .filter((i) => i.presenterStatus === "draft")
+    .sort(compareDrafts);
+  const excludedItems = draftItems
+    .filter((i) => i.presenterStatus === "excluded")
+    .sort(compareDrafts);
+  const orderedItems = [...drafts, ...excludedItems];
   const profileCount = drafts.filter((i) => i.presenterFeatured).length;
   const activeShows = registry.filter((s) => s.status === "active");
 
@@ -965,6 +968,8 @@ async function ShowcaseTab() {
           tidy the copy, and exclude anything that shouldn&#39;t travel. The
           official show fields are filled by automatic research of the
           company&#39;s shows page where possible — everything is editable.
+          Cards are listed in the order they will appear in the email: use
+          the ▲ ▼ arrows to reorder, and tap a card to open it for editing.
         </p>
         {draftItems.length === 0 && (
           <p style={{ ...muted, marginBottom: 0 }}>
@@ -972,32 +977,43 @@ async function ShowcaseTab() {
             each feed fetch; if the classifier missed one, add it below.
           </p>
         )}
-        {draftItems.map((it) => {
+        {orderedItems.map((it, i) => {
           const excluded = it.presenterStatus === "excluded";
           return (
             <div
               key={it.id}
               style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "flex-start",
+                marginBottom: 12,
+              }}
+            >
+            <details
+              style={{
+                flex: 1,
+                minWidth: 0,
                 border: "2px solid var(--cta-ink)",
                 borderRadius: 14,
-                padding: "14px 16px",
-                marginBottom: 16,
+                padding: "12px 16px",
                 background: excluded ? "var(--cta-white)" : "var(--cta-cream-warm)",
                 opacity: excluded ? 0.6 : 1,
               }}
             >
-              <div style={{ fontSize: 13, marginBottom: 4 }}>
-                <strong>{companyName(it.companyKey)}</strong>
+              <summary style={{ cursor: "pointer", fontSize: 13 }}>
+                {!excluded && (
+                  <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                    {i + 1}.{" "}
+                  </span>
+                )}
+                <strong>
+                  {(it.showTitle ?? it.aiHeading).slice(0, 70)}
+                  {(it.showTitle ?? it.aiHeading).length > 70 ? "…" : ""}
+                </strong>
+                {" · "}
+                {companyName(it.companyKey)}
                 {" · "}
                 {it.publishedAt.toISOString().slice(0, 10)}
-                {" · "}
-                <a
-                  href={it.postUrl}
-                  target="_blank"
-                  style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                >
-                  original post ↗
-                </a>
                 {it.presenterFeatured && !excluded && (
                   <span
                     style={{
@@ -1020,13 +1036,21 @@ async function ShowcaseTab() {
                     (excluded)
                   </span>
                 )}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+              </summary>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 8px" }}>
                 {it.presenterReason ?? "Added by hand"}
                 {" · "}
                 {it.presenterResearchedAt
                   ? `researched ${it.presenterResearchedAt.toISOString().slice(0, 10)}`
                   : "not researched yet"}
+                {" · "}
+                <a
+                  href={it.postUrl}
+                  target="_blank"
+                  style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                >
+                  original post ↗
+                </a>
               </div>
 
               <form action="/api/admin/presenter-item" method="post" id={`sc-${it.id}`}>
@@ -1164,6 +1188,33 @@ async function ShowcaseTab() {
                   </button>
                 </form>
               </div>
+            </details>
+            {!excluded && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <form action="/api/admin/presenter-item" method="post">
+                  <input type="hidden" name="action" value="move-up" />
+                  <input type="hidden" name="id" value={it.id} />
+                  <button
+                    type="submit"
+                    aria-label="Move up"
+                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
+                  >
+                    ▲
+                  </button>
+                </form>
+                <form action="/api/admin/presenter-item" method="post">
+                  <input type="hidden" name="action" value="move-down" />
+                  <input type="hidden" name="id" value={it.id} />
+                  <button
+                    type="submit"
+                    aria-label="Move down"
+                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
+                  >
+                    ▼
+                  </button>
+                </form>
+              </div>
+            )}
             </div>
           );
         })}

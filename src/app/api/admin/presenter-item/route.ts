@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, ne } from "drizzle-orm";
 import { db, feedItems } from "@/lib/db";
-import { addShowFromItem } from "@/lib/presenter";
+import { addShowFromItem, compareDrafts } from "@/lib/presenter";
 
 export const dynamic = "force-dynamic";
 
@@ -84,17 +84,48 @@ export async function POST(request: NextRequest) {
   if (action === "exclude") {
     await db()
       .update(feedItems)
-      .set({ presenterStatus: "excluded", presenterFeatured: false })
+      .set({
+        presenterStatus: "excluded",
+        presenterFeatured: false,
+        presenterPosition: null,
+      })
       .where(eq(feedItems.id, id));
     return redirect("Excluded from The Showcase");
   }
 
   if (action === "restore") {
+    // Rejoins at the bottom of the manually ordered items.
     await db()
       .update(feedItems)
-      .set({ presenterStatus: "draft" })
+      .set({ presenterStatus: "draft", presenterPosition: null })
       .where(eq(feedItems.id, id));
     return redirect("Back in the draft");
+  }
+
+  if (action === "move-up" || action === "move-down") {
+    const drafts = (
+      await db()
+        .select()
+        .from(feedItems)
+        .where(eq(feedItems.presenterStatus, "draft"))
+    ).sort(compareDrafts);
+    const idx = drafts.findIndex((d) => d.id === id);
+    if (idx === -1) return redirect("That item is no longer in the draft");
+    const target = action === "move-up" ? idx - 1 : idx + 1;
+    if (target < 0) return redirect("Already first");
+    if (target >= drafts.length) return redirect("Already last");
+    [drafts[idx], drafts[target]] = [drafts[target], drafts[idx]];
+    // Normalise to dense 0..n so future moves and newcomers behave
+    // deterministically.
+    for (let i = 0; i < drafts.length; i++) {
+      if (drafts[i].presenterPosition !== i) {
+        await db()
+          .update(feedItems)
+          .set({ presenterPosition: i })
+          .where(eq(feedItems.id, drafts[i].id));
+      }
+    }
+    return redirect(action === "move-up" ? "Moved up" : "Moved down");
   }
 
   if (action === "promote") {

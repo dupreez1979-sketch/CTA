@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
@@ -52,6 +52,34 @@ function sydneyDateLabel(now = new Date()): string {
     month: "long",
     year: "numeric",
   }).format(now);
+}
+
+/**
+ * Draft display/email order: manually positioned items first (position
+ * ascending), then unpositioned newcomers newest-first. `draftOrderBy()`
+ * is the SQL form; `compareDrafts` is the same rule for in-memory sorting
+ * (move actions, tests). Keep the two in sync.
+ */
+export function draftOrderBy() {
+  return [
+    sql`${feedItems.presenterPosition} asc nulls last`,
+    desc(feedItems.publishedAt),
+  ];
+}
+
+export function compareDrafts(
+  a: Pick<FeedItem, "presenterPosition" | "publishedAt">,
+  b: Pick<FeedItem, "presenterPosition" | "publishedAt">,
+): number {
+  if (a.presenterPosition !== null && b.presenterPosition !== null) {
+    if (a.presenterPosition !== b.presenterPosition)
+      return a.presenterPosition - b.presenterPosition;
+  } else if (a.presenterPosition !== null) {
+    return -1;
+  } else if (b.presenterPosition !== null) {
+    return 1;
+  }
+  return b.publishedAt.getTime() - a.publishedAt.getTime();
 }
 
 // ---------------------------------------------------------------- recipients
@@ -317,7 +345,7 @@ export async function assembleShowcase(): Promise<AssembledShowcase | null> {
       .select()
       .from(feedItems)
       .where(eq(feedItems.presenterStatus, "draft"))
-      .orderBy(desc(feedItems.publishedAt)),
+      .orderBy(...draftOrderBy()),
     db().select().from(shows).where(eq(shows.status, "active")),
     companyNameMap(),
   ]);

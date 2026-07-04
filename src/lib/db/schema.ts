@@ -90,6 +90,9 @@ export const feedItems = pgTable(
     showImageUrl: text("show_image_url"),
     // "Profile" (featured) in the next Showcase; capped at 2 in the route.
     presenterFeatured: boolean("presenter_featured").notNull().default(false),
+    // Manual ordering within the Showcase draft (nulls sort last, then
+    // newest first). Normalised to dense 0..n by the move actions.
+    presenterPosition: integer("presenter_position"),
     // Set on any research attempt (success or failure) so the cron never
     // loops on an item whose site can't be researched.
     presenterResearchedAt: timestamp("presenter_researched_at", {
