@@ -7,6 +7,7 @@ import {
   feedItems,
   showcaseEditions,
   shows,
+  type FeedItem,
   type ShowcaseEdition,
 } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
@@ -1651,6 +1652,8 @@ async function EditionBuilder({
   const showsPageByKey = new Map(
     companyRows.map((c) => [c.key, c.showsPageUrl]),
   );
+  const newsEntries = entries.filter((e) => !e.social);
+  const socialEntries = entries.filter((e) => e.social);
   const profileCount = entries.filter((e) => e.featured && !e.social).length;
   const socialCount = entries.filter((e) => e.social).length;
   const inEditionShowIds = new Set(editionShows.map((s) => s.id));
@@ -1728,7 +1731,7 @@ async function EditionBuilder({
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Stories in this Showcase</h2>
+        <h2 style={h2}>News stories in this Showcase</h2>
         {editable ? (
           <p style={muted}>
             Listed in the order they will appear in the email: use the ▲ ▼
@@ -1739,9 +1742,9 @@ async function EditionBuilder({
         ) : (
           <p style={muted}>As sent, in order.</p>
         )}
-        {entries.length === 0 && (
+        {newsEntries.length === 0 && (
           <p style={{ ...muted, marginBottom: 0 }}>
-            No stories yet. Add some from the list below.
+            No news stories yet. Add some from the list below.
           </p>
         )}
         {!editable &&
@@ -1766,7 +1769,180 @@ async function EditionBuilder({
             </div>
           ))}
         {editable &&
-          entries.map(({ item: it, featured, social: isSocial }, i) => (
+          newsEntries.map((e, i) => (
+            <BuilderStoryCard
+              key={e.item.id}
+              it={e.item}
+              featured={e.featured}
+              isSocial={false}
+              index={i}
+              editionId={edition.id}
+              company={companyName(e.item.companyKey)}
+              showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
+            />
+          ))}
+      </section>
+
+      {editable && (
+        <section className="admin-card">
+          <h2 style={h2}>Social Theatre</h2>
+          <p style={muted}>
+            Stories told through the social lens. They appear in the mint
+            Social Theatre band of the email, without a show card, in the
+            order below. Use Move to Social Theatre on a news story to bring
+            it here.
+          </p>
+          {socialEntries.length === 0 && (
+            <p style={{ ...muted, marginBottom: 0 }}>
+              No Social Theatre stories in this Showcase yet. The section
+              stays out of the email until you tag one.
+            </p>
+          )}
+          {socialEntries.map((e, i) => (
+            <BuilderStoryCard
+              key={e.item.id}
+              it={e.item}
+              featured={e.featured}
+              isSocial={true}
+              index={i}
+              editionId={edition.id}
+              company={companyName(e.item.companyKey)}
+              showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
+            />
+          ))}
+        </section>
+      )}
+
+      {editable && (
+        <section className="admin-card">
+          <h2 style={h2}>Add stories</h2>
+          <p style={muted}>
+            Stories not yet in this Showcase. High relevance is shown by
+            default; switch the rating filter, search, or page further back
+            to dig deeper. Stories marked <strong>Sent</strong> have already
+            appeared in a past Showcase but can be added again on purpose.
+          </p>
+          <StoryPoolTable
+            pool={pool}
+            usedDates={usedDates}
+            nameByKey={nameByKey}
+            companyRows={companyRows}
+            mode="add"
+            editionId={edition.id}
+            params={params}
+          />
+        </section>
+      )}
+
+      <section className="admin-card">
+        <h2 style={h2}>Spotlight shows in this Showcase</h2>
+        <p style={muted}>
+          The show grid at the bottom of this edition, two cards per row.
+          {editable &&
+            " Remove a show from this edition here; manage the full registry on the main Showcase page."}
+        </p>
+        {editable && editionShows.length % 2 === 1 && (
+          <p
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: "var(--cta-ink)",
+              background: "var(--cta-yellow)",
+              border: "2px solid var(--cta-ink)",
+              borderRadius: 10,
+              padding: "10px 14px",
+            }}
+          >
+            {editionShows.length} spotlight show
+            {editionShows.length === 1 ? "" : "s"}: the grid needs an even
+            number. Add or remove one, or sending will be blocked.
+          </p>
+        )}
+        {editionShows.length === 0 && (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            No shows in this edition{editable ? " yet" : ""}.
+          </p>
+        )}
+        {editionShows.map((s) => (
+          <div
+            key={s.id}
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              padding: "7px 0",
+              borderBottom: "1px solid rgba(30,30,29,0.15)",
+              fontSize: 13.5,
+            }}
+          >
+            <span style={{ flex: 1 }}>
+              <strong>{s.title}</strong>
+              {" · "}
+              {companyName(s.companyKey)}
+              {s.ageRange ? ` · ${s.ageRange}` : ""}
+            </span>
+            {editable && (
+              <form action="/api/admin/showcase-edition" method="post">
+                <input type="hidden" name="action" value="remove-show" />
+                <input type="hidden" name="id" value={edition.id} />
+                <input type="hidden" name="showId" value={s.id} />
+                <button type="submit" style={dangerButton}>
+                  Remove
+                </button>
+              </form>
+            )}
+          </div>
+        ))}
+        {editable && addableShows.length > 0 && (
+          <form
+            action="/api/admin/showcase-edition"
+            method="post"
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginTop: 14,
+            }}
+          >
+            <input type="hidden" name="action" value="add-show" />
+            <input type="hidden" name="id" value={edition.id} />
+            <select name="showId" style={smallInput}>
+              {addableShows.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} ({companyName(s.companyKey)})
+                </option>
+              ))}
+            </select>
+            <button type="submit" style={smallButton}>
+              Add to this Showcase
+            </button>
+          </form>
+        )}
+      </section>
+    </>
+  );
+}
+
+/** One editable story card in the builder (news or Social Theatre). */
+function BuilderStoryCard({
+  it,
+  featured,
+  isSocial,
+  index,
+  editionId,
+  company,
+  showsPageUrl,
+}: {
+  it: FeedItem;
+  featured: boolean;
+  isSocial: boolean;
+  index: number;
+  editionId: number;
+  company: string;
+  showsPageUrl: string | null;
+}) {
+  return (
             <div
               key={it.id}
               style={{
@@ -1788,14 +1964,14 @@ async function EditionBuilder({
               >
                 <summary style={{ cursor: "pointer", fontSize: 13 }}>
                   <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
-                    {i + 1}.{" "}
+                    {index + 1}.{" "}
                   </span>
                   <strong>
                     {(it.showTitle ?? it.aiHeading).slice(0, 70)}
                     {(it.showTitle ?? it.aiHeading).length > 70 ? "…" : ""}
                   </strong>
                   {" · "}
-                  {companyName(it.companyKey)}
+                  {company}
                   {" · "}
                   {it.publishedAt.toISOString().slice(0, 10)}
                   {featured && !isSocial && (
@@ -1838,7 +2014,7 @@ async function EditionBuilder({
                 <form action="/api/admin/presenter-item" method="post" id={`sc-${it.id}`}>
                   <input type="hidden" name="action" value="update" />
                   <input type="hidden" name="id" value={it.id} />
-                  <input type="hidden" name="edition" value={edition.id} />
+                  <input type="hidden" name="edition" value={editionId} />
                 </form>
                 <div
                   style={{
@@ -1974,7 +2150,7 @@ async function EditionBuilder({
                       value={featured && !isSocial ? "unfeature" : "feature"}
                     />
                     <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={edition.id} />
+                    <input type="hidden" name="edition" value={editionId} />
                     <button
                       type="submit"
                       style={{ ...smallButton, background: "var(--cta-yellow)" }}
@@ -1989,7 +2165,7 @@ async function EditionBuilder({
                       value={isSocial ? "unsocial" : "social"}
                     />
                     <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={edition.id} />
+                    <input type="hidden" name="edition" value={editionId} />
                     <button
                       type="submit"
                       style={{ ...smallButton, background: "var(--cta-mint)" }}
@@ -2001,7 +2177,7 @@ async function EditionBuilder({
                     <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
                       <input type="hidden" name="action" value="rewrite-time" />
                       <input type="hidden" name="id" value={it.id} />
-                      <input type="hidden" name="edition" value={edition.id} />
+                      <input type="hidden" name="edition" value={editionId} />
                       <button
                         type="submit"
                         style={{ ...smallButton, background: "var(--cta-pink)" }}
@@ -2013,7 +2189,7 @@ async function EditionBuilder({
                   <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
                     <input type="hidden" name="action" value="add-show" />
                     <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={edition.id} />
+                    <input type="hidden" name="edition" value={editionId} />
                     <button
                       type="submit"
                       style={{ ...smallButton, background: "var(--cta-white)" }}
@@ -2024,7 +2200,7 @@ async function EditionBuilder({
                   <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
                     <input type="hidden" name="action" value="remove" />
                     <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={edition.id} />
+                    <input type="hidden" name="edition" value={editionId} />
                     <ConfirmSubmit
                       message="Remove this story from this Showcase? It stays in the story pool."
                       style={dangerButton}
@@ -2033,9 +2209,9 @@ async function EditionBuilder({
                     </ConfirmSubmit>
                   </form>
                 </div>
-                {!showsPageByKey.get(it.companyKey) && (
+                {!showsPageUrl && (
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
-                    Research needs {companyName(it.companyKey)}&#39;s shows
+                    Research needs {company}&#39;s shows
                     page URL before it can find this show. Add it on the
                     Companies tab.
                   </div>
@@ -2045,7 +2221,7 @@ async function EditionBuilder({
                 <form action="/api/admin/presenter-item" method="post">
                   <input type="hidden" name="action" value="move-up" />
                   <input type="hidden" name="id" value={it.id} />
-                  <input type="hidden" name="edition" value={edition.id} />
+                  <input type="hidden" name="edition" value={editionId} />
                   <button
                     type="submit"
                     aria-label="Move up"
@@ -2057,7 +2233,7 @@ async function EditionBuilder({
                 <form action="/api/admin/presenter-item" method="post">
                   <input type="hidden" name="action" value="move-down" />
                   <input type="hidden" name="id" value={it.id} />
-                  <input type="hidden" name="edition" value={edition.id} />
+                  <input type="hidden" name="edition" value={editionId} />
                   <button
                     type="submit"
                     aria-label="Move down"
@@ -2068,116 +2244,5 @@ async function EditionBuilder({
                 </form>
               </div>
             </div>
-          ))}
-      </section>
-
-      {editable && (
-        <section className="admin-card">
-          <h2 style={h2}>Add stories</h2>
-          <p style={muted}>
-            Stories not yet in this Showcase. High relevance is shown by
-            default; switch the rating filter, search, or page further back
-            to dig deeper. Stories marked <strong>Sent</strong> have already
-            appeared in a past Showcase but can be added again on purpose.
-          </p>
-          <StoryPoolTable
-            pool={pool}
-            usedDates={usedDates}
-            nameByKey={nameByKey}
-            companyRows={companyRows}
-            mode="add"
-            editionId={edition.id}
-            params={params}
-          />
-        </section>
-      )}
-
-      <section className="admin-card">
-        <h2 style={h2}>Spotlight shows in this Showcase</h2>
-        <p style={muted}>
-          The show grid at the bottom of this edition, two cards per row.
-          {editable &&
-            " Remove a show from this edition here; manage the full registry on the main Showcase page."}
-        </p>
-        {editable && editionShows.length % 2 === 1 && (
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "var(--cta-ink)",
-              background: "var(--cta-yellow)",
-              border: "2px solid var(--cta-ink)",
-              borderRadius: 10,
-              padding: "10px 14px",
-            }}
-          >
-            {editionShows.length} spotlight show
-            {editionShows.length === 1 ? "" : "s"}: the grid needs an even
-            number. Add or remove one, or sending will be blocked.
-          </p>
-        )}
-        {editionShows.length === 0 && (
-          <p style={{ ...muted, marginBottom: 0 }}>
-            No shows in this edition{editable ? " yet" : ""}.
-          </p>
-        )}
-        {editionShows.map((s) => (
-          <div
-            key={s.id}
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              padding: "7px 0",
-              borderBottom: "1px solid rgba(30,30,29,0.15)",
-              fontSize: 13.5,
-            }}
-          >
-            <span style={{ flex: 1 }}>
-              <strong>{s.title}</strong>
-              {" · "}
-              {companyName(s.companyKey)}
-              {s.ageRange ? ` · ${s.ageRange}` : ""}
-            </span>
-            {editable && (
-              <form action="/api/admin/showcase-edition" method="post">
-                <input type="hidden" name="action" value="remove-show" />
-                <input type="hidden" name="id" value={edition.id} />
-                <input type="hidden" name="showId" value={s.id} />
-                <button type="submit" style={dangerButton}>
-                  Remove
-                </button>
-              </form>
-            )}
-          </div>
-        ))}
-        {editable && addableShows.length > 0 && (
-          <form
-            action="/api/admin/showcase-edition"
-            method="post"
-            style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginTop: 14,
-            }}
-          >
-            <input type="hidden" name="action" value="add-show" />
-            <input type="hidden" name="id" value={edition.id} />
-            <select name="showId" style={smallInput}>
-              {addableShows.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title} ({companyName(s.companyKey)})
-                </option>
-              ))}
-            </select>
-            <button type="submit" style={smallButton}>
-              Add to this Showcase
-            </button>
-          </form>
-        )}
-      </section>
-    </>
   );
 }

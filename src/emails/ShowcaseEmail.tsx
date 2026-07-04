@@ -900,32 +900,30 @@ export default function ShowcaseEmail({
             </Section>
           )}
 
-          {/* Social Theatre — deliberately its own world: dark band, light
-              type, no show cards. Hidden when no stories are tagged. */}
+          {/* Social Theatre — its own world: mint band, no show cards.
+              Hidden when no stories are tagged. */}
           {social.length > 0 && (
             <Section
               className="px"
               style={{
-                backgroundColor: COLORS.ocean,
+                backgroundColor: COLORS.mint,
                 borderTop: `3px solid ${INK}`,
                 borderBottom: `3px solid ${INK}`,
                 padding: "30px 34px 24px",
                 marginTop: 30,
               }}
             >
-              <Text
-                className="intro-h"
-                style={{ ...display(26, 0.94), color: COLORS.mint }}
-              >
+              <Text className="intro-h" style={display(26, 0.94)}>
                 Social Theatre
               </Text>
               <Text
+                className="sub-h"
                 style={{
                   fontFamily: FONT_BODY,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: 13,
                   letterSpacing: "0.04em",
-                  color: COLORS.creamWarm,
+                  color: COLORS.textBody,
                   margin: "8px 0 2px",
                 }}
               >
@@ -938,9 +936,14 @@ export default function ShowcaseEmail({
                   width="100%"
                   cellPadding={0}
                   cellSpacing={0}
-                  style={{ borderCollapse: "separate", marginTop: 20 }}
+                  style={{ borderCollapse: "separate", marginTop: 22 }}
                 >
                   <tbody>
+                    <tr>
+                      <td colSpan={2} style={{ paddingBottom: 12 }}>
+                        <CompanyBanner name={it.company} hex={COLORS.white} size={20} />
+                      </td>
+                    </tr>
                     <tr>
                       <td
                         width={100}
@@ -956,8 +959,9 @@ export default function ShowcaseEmail({
                           style={{
                             width: 100,
                             height: 100,
-                            border: `2px solid ${COLORS.mint}`,
+                            border: `2px solid ${INK}`,
                             borderRadius: 14,
+                            boxShadow: `3px 3px 0 ${INK}`,
                             overflow: "hidden",
                           }}
                         >
@@ -974,23 +978,9 @@ export default function ShowcaseEmail({
                       </td>
                       <td style={{ verticalAlign: "top" }}>
                         <Text
-                          style={{
-                            fontFamily: FONT_BODY,
-                            fontWeight: 700,
-                            fontSize: 10,
-                            letterSpacing: "0.14em",
-                            textTransform: "uppercase",
-                            color: COLORS.mint,
-                            margin: "0 0 5px",
-                          }}
-                        >
-                          {it.company}
-                        </Text>
-                        <Text
                           className="item-h"
                           style={{
                             ...display(20, 0.98),
-                            color: COLORS.white,
                             margin: "0 0 7px",
                           }}
                         >
@@ -1002,7 +992,7 @@ export default function ShowcaseEmail({
                             fontFamily: FONT_BODY,
                             fontSize: 13.5,
                             lineHeight: 1.55,
-                            color: COLORS.creamWarm,
+                            color: COLORS.textBody,
                             margin: "0 0 9px",
                           }}
                         >
@@ -1016,9 +1006,9 @@ export default function ShowcaseEmail({
                               fontFamily: FONT_BODY,
                               fontWeight: 700,
                               fontSize: 12.5,
-                              color: COLORS.mint,
+                              color: INK,
                               textDecoration: "none",
-                              borderBottom: `2px solid ${COLORS.mint}`,
+                              borderBottom: `2px solid ${COLORS.white}`,
                               paddingBottom: 1,
                             }}
                           >

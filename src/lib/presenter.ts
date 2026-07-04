@@ -335,13 +335,27 @@ export async function moveEditionItem(
   dir: "up" | "down",
 ): Promise<boolean> {
   const entries = await getEditionItems(editionId);
-  const next = swapPositions(
-    entries.map((e) => e.item.id),
+  const target = entries.find((e) => e.item.id === feedItemId);
+  if (!target) return false;
+  // News stories and Social Theatre stories are shown (and rendered) as
+  // separate groups, so an arrow swaps with the neighbour in the SAME
+  // group; positions stay global.
+  const group = entries.filter((e) => e.social === target.social);
+  const swapped = swapPositions(
+    group.map((e) => e.item.id),
     feedItemId,
     dir,
   );
-  if (!next) return false;
-  await renumberEdition(editionId, next);
+  if (!swapped) return false;
+  const posByGroupSlot = group.map((e) => e.position);
+  const newOrder = entries.map((e) => e.item.id);
+  swapped.forEach((id, slot) => {
+    const globalIdx = entries.findIndex(
+      (e) => e.position === posByGroupSlot[slot],
+    );
+    newOrder[globalIdx] = id;
+  });
+  await renumberEdition(editionId, newOrder);
   return true;
 }
 
