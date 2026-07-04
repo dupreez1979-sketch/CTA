@@ -1781,6 +1781,11 @@ async function EditionBuilder({
                       Profile
                     </span>
                   )}
+                  {!it.showTitle && (
+                    <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
+                      Needs show title
+                    </span>
+                  )}
                 </summary>
                 <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 8px" }}>
                   {it.presenterReason ?? "Added by hand"}
@@ -1828,14 +1833,49 @@ async function EditionBuilder({
                       rows={2}
                       style={{ ...smallInput, width: "100%", resize: "vertical" }}
                     />
-                    <label style={fieldLabel}>Show title</label>
+                    <label
+                      style={
+                        it.showTitle
+                          ? fieldLabel
+                          : {
+                              ...fieldLabel,
+                              color: "var(--cta-ink)",
+                              fontWeight: 700,
+                            }
+                      }
+                    >
+                      Show title{!it.showTitle && " (needed for research)"}
+                    </label>
                     <input
                       form={`sc-${it.id}`}
                       name="showTitle"
                       defaultValue={it.showTitle ?? ""}
                       placeholder="e.g. The Peasant Prince"
-                      style={{ ...smallInput, width: "100%" }}
+                      style={
+                        it.showTitle
+                          ? { ...smallInput, width: "100%" }
+                          : {
+                              ...smallInput,
+                              width: "100%",
+                              background: "#FFECCA",
+                              boxShadow: "3px 3px 0 var(--cta-yellow)",
+                            }
+                      }
                     />
+                    {!it.showTitle && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "var(--cta-ink)",
+                          margin: "6px 0 2px",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Type the show&#39;s name here, then press Save +
+                        research to fetch the official page, blurb and image.
+                      </div>
+                    )}
                     <label style={fieldLabel}>Age range</label>
                     <input
                       form={`sc-${it.id}`}
