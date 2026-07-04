@@ -1,17 +1,30 @@
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import {
   db,
   subscribers,
   issues,
   companies,
   feedItems,
-  presenterSends,
+  showcaseEditions,
   shows,
+  type FeedItem,
+  type ShowcaseEdition,
 } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
-import { compareDrafts, getPresenterRecipients } from "@/lib/presenter";
+import {
+  RELEVANCE_OPTIONS,
+  STORY_POOL_LIMIT,
+  getEdition,
+  getEditionCounts,
+  getEditionItems,
+  getEditionShows,
+  getPresenterRecipients,
+  parseShowcaseListParams,
+  queryStoryPool,
+  type ShowcaseListParams,
+} from "@/lib/presenter";
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
@@ -117,9 +130,10 @@ const tile: React.CSSProperties = {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; tab?: string; find?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { message, tab: rawTab, find } = await searchParams;
+  const sp = await searchParams;
+  const { message, tab: rawTab } = sp;
   const tab: Tab = (TABS.find((t) => t.id === rawTab)?.id ?? "overview") as Tab;
 
   return (
@@ -160,7 +174,7 @@ export default async function AdminPage({
       {tab === "sending" && <SendingTab />}
       {tab === "subscribers" && <SubscribersTab />}
       {tab === "companies" && <CompaniesTab />}
-      {tab === "presenters" && <ShowcaseTab find={find} />}
+      {tab === "presenters" && <ShowcaseTab sp={sp} />}
     </main>
   );
 }
@@ -893,81 +907,247 @@ const fieldLabel: React.CSSProperties = {
   margin: "10px 0 4px",
 };
 
-async function ShowcaseTab({ find }: { find?: string }) {
-  const [recipients, companyRows, draftItems, registry, recentSends] =
+const badge = (bg: string): React.CSSProperties => ({
+  display: "inline-block",
+  background: bg,
+  border: "2px solid var(--cta-ink)",
+  borderRadius: 999,
+  padding: "2px 10px",
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+});
+
+function StatusBadge({ status }: { status: ShowcaseEdition["status"] }) {
+  const bg =
+    status === "sent"
+      ? "var(--cta-emerald)"
+      : status === "failed"
+        ? "var(--cta-pink)"
+        : status === "sending"
+          ? "var(--cta-yellow)"
+          : "var(--cta-white)";
+  return <span style={badge(bg)}>{status}</span>;
+}
+
+type ShowcaseParams = Record<string, string | undefined>;
+
+async function ShowcaseTab({ sp }: { sp: ShowcaseParams }) {
+  const editionId = Number(sp.edition);
+  if (Number.isInteger(editionId) && editionId > 0) {
+    const edition = await getEdition(editionId);
+    if (edition) return <EditionBuilder edition={edition} sp={sp} />;
+    return (
+      <>
+        <section className="admin-card">
+          <p style={{ ...muted, marginBottom: 0 }}>
+            That Showcase no longer exists. Here are all editions.
+          </p>
+        </section>
+        <EditionListView sp={sp} />
+      </>
+    );
+  }
+  return <EditionListView sp={sp} />;
+}
+
+/**
+ * The Showcase home: editions table (New / Edit / Preview / Duplicate /
+ * Send / Delete), test recipients, the story pool with relevance controls,
+ * and the "Other happenings" show registry.
+ */
+async function EditionListView({ sp }: { sp: ShowcaseParams }) {
+  const params = parseShowcaseListParams(sp);
+  const [editions, counts, recipients, companyRows, registry, pool] =
     await Promise.all([
+      db().select().from(showcaseEditions),
+      getEditionCounts(),
       getPresenterRecipients(),
       db().select().from(companies).orderBy(asc(companies.name)),
-      db()
-        .select()
-        .from(feedItems)
-        .where(inArray(feedItems.presenterStatus, ["draft", "excluded"]))
-        .limit(60),
       db().select().from(shows).orderBy(asc(shows.title)),
-      db().select().from(presenterSends).orderBy(desc(presenterSends.id)).limit(10),
+      queryStoryPool(params),
     ]);
-  // Posts the classifier left out — promotable by hand. Without a search
-  // term, just the freshest few; with one, match headline, post text and
-  // company name.
-  const FIND_LIMIT = 15;
-  const query = (find ?? "").trim();
-  const notInPipeline = sql`${feedItems.presenterStatus} is null`;
-  let otherPosts;
-  if (query) {
-    const q = `%${query}%`;
-    const matchedKeys = companyRows
-      .filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
-      .map((c) => c.key);
-    otherPosts = await db()
-      .select()
-      .from(feedItems)
-      .where(
-        and(
-          notInPipeline,
-          or(
-            ilike(feedItems.aiHeading, q),
-            ilike(feedItems.rawTitle, q),
-            ...(matchedKeys.length > 0
-              ? [inArray(feedItems.companyKey, matchedKeys)]
-              : []),
-          ),
-        ),
-      )
-      .orderBy(desc(feedItems.publishedAt))
-      .limit(FIND_LIMIT);
-  } else {
-    otherPosts = await db()
-      .select()
-      .from(feedItems)
-      .where(notInPipeline)
-      .orderBy(desc(feedItems.publishedAt))
-      .limit(8);
-  }
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
-  const companyName = (key: string) => nameByKey.get(key) ?? "Around the Alliance";
-  const showsPageByKey = new Map(companyRows.map((c) => [c.key, c.showsPageUrl]));
 
-  // Email order (position, then newest) for drafts; excluded items last.
-  const drafts = draftItems
-    .filter((i) => i.presenterStatus === "draft")
-    .sort(compareDrafts);
-  const excludedItems = draftItems
-    .filter((i) => i.presenterStatus === "excluded")
-    .sort(compareDrafts);
-  const orderedItems = [...drafts, ...excludedItems];
-  const profileCount = drafts.filter((i) => i.presenterFeatured).length;
-  const activeShows = registry.filter((s) => s.status === "active");
+  const itemsOf = (e: ShowcaseEdition) =>
+    e.status === "sent" ? e.itemCount : (counts.get(e.id)?.items ?? 0);
+  const profilesOf = (e: ShowcaseEdition) =>
+    e.status === "sent" ? e.profileCount : (counts.get(e.id)?.profiles ?? 0);
+  const stampOf = (e: ShowcaseEdition) => (e.sentAt ?? e.createdAt).getTime();
+
+  const esort = ["date", "status", "stories"].includes(sp.esort ?? "")
+    ? (sp.esort as "date" | "status" | "stories")
+    : "date";
+  const edir = sp.edir === "asc" ? "asc" : "desc";
+  const sorted = [...editions].sort((a, b) => {
+    const cmp =
+      esort === "status"
+        ? a.status.localeCompare(b.status)
+        : esort === "stories"
+          ? itemsOf(a) - itemsOf(b)
+          : stampOf(a) - stampOf(b);
+    return edir === "asc" ? cmp : -cmp;
+  });
+
+  const eSortLink = (key: string, label: string) => {
+    const nextDir = esort === key && edir === "desc" ? "asc" : "desc";
+    return (
+      <a
+        href={`/admin?tab=presenters&esort=${key}&edir=${nextDir}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {esort === key ? (edir === "asc" ? " ↑" : " ↓") : ""}
+      </a>
+    );
+  };
 
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>The Showcase — test mode</h2>
+        <h2 style={h2}>Showcase editions</h2>
         <p style={muted}>
-          A special edition for presenters and international partners: only
-          shows that can tour or be presented elsewhere. The morning pipeline
-          files new show and tour announcements into the draft below and
-          emails this list when there is something to review. It never sends
-          itself — you review, edit and send from here.
+          The Showcase is built one edition at a time. New Showcase starts a
+          draft pre-filled with the latest high-relevance stories and the
+          current Other happenings list; edit it, preview it, then send it to
+          the test list. Sent editions stay here as history.
+        </p>
+        <form
+          action="/api/admin/showcase-edition"
+          method="post"
+          style={{ marginBottom: 16 }}
+        >
+          <input type="hidden" name="action" value="create" />
+          <button
+            type="submit"
+            style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+          >
+            New Showcase
+          </button>
+        </form>
+        <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>{eSortLink("date", "Date")}</th>
+                <th style={th}>{eSortLink("status", "Status")}</th>
+                <th style={th}>{eSortLink("stories", "Stories")}</th>
+                <th style={th}>Profiles</th>
+                <th style={th}>Recipients</th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((e) => {
+                const editable = e.status === "draft" || e.status === "failed";
+                return (
+                  <tr key={e.id}>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {(e.sentAt ?? e.createdAt).toISOString().slice(0, 10)}
+                    </td>
+                    <td style={td}>
+                      <StatusBadge status={e.status} />
+                    </td>
+                    <td style={td}>{itemsOf(e)}</td>
+                    <td style={td}>{profilesOf(e)}</td>
+                    <td style={td}>{e.recipients ?? ""}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {editable && (
+                        <a
+                          href={`/admin?tab=presenters&edition=${e.id}`}
+                          style={{
+                            ...smallButton,
+                            display: "inline-block",
+                            textDecoration: "none",
+                            marginRight: 6,
+                          }}
+                        >
+                          Edit
+                        </a>
+                      )}
+                      <a
+                        href={`/admin/preview/presenter?edition=${e.id}`}
+                        target="_blank"
+                        style={{
+                          ...smallButton,
+                          display: "inline-block",
+                          textDecoration: "none",
+                          background: "var(--cta-white)",
+                          marginRight: 6,
+                        }}
+                      >
+                        Preview ↗
+                      </a>
+                      <form
+                        action="/api/admin/showcase-edition"
+                        method="post"
+                        style={{ display: "inline", marginRight: 6 }}
+                      >
+                        <input type="hidden" name="action" value="duplicate" />
+                        <input type="hidden" name="id" value={e.id} />
+                        <button
+                          type="submit"
+                          style={{ ...smallButton, background: "var(--cta-white)" }}
+                        >
+                          Duplicate
+                        </button>
+                      </form>
+                      {editable && (
+                        <form
+                          action="/api/admin/presenter-send"
+                          method="post"
+                          style={{ display: "inline", marginRight: 6 }}
+                        >
+                          <input type="hidden" name="edition" value={e.id} />
+                          <ConfirmSubmit
+                            message={`Send this Showcase to the test list (${recipients.join(", ")}) now?`}
+                            style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                          >
+                            Send
+                          </ConfirmSubmit>
+                        </form>
+                      )}
+                      <form
+                        action="/api/admin/showcase-edition"
+                        method="post"
+                        style={{ display: "inline" }}
+                      >
+                        <input type="hidden" name="action" value="delete" />
+                        <input type="hidden" name="id" value={e.id} />
+                        <ConfirmSubmit
+                          message={
+                            e.status === "sent"
+                              ? "Delete this sent Showcase from the history? Its stories become available to future editions again."
+                              : "Delete this Showcase draft?"
+                          }
+                          style={dangerButton}
+                        >
+                          Delete
+                        </ConfirmSubmit>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              })}
+              {sorted.length === 0 && (
+                <tr>
+                  <td style={td} colSpan={6}>
+                    No Showcases yet. Press New Showcase to build the first
+                    one.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="admin-card">
+        <h2 style={h2}>Test recipients</h2>
+        <p style={muted}>
+          The Showcase is in test mode. Sends and new-story notifications go
+          only to this list.
         </p>
         <form
           action="/api/admin/presenter-recipients"
@@ -985,389 +1165,31 @@ async function ShowcaseTab({ find }: { find?: string }) {
             Save test list
           </button>
         </form>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 0" }}>
-          Sends and draft notifications go only to these addresses while the
-          edition is being tested.
-        </p>
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Draft</h2>
+        <h2 style={h2}>Story pool</h2>
         <p style={muted}>
-          Show and tour announcements waiting for the next Showcase. Pick up
-          to two as <strong>profiles</strong> (the big cards at the top),
-          tidy the copy, and exclude anything that shouldn&#39;t travel. The
-          official show fields are filled by automatic research of the
-          company&#39;s shows page where possible — everything is editable.
-          Cards are listed in the order they will appear in the email: use
-          the ▲ ▼ arrows to reorder, and tap a card to open it for editing.
+          Every story the feed has brought in, rated for Showcase relevance
+          by the AI. Stories rated <strong>High</strong> are offered to each
+          New Showcase automatically. Change a rating here to promote a
+          missed story or keep one out for good.
         </p>
-        {draftItems.length === 0 && (
-          <p style={{ ...muted, marginBottom: 0 }}>
-            Nothing in the draft yet. New show announcements land here after
-            each feed fetch; if the classifier missed one, add it below.
-          </p>
-        )}
-        {orderedItems.map((it, i) => {
-          const excluded = it.presenterStatus === "excluded";
-          return (
-            <div
-              key={it.id}
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "flex-start",
-                marginBottom: 12,
-              }}
-            >
-            <details
-              style={{
-                flex: 1,
-                minWidth: 0,
-                border: "2px solid var(--cta-ink)",
-                borderRadius: 14,
-                padding: "12px 16px",
-                background: excluded ? "var(--cta-white)" : "var(--cta-cream-warm)",
-                opacity: excluded ? 0.6 : 1,
-              }}
-            >
-              <summary style={{ cursor: "pointer", fontSize: 13 }}>
-                {!excluded && (
-                  <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
-                    {i + 1}.{" "}
-                  </span>
-                )}
-                <strong>
-                  {(it.showTitle ?? it.aiHeading).slice(0, 70)}
-                  {(it.showTitle ?? it.aiHeading).length > 70 ? "…" : ""}
-                </strong>
-                {" · "}
-                {companyName(it.companyKey)}
-                {" · "}
-                {it.publishedAt.toISOString().slice(0, 10)}
-                {it.presenterFeatured && !excluded && (
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      background: "var(--cta-yellow)",
-                      border: "2px solid var(--cta-ink)",
-                      borderRadius: 999,
-                      padding: "2px 9px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    Profile
-                  </span>
-                )}
-                {excluded && (
-                  <span style={{ marginLeft: 8, color: "var(--text-muted)", fontWeight: 600 }}>
-                    (excluded)
-                  </span>
-                )}
-              </summary>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 8px" }}>
-                {it.presenterReason ?? "Added by hand"}
-                {" · "}
-                {it.presenterResearchedAt
-                  ? `researched ${it.presenterResearchedAt.toISOString().slice(0, 10)}`
-                  : "not researched yet"}
-                {" · "}
-                <a
-                  href={it.postUrl}
-                  target="_blank"
-                  style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                >
-                  original post ↗
-                </a>
-              </div>
-
-              <form action="/api/admin/presenter-item" method="post" id={`sc-${it.id}`}>
-                <input type="hidden" name="action" value="update" />
-                <input type="hidden" name="id" value={it.id} />
-              </form>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                  columnGap: 14,
-                }}
-              >
-                <div>
-                  <label style={fieldLabel}>Heading</label>
-                  <input
-                    form={`sc-${it.id}`}
-                    name="aiHeading"
-                    defaultValue={it.aiHeading}
-                    required
-                    style={{ ...smallInput, width: "100%" }}
-                  />
-                  <label style={fieldLabel}>Summary</label>
-                  <textarea
-                    form={`sc-${it.id}`}
-                    name="aiSummary"
-                    defaultValue={it.aiSummary}
-                    required
-                    rows={2}
-                    style={{ ...smallInput, width: "100%", resize: "vertical" }}
-                  />
-                  <label style={fieldLabel}>Show title</label>
-                  <input
-                    form={`sc-${it.id}`}
-                    name="showTitle"
-                    defaultValue={it.showTitle ?? ""}
-                    placeholder="e.g. The Peasant Prince"
-                    style={{ ...smallInput, width: "100%" }}
-                  />
-                  <label style={fieldLabel}>Age range</label>
-                  <input
-                    form={`sc-${it.id}`}
-                    name="showAgeRange"
-                    defaultValue={it.showAgeRange ?? ""}
-                    placeholder="e.g. ages 6 to 12"
-                    style={{ ...smallInput, width: "100%" }}
-                  />
-                </div>
-                <div>
-                  <label style={fieldLabel}>Official show page URL</label>
-                  <input
-                    form={`sc-${it.id}`}
-                    name="showUrl"
-                    type="url"
-                    defaultValue={it.showUrl ?? ""}
-                    placeholder="https://company.com.au/shows/…"
-                    style={{ ...smallInput, width: "100%" }}
-                  />
-                  <label style={fieldLabel}>Official blurb</label>
-                  <textarea
-                    form={`sc-${it.id}`}
-                    name="showBlurb"
-                    defaultValue={it.showBlurb ?? ""}
-                    rows={3}
-                    placeholder="Official copy from the show page (falls back to the summary)"
-                    style={{ ...smallInput, width: "100%", resize: "vertical" }}
-                  />
-                  <label style={fieldLabel}>Image URL</label>
-                  <input
-                    form={`sc-${it.id}`}
-                    name="showImageUrl"
-                    defaultValue={it.showImageUrl ?? ""}
-                    placeholder="Leave empty to use the post image"
-                    style={{ ...smallInput, width: "100%" }}
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  marginTop: 12,
-                }}
-              >
-                <button form={`sc-${it.id}`} type="submit" style={smallButton}>
-                  Save
-                </button>
-                {!excluded && (
-                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                    <input
-                      type="hidden"
-                      name="action"
-                      value={it.presenterFeatured ? "unfeature" : "feature"}
-                    />
-                    <input type="hidden" name="id" value={it.id} />
-                    <button
-                      type="submit"
-                      style={{ ...smallButton, background: "var(--cta-yellow)" }}
-                    >
-                      {it.presenterFeatured ? "Remove profile" : "Make profile"}
-                    </button>
-                  </form>
-                )}
-                <button
-                  form={`sc-${it.id}`}
-                  type="submit"
-                  formAction="/api/admin/presenter-research"
-                  style={{ ...smallButton, background: "var(--cta-white)" }}
-                >
-                  {it.presenterResearchedAt ? "Save + re-research" : "Save + research"}
-                </button>
-                <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                  <input type="hidden" name="action" value="add-show" />
-                  <input type="hidden" name="id" value={it.id} />
-                  <button
-                    type="submit"
-                    style={{ ...smallButton, background: "var(--cta-white)" }}
-                  >
-                    Add to What&#39;s happening
-                  </button>
-                </form>
-                <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                  <input
-                    type="hidden"
-                    name="action"
-                    value={excluded ? "restore" : "exclude"}
-                  />
-                  <input type="hidden" name="id" value={it.id} />
-                  <button type="submit" style={dangerButton}>
-                    {excluded ? "Restore" : "Exclude"}
-                  </button>
-                </form>
-              </div>
-              {!showsPageByKey.get(it.companyKey) && (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    marginTop: 8,
-                  }}
-                >
-                  Research needs {companyName(it.companyKey)}&#39;s shows page
-                  URL before it can find this show. Add it on the Companies
-                  tab.
-                </div>
-              )}
-            </details>
-            {!excluded && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <form action="/api/admin/presenter-item" method="post">
-                  <input type="hidden" name="action" value="move-up" />
-                  <input type="hidden" name="id" value={it.id} />
-                  <button
-                    type="submit"
-                    aria-label="Move up"
-                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
-                  >
-                    ▲
-                  </button>
-                </form>
-                <form action="/api/admin/presenter-item" method="post">
-                  <input type="hidden" name="action" value="move-down" />
-                  <input type="hidden" name="id" value={it.id} />
-                  <button
-                    type="submit"
-                    aria-label="Move down"
-                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
-                  >
-                    ▼
-                  </button>
-                </form>
-              </div>
-            )}
-            </div>
-          );
-        })}
-        <div
-          style={{
-            marginTop: 6,
-            paddingTop: 16,
-            borderTop: "2px dashed rgba(30,30,29,0.25)",
-          }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-            Classifier missed one?
-          </div>
-          <p style={{ ...muted, fontSize: 12.5 }}>
-            Search recent posts by headline, post text or company and add
-            them to the draft by hand.
-            {!query && " Showing the latest posts."}
-          </p>
-          <form
-            method="get"
-            action="/admin"
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginBottom: 10,
-            }}
-          >
-            <input type="hidden" name="tab" value="presenters" />
-            <input
-              name="find"
-              defaultValue={query}
-              placeholder="e.g. Terrapin, tour, show title"
-              style={{ ...smallInput, flex: "1 1 220px", minWidth: 180 }}
-            />
-            <button type="submit" style={smallButton}>
-              Search
-            </button>
-            {query && (
-              <a
-                href="/admin?tab=presenters"
-                style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
-              >
-                Clear search
-              </a>
-            )}
-          </form>
-          {otherPosts.length === 0 ? (
-            <p style={{ ...muted, marginBottom: 0 }}>
-              {query
-                ? `No posts match "${query}".`
-                : "No posts outside The Showcase yet."}
-            </p>
-          ) : (
-            <>
-              <div className="table-scroll">
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <tbody>
-                    {otherPosts.map((p) => (
-                      <tr key={p.id}>
-                        <td style={{ ...td, whiteSpace: "nowrap" }}>
-                          {p.publishedAt.toISOString().slice(0, 10)}
-                        </td>
-                        <td style={{ ...td, whiteSpace: "nowrap" }}>
-                          {companyName(p.companyKey)}
-                        </td>
-                        <td style={td}>
-                          {p.aiHeading.slice(0, 70)}
-                          {p.aiHeading.length > 70 ? "…" : ""}{" "}
-                          <a
-                            href={p.postUrl}
-                            target="_blank"
-                            style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                          >
-                            ↗
-                          </a>
-                        </td>
-                        <td style={{ ...td, whiteSpace: "nowrap" }}>
-                          <form action="/api/admin/presenter-item" method="post">
-                            <input type="hidden" name="action" value="promote" />
-                            <input type="hidden" name="id" value={p.id} />
-                            <button type="submit" style={smallButton}>
-                              Add to draft
-                            </button>
-                          </form>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {query && otherPosts.length === FIND_LIMIT && (
-                <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
-                  Showing the first {FIND_LIMIT} matches. Refine the search to
-                  see older posts.
-                </p>
-              )}
-            </>
-          )}
-        </div>
+        <StoryPoolTable
+          rows={pool}
+          nameByKey={nameByKey}
+          companyRows={companyRows}
+          mode="browse"
+          params={params}
+        />
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>What&#39;s happening</h2>
+        <h2 style={h2}>Other happenings</h2>
         <p style={muted}>
-          The curated list of shows available now, shown at the bottom of
-          every Showcase. Add shows here by hand or with &quot;Add to
-          What&#39;s happening&quot; on a draft item. Archive a show to take
-          it out of the email without losing it.
+          The registry of shows available now. New Showcases start with all
+          active shows; each edition can then drop or re-add them. Archive a
+          show to keep it on file without offering it to new editions.
         </p>
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1397,7 +1219,7 @@ async function ShowcaseTab({ find }: { find?: string }) {
                     </form>
                   </td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
-                    {companyName(s.companyKey)}
+                    {nameByKey.get(s.companyKey) ?? "Around the Alliance"}
                   </td>
                   <td style={td}>
                     <input
@@ -1509,82 +1331,666 @@ async function ShowcaseTab({ find }: { find?: string }) {
           </button>
         </form>
       </section>
+    </>
+  );
+}
 
-      <section className="admin-card">
-        <h2 style={h2}>Preview and send</h2>
-        <p style={muted}>
-          The next Showcase holds <strong>{profileCount}</strong> profile
-          {profileCount === 1 ? "" : "s"},{" "}
-          <strong>{drafts.length - profileCount}</strong> further item
-          {drafts.length - profileCount === 1 ? "" : "s"} and{" "}
-          <strong>{activeShows.length}</strong> show
-          {activeShows.length === 1 ? "" : "s"} in What&#39;s happening.
+/**
+ * Filter form + sortable results table for the story pool. In "add" mode
+ * every row also gets an Add button targeting the given edition, and
+ * stories already used are excluded by the query upstream.
+ */
+function StoryPoolTable({
+  rows,
+  nameByKey,
+  companyRows,
+  mode,
+  editionId,
+  params,
+}: {
+  rows: FeedItem[];
+  nameByKey: Map<string, string>;
+  companyRows: { key: string; name: string }[];
+  mode: "browse" | "add";
+  editionId?: number;
+  params: ShowcaseListParams;
+}) {
+  const href = (over: Partial<ShowcaseListParams>) => {
+    const merged = { ...params, ...over };
+    const q = new URLSearchParams({ tab: "presenters" });
+    if (editionId) q.set("edition", String(editionId));
+    if (merged.rel !== "high") q.set("rel", merged.rel);
+    if (merged.co) q.set("co", merged.co);
+    if (merged.q) q.set("q", merged.q);
+    if (merged.sort !== "date") q.set("sort", merged.sort);
+    if (merged.dir !== "desc") q.set("dir", merged.dir);
+    return `/admin?${q.toString()}`;
+  };
+  const sortLink = (key: ShowcaseListParams["sort"], label: string) => (
+    <a
+      href={href({
+        sort: key,
+        dir: params.sort === key && params.dir === "desc" ? "asc" : "desc",
+      })}
+      style={{ color: "inherit", textDecoration: "none" }}
+    >
+      {label}
+      {params.sort === key ? (params.dir === "asc" ? " ↑" : " ↓") : ""}
+    </a>
+  );
+  const passthrough = (
+    <>
+      {editionId ? (
+        <input type="hidden" name="edition" value={editionId} />
+      ) : null}
+      {params.rel !== "high" && <input type="hidden" name="rel" value={params.rel} />}
+      {params.co && <input type="hidden" name="co" value={params.co} />}
+      {params.q && <input type="hidden" name="q" value={params.q} />}
+      {params.sort !== "date" && <input type="hidden" name="sort" value={params.sort} />}
+      {params.dir !== "desc" && <input type="hidden" name="dir" value={params.dir} />}
+    </>
+  );
+  const isFiltered =
+    params.rel !== "high" || params.co || params.q || params.sort !== "date";
+
+  return (
+    <>
+      <form
+        method="get"
+        action="/admin"
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginBottom: 12,
+        }}
+      >
+        <input type="hidden" name="tab" value="presenters" />
+        {editionId ? (
+          <input type="hidden" name="edition" value={editionId} />
+        ) : null}
+        <select name="rel" defaultValue={params.rel} style={smallInput}>
+          <option value="high">High relevance</option>
+          <option value="medium">Medium relevance</option>
+          <option value="low">Low relevance</option>
+          <option value="all">All ratings</option>
+        </select>
+        <select name="co" defaultValue={params.co} style={smallInput}>
+          <option value="">All companies</option>
+          {companyRows.map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <input
+          name="q"
+          defaultValue={params.q}
+          placeholder="Search headline or show title"
+          style={{ ...smallInput, flex: "1 1 200px", minWidth: 160 }}
+        />
+        <button type="submit" style={smallButton}>
+          Filter
+        </button>
+        {isFiltered && (
+          <a
+            href={
+              editionId
+                ? `/admin?tab=presenters&edition=${editionId}`
+                : "/admin?tab=presenters"
+            }
+            style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
+          >
+            Clear
+          </a>
+        )}
+      </form>
+      {rows.length === 0 ? (
+        <p style={{ ...muted, marginBottom: 0 }}>
+          No stories match this view. Try All ratings or a different search.
         </p>
+      ) : (
+        <>
+          <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>{sortLink("date", "Date")}</th>
+                  <th style={th}>{sortLink("company", "Company")}</th>
+                  <th style={th}>{sortLink("headline", "Headline")}</th>
+                  <th style={th}>{sortLink("relevance", "Relevance")}</th>
+                  <th style={th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {p.publishedAt.toISOString().slice(0, 10)}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
+                    </td>
+                    <td style={td}>
+                      {p.aiHeading.slice(0, 70)}
+                      {p.aiHeading.length > 70 ? "…" : ""}{" "}
+                      <a
+                        href={p.postUrl}
+                        target="_blank"
+                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                      >
+                        ↗
+                      </a>
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      <form
+                        action="/api/admin/presenter-item"
+                        method="post"
+                        style={{ display: "flex", gap: 6, alignItems: "center" }}
+                      >
+                        <input type="hidden" name="action" value="relevance" />
+                        <input type="hidden" name="id" value={p.id} />
+                        {passthrough}
+                        <select
+                          name="relevance"
+                          defaultValue={p.presenterRelevance}
+                          style={smallInput}
+                        >
+                          {RELEVANCE_OPTIONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" style={{ ...smallButton, background: "var(--cta-white)" }}>
+                          Save
+                        </button>
+                      </form>
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {mode === "add" && editionId && (
+                        <form action="/api/admin/presenter-item" method="post">
+                          <input type="hidden" name="action" value="add" />
+                          <input type="hidden" name="id" value={p.id} />
+                          {passthrough}
+                          <button type="submit" style={smallButton}>
+                            Add
+                          </button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rows.length === STORY_POOL_LIMIT && (
+            <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
+              Showing the first {STORY_POOL_LIMIT} stories in this view.
+              Refine the filters to see more.
+            </p>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/** The builder for one edition: header, stories, add panel, happenings. */
+async function EditionBuilder({
+  edition,
+  sp,
+}: {
+  edition: ShowcaseEdition;
+  sp: ShowcaseParams;
+}) {
+  const editable = edition.status === "draft" || edition.status === "failed";
+  const params = parseShowcaseListParams(sp);
+  const [entries, editionShows, companyRows, recipients] = await Promise.all([
+    getEditionItems(edition.id),
+    getEditionShows(edition.id),
+    db().select().from(companies).orderBy(asc(companies.name)),
+    getPresenterRecipients(),
+  ]);
+  const pool = editable
+    ? await queryStoryPool(params, { excludeEditionId: edition.id })
+    : [];
+  const registry = editable
+    ? await db()
+        .select()
+        .from(shows)
+        .where(eq(shows.status, "active"))
+        .orderBy(asc(shows.title))
+    : [];
+  const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
+  const companyName = (key: string) =>
+    nameByKey.get(key) ?? "Around the Alliance";
+  const showsPageByKey = new Map(
+    companyRows.map((c) => [c.key, c.showsPageUrl]),
+  );
+  const profileCount = entries.filter((e) => e.featured).length;
+  const inEditionShowIds = new Set(editionShows.map((s) => s.id));
+  const addableShows = registry.filter((s) => !inEditionShowIds.has(s.id));
+
+  return (
+    <>
+      <section className="admin-card">
         <div
           style={{
             display: "flex",
             gap: 12,
             flexWrap: "wrap",
             alignItems: "center",
-            marginBottom: 18,
+            marginBottom: 10,
           }}
         >
+          <h2 style={{ ...h2, margin: 0 }}>
+            {edition.status === "sent" ? "Showcase (sent)" : "Showcase builder"}
+          </h2>
+          <StatusBadge status={edition.status} />
+        </div>
+        <p style={muted}>
+          {edition.status === "sent"
+            ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? ""}. Sent editions are read-only; duplicate to reuse it.`
+            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${entries.length - profileCount} more stor${entries.length - profileCount === 1 ? "y" : "ies"}, ${editionShows.length} happening${editionShows.length === 1 ? "" : "s"}.`}
+        </p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <a
-            href="/admin/preview/presenter"
-            target="_blank"
-            style={{
-              ...buttonStyle,
-              textDecoration: "none",
-              background: "var(--cta-white)",
-            }}
+            href="/admin?tab=presenters"
+            style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
           >
-            Preview The Showcase ↗
+            ← All editions
           </a>
-          <form action="/api/admin/presenter-send" method="post">
+          <a
+            href={`/admin/preview/presenter?edition=${edition.id}`}
+            target="_blank"
+            style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
+          >
+            Preview ↗
+          </a>
+          {editable && (
+            <form action="/api/admin/presenter-send" method="post">
+              <input type="hidden" name="edition" value={edition.id} />
+              <ConfirmSubmit
+                message={`Send this Showcase to the test list (${recipients.join(", ")}) now?`}
+                style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+              >
+                Send to test list
+              </ConfirmSubmit>
+            </form>
+          )}
+          <form action="/api/admin/showcase-edition" method="post">
+            <input type="hidden" name="action" value="duplicate" />
+            <input type="hidden" name="id" value={edition.id} />
+            <button type="submit" style={{ ...buttonStyle, background: "var(--cta-white)" }}>
+              Duplicate
+            </button>
+          </form>
+          <form action="/api/admin/showcase-edition" method="post">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="id" value={edition.id} />
             <ConfirmSubmit
-              message={`Send The Showcase to the test list (${recipients.join(", ")}) now? The ${drafts.length} draft item${drafts.length === 1 ? "" : "s"} will be marked as sent.`}
-              style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+              message={
+                edition.status === "sent"
+                  ? "Delete this sent Showcase from the history? Its stories become available to future editions again."
+                  : "Delete this Showcase draft?"
+              }
+              style={{ ...buttonStyle, background: "var(--cta-white)" }}
             >
-              Send to test list
+              Delete
             </ConfirmSubmit>
           </form>
         </div>
-        <h2 style={{ ...h2, fontSize: 20 }}>Recent Showcase sends</h2>
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={th}>Sent at</th>
-                <th style={th}>Status</th>
-                <th style={th}>Items</th>
-                <th style={th}>Profiles</th>
-                <th style={th}>Recipients</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentSends.map((s) => (
-                <tr key={s.id}>
-                  <td style={td}>
-                    {s.sentAt
-                      ? s.sentAt.toISOString().replace("T", " ").slice(0, 16)
-                      : "—"}
-                  </td>
-                  <td style={td}>{s.status}</td>
-                  <td style={td}>{s.itemCount}</td>
-                  <td style={td}>{s.profileCount}</td>
-                  <td style={td}>{s.recipients ?? s.recipientCount}</td>
-                </tr>
-              ))}
-              {recentSends.length === 0 && (
-                <tr>
-                  <td style={td} colSpan={5}>
-                    No Showcase sends yet.
-                  </td>
-                </tr>
+      </section>
+
+      <section className="admin-card">
+        <h2 style={h2}>Stories in this Showcase</h2>
+        {editable ? (
+          <p style={muted}>
+            Listed in the order they will appear in the email: use the ▲ ▼
+            arrows to reorder, and tap a card to open it for editing. Pick up
+            to two stories as <strong>profiles</strong> (the big cards at the
+            top).
+          </p>
+        ) : (
+          <p style={muted}>As sent, in order.</p>
+        )}
+        {entries.length === 0 && (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            No stories yet. Add some from the list below.
+          </p>
+        )}
+        {!editable &&
+          entries.map(({ item: it, featured }, i) => (
+            <div key={it.id} style={{ fontSize: 13.5, padding: "6px 0" }}>
+              <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                {i + 1}.
+              </span>{" "}
+              <strong>{it.showTitle ?? it.aiHeading}</strong>
+              {" · "}
+              {companyName(it.companyKey)}
+              {featured && (
+                <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
+                  Profile
+                </span>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          ))}
+        {editable &&
+          entries.map(({ item: it, featured }, i) => (
+            <div
+              key={it.id}
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "flex-start",
+                marginBottom: 12,
+              }}
+            >
+              <details
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  border: "2px solid var(--cta-ink)",
+                  borderRadius: 14,
+                  padding: "12px 16px",
+                  background: "var(--cta-cream-warm)",
+                }}
+              >
+                <summary style={{ cursor: "pointer", fontSize: 13 }}>
+                  <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                    {i + 1}.{" "}
+                  </span>
+                  <strong>
+                    {(it.showTitle ?? it.aiHeading).slice(0, 70)}
+                    {(it.showTitle ?? it.aiHeading).length > 70 ? "…" : ""}
+                  </strong>
+                  {" · "}
+                  {companyName(it.companyKey)}
+                  {" · "}
+                  {it.publishedAt.toISOString().slice(0, 10)}
+                  {featured && (
+                    <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
+                      Profile
+                    </span>
+                  )}
+                </summary>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 8px" }}>
+                  {it.presenterReason ?? "Added by hand"}
+                  {" · "}
+                  {it.presenterResearchedAt
+                    ? `researched ${it.presenterResearchedAt.toISOString().slice(0, 10)}`
+                    : "not researched yet"}
+                  {" · "}
+                  <a
+                    href={it.postUrl}
+                    target="_blank"
+                    style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                  >
+                    original post ↗
+                  </a>
+                </div>
+
+                <form action="/api/admin/presenter-item" method="post" id={`sc-${it.id}`}>
+                  <input type="hidden" name="action" value="update" />
+                  <input type="hidden" name="id" value={it.id} />
+                  <input type="hidden" name="edition" value={edition.id} />
+                </form>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    columnGap: 14,
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>Heading</label>
+                    <input
+                      form={`sc-${it.id}`}
+                      name="aiHeading"
+                      defaultValue={it.aiHeading}
+                      required
+                      style={{ ...smallInput, width: "100%" }}
+                    />
+                    <label style={fieldLabel}>Summary</label>
+                    <textarea
+                      form={`sc-${it.id}`}
+                      name="aiSummary"
+                      defaultValue={it.aiSummary}
+                      required
+                      rows={2}
+                      style={{ ...smallInput, width: "100%", resize: "vertical" }}
+                    />
+                    <label style={fieldLabel}>Show title</label>
+                    <input
+                      form={`sc-${it.id}`}
+                      name="showTitle"
+                      defaultValue={it.showTitle ?? ""}
+                      placeholder="e.g. The Peasant Prince"
+                      style={{ ...smallInput, width: "100%" }}
+                    />
+                    <label style={fieldLabel}>Age range</label>
+                    <input
+                      form={`sc-${it.id}`}
+                      name="showAgeRange"
+                      defaultValue={it.showAgeRange ?? ""}
+                      placeholder="e.g. ages 6 to 12"
+                      style={{ ...smallInput, width: "100%" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Official show page URL</label>
+                    <input
+                      form={`sc-${it.id}`}
+                      name="showUrl"
+                      type="url"
+                      defaultValue={it.showUrl ?? ""}
+                      placeholder="https://company.com.au/shows/…"
+                      style={{ ...smallInput, width: "100%" }}
+                    />
+                    <label style={fieldLabel}>Official blurb</label>
+                    <textarea
+                      form={`sc-${it.id}`}
+                      name="showBlurb"
+                      defaultValue={it.showBlurb ?? ""}
+                      rows={3}
+                      placeholder="Official copy from the show page (falls back to the summary)"
+                      style={{ ...smallInput, width: "100%", resize: "vertical" }}
+                    />
+                    <label style={fieldLabel}>Image URL</label>
+                    <input
+                      form={`sc-${it.id}`}
+                      name="showImageUrl"
+                      defaultValue={it.showImageUrl ?? ""}
+                      placeholder="Leave empty to use the post image"
+                      style={{ ...smallInput, width: "100%" }}
+                    />
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    marginTop: 12,
+                  }}
+                >
+                  <button form={`sc-${it.id}`} type="submit" style={smallButton}>
+                    Save
+                  </button>
+                  <button
+                    form={`sc-${it.id}`}
+                    type="submit"
+                    formAction="/api/admin/presenter-research"
+                    style={{ ...smallButton, background: "var(--cta-white)" }}
+                  >
+                    {it.presenterResearchedAt ? "Save + re-research" : "Save + research"}
+                  </button>
+                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                    <input
+                      type="hidden"
+                      name="action"
+                      value={featured ? "unfeature" : "feature"}
+                    />
+                    <input type="hidden" name="id" value={it.id} />
+                    <input type="hidden" name="edition" value={edition.id} />
+                    <button
+                      type="submit"
+                      style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                    >
+                      {featured ? "Remove profile" : "Make profile"}
+                    </button>
+                  </form>
+                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                    <input type="hidden" name="action" value="add-show" />
+                    <input type="hidden" name="id" value={it.id} />
+                    <input type="hidden" name="edition" value={edition.id} />
+                    <button
+                      type="submit"
+                      style={{ ...smallButton, background: "var(--cta-white)" }}
+                    >
+                      Add to Other happenings
+                    </button>
+                  </form>
+                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                    <input type="hidden" name="action" value="remove" />
+                    <input type="hidden" name="id" value={it.id} />
+                    <input type="hidden" name="edition" value={edition.id} />
+                    <ConfirmSubmit
+                      message="Remove this story from this Showcase? It stays in the story pool."
+                      style={dangerButton}
+                    >
+                      Remove
+                    </ConfirmSubmit>
+                  </form>
+                </div>
+                {!showsPageByKey.get(it.companyKey) && (
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+                    Research needs {companyName(it.companyKey)}&#39;s shows
+                    page URL before it can find this show. Add it on the
+                    Companies tab.
+                  </div>
+                )}
+              </details>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <form action="/api/admin/presenter-item" method="post">
+                  <input type="hidden" name="action" value="move-up" />
+                  <input type="hidden" name="id" value={it.id} />
+                  <input type="hidden" name="edition" value={edition.id} />
+                  <button
+                    type="submit"
+                    aria-label="Move up"
+                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
+                  >
+                    ▲
+                  </button>
+                </form>
+                <form action="/api/admin/presenter-item" method="post">
+                  <input type="hidden" name="action" value="move-down" />
+                  <input type="hidden" name="id" value={it.id} />
+                  <input type="hidden" name="edition" value={edition.id} />
+                  <button
+                    type="submit"
+                    aria-label="Move down"
+                    style={{ ...smallButton, background: "var(--cta-white)", padding: "6px 10px" }}
+                  >
+                    ▼
+                  </button>
+                </form>
+              </div>
+            </div>
+          ))}
+      </section>
+
+      {editable && (
+        <section className="admin-card">
+          <h2 style={h2}>Add stories</h2>
+          <p style={muted}>
+            Stories not yet in this Showcase. High relevance is shown by
+            default; switch the rating filter or search to dig deeper.
+          </p>
+          <StoryPoolTable
+            rows={pool}
+            nameByKey={nameByKey}
+            companyRows={companyRows}
+            mode="add"
+            editionId={edition.id}
+            params={params}
+          />
+        </section>
+      )}
+
+      <section className="admin-card">
+        <h2 style={h2}>Other happenings in this Showcase</h2>
+        <p style={muted}>
+          The show list at the bottom of this edition.
+          {editable &&
+            " Remove a show from this edition here; manage the full registry on the main Showcase page."}
+        </p>
+        {editionShows.length === 0 && (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            No shows in this edition{editable ? " yet" : ""}.
+          </p>
+        )}
+        {editionShows.map((s) => (
+          <div
+            key={s.id}
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              padding: "7px 0",
+              borderBottom: "1px solid rgba(30,30,29,0.15)",
+              fontSize: 13.5,
+            }}
+          >
+            <span style={{ flex: 1 }}>
+              <strong>{s.title}</strong>
+              {" · "}
+              {companyName(s.companyKey)}
+              {s.ageRange ? ` · ${s.ageRange}` : ""}
+            </span>
+            {editable && (
+              <form action="/api/admin/showcase-edition" method="post">
+                <input type="hidden" name="action" value="remove-show" />
+                <input type="hidden" name="id" value={edition.id} />
+                <input type="hidden" name="showId" value={s.id} />
+                <button type="submit" style={dangerButton}>
+                  Remove
+                </button>
+              </form>
+            )}
+          </div>
+        ))}
+        {editable && addableShows.length > 0 && (
+          <form
+            action="/api/admin/showcase-edition"
+            method="post"
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginTop: 14,
+            }}
+          >
+            <input type="hidden" name="action" value="add-show" />
+            <input type="hidden" name="id" value={edition.id} />
+            <select name="showId" style={smallInput}>
+              {addableShows.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} ({companyName(s.companyKey)})
+                </option>
+              ))}
+            </select>
+            <button type="submit" style={smallButton}>
+              Add to this Showcase
+            </button>
+          </form>
+        )}
       </section>
     </>
   );

@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
     const result = await ingestFeed();
     const showcase = await runPresenterPipeline().catch(() => null);
     const showcaseNote =
-      showcase && showcase.draftCount > 0
-        ? `; The Showcase draft holds ${showcase.draftCount} item${showcase.draftCount === 1 ? "" : "s"}`
+      showcase && showcase.availableCount > 0
+        ? `; ${showcase.availableCount} stor${showcase.availableCount === 1 ? "y is" : "ies are"} ready for the next Showcase`
         : "";
     const message = `Fetched feed: ${result.seen} posts seen, ${result.added} new ingested${result.remaining > 0 ? `, ${result.remaining} still queued (click again)` : ""}${showcaseNote}`;
     return NextResponse.redirect(

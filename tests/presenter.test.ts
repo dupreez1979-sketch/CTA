@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildShowcaseProps, compareDrafts } from "@/lib/presenter";
+import {
+  buildShowcaseProps,
+  parseShowcaseListParams,
+  swapPositions,
+} from "@/lib/presenter";
 import { COPY_SCHEMA } from "@/lib/ai";
 import type { FeedItem, Show } from "@/lib/db/schema";
 
@@ -25,22 +29,28 @@ function item(overrides: Partial<FeedItem>): FeedItem {
     aiHeading: `Heading ${id}`,
     aiSummary: `Summary ${id}`,
     imageUrl: null,
-    presenterRelevant: true,
+    presenterRelevance: "high",
     presenterReason: "Announces a new touring show",
-    presenterStatus: "draft",
     showTitle: null,
     showUrl: null,
     showBlurb: null,
     showAgeRange: null,
     showImageUrl: null,
-    presenterFeatured: false,
-    presenterPosition: null,
     presenterResearchedAt: null,
     presenterNotifiedAt: null,
+    // Deprecated columns still present on the row type
+    presenterRelevant: false,
+    presenterStatus: null,
+    presenterFeatured: false,
+    presenterPosition: null,
     presenterSendId: null,
     createdAt: new Date("2026-07-01T00:00:00Z"),
     ...overrides,
   };
+}
+
+function entry(overrides: Partial<FeedItem>, featured = false) {
+  return { item: item(overrides), featured };
 }
 
 function show(overrides: Partial<Show>): Show {
@@ -66,28 +76,30 @@ describe("buildShowcaseProps", () => {
   });
 
   it("caps profiles at two and keeps the rest in company sections", () => {
-    const items = [
-      item({ presenterFeatured: true, showTitle: "Show A" }),
-      item({ presenterFeatured: true, showTitle: "Show B" }),
-      item({ presenterFeatured: true, showTitle: "Show C" }),
-      item({ companyKey: "terrapin" }),
+    const entries = [
+      entry({ showTitle: "Show A" }, true),
+      entry({ showTitle: "Show B" }, true),
+      entry({ showTitle: "Show C" }, true),
+      entry({ companyKey: "terrapin" }),
     ];
-    const out = buildShowcaseProps(items, [], NAMES, BASE, "4 July 2026")!;
+    const out = buildShowcaseProps(entries, [], NAMES, BASE, "4 July 2026")!;
     expect(out.props.profiles).toHaveLength(2);
     expect(out.profileCount).toBe(2);
-    // The third featured item falls back into the grouped sections
+    // The third featured entry falls back into the grouped sections
     const sectionItems = out.props.companies.flatMap((c) => c.items);
-    expect(sectionItems.map((i) => i.heading)).toContain(items[2].aiHeading);
+    expect(sectionItems.map((i) => i.heading)).toContain(
+      entries[2].item.aiHeading,
+    );
     expect(out.itemCount).toBe(4);
   });
 
   it("groups non-profile items by company with display names", () => {
-    const items = [
-      item({ companyKey: "monkey-baa" }),
-      item({ companyKey: "terrapin" }),
-      item({ companyKey: "monkey-baa" }),
+    const entries = [
+      entry({ companyKey: "monkey-baa" }),
+      entry({ companyKey: "terrapin" }),
+      entry({ companyKey: "monkey-baa" }),
     ];
-    const out = buildShowcaseProps(items, [], NAMES, BASE, "4 July 2026")!;
+    const out = buildShowcaseProps(entries, [], NAMES, BASE, "4 July 2026")!;
     expect(out.props.companies).toHaveLength(2);
     const monkeyBaa = out.props.companies.find(
       (c) => c.name === "Monkey Baa Theatre Co",
@@ -96,12 +108,11 @@ describe("buildShowcaseProps", () => {
   });
 
   it("keeps the announcement and the show as separate profile fields", () => {
-    const withOfficial = item({
-      presenterFeatured: true,
-      showTitle: "The Peasant Prince",
-      showBlurb: "Official blurb.",
-    });
-    const withoutOfficial = item({ presenterFeatured: true });
+    const withOfficial = entry(
+      { showTitle: "The Peasant Prince", showBlurb: "Official blurb." },
+      true,
+    );
+    const withoutOfficial = entry({}, true);
     const out = buildShowcaseProps(
       [withOfficial, withoutOfficial],
       [],
@@ -110,42 +121,62 @@ describe("buildShowcaseProps", () => {
       "4 July 2026",
     )!;
     // The announcement is always the AI copy
-    expect(out.props.profiles[0].heading).toBe(withOfficial.aiHeading);
-    expect(out.props.profiles[0].summary).toBe(withOfficial.aiSummary);
+    expect(out.props.profiles[0].heading).toBe(withOfficial.item.aiHeading);
+    expect(out.props.profiles[0].summary).toBe(withOfficial.item.aiSummary);
     // The show block passes official fields through untouched
     expect(out.props.profiles[0].showTitle).toBe("The Peasant Prince");
     expect(out.props.profiles[0].showBlurb).toBe("Official blurb.");
     // No official info: announcement only, show block stays empty
-    expect(out.props.profiles[1].heading).toBe(withoutOfficial.aiHeading);
+    expect(out.props.profiles[1].heading).toBe(withoutOfficial.item.aiHeading);
     expect(out.props.profiles[1].showTitle).toBeNull();
     expect(out.props.profiles[1].showBlurb).toBeNull();
   });
 
   it("uses announcement copy for The latest news items", () => {
-    const it1 = item({
-      showTitle: "Official Title",
-      showBlurb: "Official blurb.",
-    });
-    const out = buildShowcaseProps([it1], [], NAMES, BASE, "4 July 2026")!;
+    const e = entry({ showTitle: "Official Title", showBlurb: "Official." });
+    const out = buildShowcaseProps([e], [], NAMES, BASE, "4 July 2026")!;
     const listItem = out.props.companies[0].items[0];
-    expect(listItem.heading).toBe(it1.aiHeading);
-    expect(listItem.summary).toBe(it1.aiSummary);
+    expect(listItem.heading).toBe(e.item.aiHeading);
+    expect(listItem.summary).toBe(e.item.aiSummary);
     expect(listItem.showUrl).toBeNull();
   });
 
   it("absolutises relative image paths and prefers the show image", () => {
-    const items = [
-      item({
-        presenterFeatured: true,
-        showImageUrl: "/api/img/show-key",
-        imageUrl: "/api/img/post-key",
-      }),
-      item({ imageUrl: "/api/img/post-only" }),
+    const entries = [
+      entry(
+        { showImageUrl: "/api/img/show-key", imageUrl: "/api/img/post-key" },
+        true,
+      ),
+      entry({ imageUrl: "/api/img/post-only" }),
     ];
-    const out = buildShowcaseProps(items, [], NAMES, BASE, "4 July 2026")!;
+    const out = buildShowcaseProps(entries, [], NAMES, BASE, "4 July 2026")!;
     expect(out.props.profiles[0].imageUrl).toBe(`${BASE}/api/img/show-key`);
     const section = out.props.companies[0];
     expect(section.items[0].imageUrl).toBe(`${BASE}/api/img/post-only`);
+  });
+
+  it("preserves the given entry order in profiles and sections", () => {
+    const entries = [
+      entry({ showTitle: "First Profile" }, true),
+      entry({ showTitle: "Second Profile" }, true),
+      entry({ companyKey: "terrapin", showTitle: "T1" }),
+      entry({ companyKey: "monkey-baa", showTitle: "M1" }),
+      entry({ companyKey: "terrapin", showTitle: "T2" }),
+    ];
+    const out = buildShowcaseProps(entries, [], NAMES, BASE, "4 July 2026")!;
+    expect(out.props.profiles.map((p) => p.showTitle)).toEqual([
+      "First Profile",
+      "Second Profile",
+    ]);
+    // Sections follow first appearance; items keep order within a company
+    expect(out.props.companies.map((c) => c.name)).toEqual([
+      "Terrapin",
+      "Monkey Baa Theatre Co",
+    ]);
+    expect(out.props.companies[0].items.map((i) => i.heading)).toEqual([
+      entries[2].item.aiHeading,
+      entries[4].item.aiHeading,
+    ]);
   });
 
   it("lists registry shows sorted by company then title", () => {
@@ -164,72 +195,75 @@ describe("buildShowcaseProps", () => {
   });
 });
 
-describe("compareDrafts", () => {
-  it("orders positioned items first, ascending", () => {
-    const items = [
-      item({ presenterPosition: 2 }),
-      item({ presenterPosition: 0 }),
-      item({ presenterPosition: 1 }),
-    ];
-    const sorted = [...items].sort(compareDrafts);
-    expect(sorted.map((i) => i.presenterPosition)).toEqual([0, 1, 2]);
+describe("swapPositions", () => {
+  it("swaps with the neighbour in the given direction", () => {
+    expect(swapPositions([10, 20, 30], 20, "up")).toEqual([20, 10, 30]);
+    expect(swapPositions([10, 20, 30], 20, "down")).toEqual([10, 30, 20]);
   });
 
-  it("puts unpositioned items after positioned ones, newest first", () => {
-    const older = item({
-      presenterPosition: null,
-      publishedAt: new Date("2026-06-01T00:00:00Z"),
-    });
-    const newer = item({
-      presenterPosition: null,
-      publishedAt: new Date("2026-07-01T00:00:00Z"),
-    });
-    const positioned = item({ presenterPosition: 5 });
-    const sorted = [older, newer, positioned].sort(compareDrafts);
-    expect(sorted[0].id).toBe(positioned.id);
-    expect(sorted[1].id).toBe(newer.id);
-    expect(sorted[2].id).toBe(older.id);
+  it("returns null at the edges", () => {
+    expect(swapPositions([10, 20, 30], 10, "up")).toBeNull();
+    expect(swapPositions([10, 20, 30], 30, "down")).toBeNull();
+  });
+
+  it("returns null for an unknown id and does not mutate the input", () => {
+    const ids = [10, 20, 30];
+    expect(swapPositions(ids, 99, "up")).toBeNull();
+    expect(swapPositions(ids, 20, "up")).toEqual([20, 10, 30]);
+    expect(ids).toEqual([10, 20, 30]);
   });
 });
 
-describe("buildShowcaseProps ordering", () => {
-  it("preserves the given item order in profiles and sections", () => {
-    const items = [
-      item({ presenterFeatured: true, showTitle: "First Profile" }),
-      item({ presenterFeatured: true, showTitle: "Second Profile" }),
-      item({ companyKey: "terrapin", showTitle: "T1" }),
-      item({ companyKey: "monkey-baa", showTitle: "M1" }),
-      item({ companyKey: "terrapin", showTitle: "T2" }),
-    ];
-    const out = buildShowcaseProps(items, [], NAMES, BASE, "4 July 2026")!;
-    expect(out.props.profiles.map((p) => p.showTitle)).toEqual([
-      "First Profile",
-      "Second Profile",
-    ]);
-    // Sections follow first appearance; items keep order within a company
-    expect(out.props.companies.map((c) => c.name)).toEqual([
-      "Terrapin",
-      "Monkey Baa Theatre Co",
-    ]);
-    expect(out.props.companies[0].items.map((i) => i.heading)).toEqual([
-      items[2].aiHeading,
-      items[4].aiHeading,
-    ]);
+describe("parseShowcaseListParams", () => {
+  it("defaults to newest-first high-relevance", () => {
+    expect(parseShowcaseListParams({})).toEqual({
+      sort: "date",
+      dir: "desc",
+      rel: "high",
+      co: "",
+      q: "",
+    });
+  });
+
+  it("accepts valid values and rejects junk", () => {
+    expect(
+      parseShowcaseListParams({
+        sort: "relevance",
+        dir: "asc",
+        rel: "all",
+        co: "terrapin",
+        q: " tour ",
+      }),
+    ).toEqual({
+      sort: "relevance",
+      dir: "asc",
+      rel: "all",
+      co: "terrapin",
+      q: "tour",
+    });
+    expect(
+      parseShowcaseListParams({ sort: "bogus", dir: "sideways", rel: "nah" }),
+    ).toEqual({ sort: "date", dir: "desc", rel: "high", co: "", q: "" });
   });
 });
 
 describe("COPY_SCHEMA showcase classification", () => {
-  it("requires the classifier fields alongside the copy fields", () => {
+  it("requires the relevance rating alongside the copy fields", () => {
     expect(COPY_SCHEMA.required).toEqual(
       expect.arrayContaining([
         "heading",
         "summary",
-        "presenterRelevant",
+        "presenterRelevance",
         "showTitle",
         "presenterReason",
       ]),
     );
     expect(COPY_SCHEMA.additionalProperties).toBe(false);
+    expect(COPY_SCHEMA.properties.presenterRelevance.enum).toEqual([
+      "low",
+      "medium",
+      "high",
+    ]);
     expect(COPY_SCHEMA.properties.showTitle.type).toEqual(["string", "null"]);
   });
 });

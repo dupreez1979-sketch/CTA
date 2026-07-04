@@ -80,11 +80,10 @@ async function ingestItem(
       aiHeading: copy.heading,
       aiSummary: copy.summary,
       imageUrl,
-      // The Showcase: relevant items enter the draft pool for review.
-      presenterRelevant: copy.presenterRelevant,
+      // The Showcase: high-relevance stories are offered to new editions.
+      presenterRelevance: copy.presenterRelevance,
       presenterReason: copy.presenterReason,
       showTitle: copy.showTitle,
-      presenterStatus: copy.presenterRelevant ? "draft" : null,
     })
     .onConflictDoNothing();
 }

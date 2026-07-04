@@ -74,34 +74,41 @@ export const feedItems = pgTable(
     aiSummary: text("ai_summary").notNull(),
     imageUrl: text("image_url"),
     // ---- The Showcase (presenter edition) ----
-    // Raw classifier verdict: does the post announce a show or tour that
-    // presenters elsewhere could book? Kept for audit even after the item
-    // is excluded or sent.
-    presenterRelevant: boolean("presenter_relevant").notNull().default(false),
+    // Classifier rating: how relevant the post is to The Showcase. High =
+    // announces a bookable show/tour; medium = production news that can't
+    // be booked yet; low = everything else. Manually overridable in admin.
+    presenterRelevance: text("presenter_relevance", {
+      enum: ["low", "medium", "high"],
+    })
+      .notNull()
+      .default("low"),
     presenterReason: text("presenter_reason"),
-    // null = not in the Showcase pipeline at all.
-    presenterStatus: text("presenter_status", {
-      enum: ["draft", "excluded", "sent"],
-    }),
     showTitle: text("show_title"),
     showUrl: text("show_url"),
     showBlurb: text("show_blurb"),
     showAgeRange: text("show_age_range"),
     showImageUrl: text("show_image_url"),
-    // "Profile" (featured) in the next Showcase; capped at 2 in the route.
-    presenterFeatured: boolean("presenter_featured").notNull().default(false),
-    // Manual ordering within the Showcase draft (nulls sort last, then
-    // newest first). Normalised to dense 0..n by the move actions.
-    presenterPosition: integer("presenter_position"),
     // Set on any research attempt (success or failure) so the cron never
     // loops on an item whose site can't be researched.
     presenterResearchedAt: timestamp("presenter_researched_at", {
       withTimezone: true,
     }),
-    // Set once the item has appeared in a "draft ready" notification.
+    // Set once the item has appeared in a "new stories" notification.
     presenterNotifiedAt: timestamp("presenter_notified_at", {
       withTimezone: true,
     }),
+    /** @deprecated superseded by presenterRelevance; kept in the DB for
+     * safety, do not read or write. */
+    presenterRelevant: boolean("presenter_relevant").notNull().default(false),
+    /** @deprecated superseded by showcase_edition_items membership. */
+    presenterStatus: text("presenter_status", {
+      enum: ["draft", "excluded", "sent"],
+    }),
+    /** @deprecated superseded by showcase_edition_items.featured. */
+    presenterFeatured: boolean("presenter_featured").notNull().default(false),
+    /** @deprecated superseded by showcase_edition_items.position. */
+    presenterPosition: integer("presenter_position"),
+    /** @deprecated superseded by showcase_edition_items.edition_id. */
     presenterSendId: integer("presenter_send_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -135,9 +142,58 @@ export const shows = pgTable(
 );
 
 /**
- * Send log for The Showcase. Deliberately separate from `issues`: Showcase
- * sends are ad-hoc (draft-pool based, no cadence window), so they have no
- * natural cadence+window idempotency key.
+ * A Showcase edition: one email built in the admin builder. Owns its story
+ * selection (showcase_edition_items, with per-edition order and up to two
+ * featured "profiles") and its "Other happenings" show list
+ * (showcase_edition_shows). Draft and failed editions are editable; sent
+ * editions are history (preview, duplicate, delete only).
+ */
+export const showcaseEditions = pgTable("showcase_editions", {
+  id: serial("id").primaryKey(),
+  status: text("status", { enum: ["draft", "sending", "sent", "failed"] })
+    .notNull()
+    .default("draft"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  itemCount: integer("item_count").notNull().default(0),
+  profileCount: integer("profile_count").notNull().default(0),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  // Comma-joined audit copy of the (small, test-mode) recipient list.
+  recipients: text("recipients"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const showcaseEditionItems = pgTable(
+  "showcase_edition_items",
+  {
+    id: serial("id").primaryKey(),
+    editionId: integer("edition_id").notNull(),
+    feedItemId: integer("feed_item_id").notNull(),
+    // Dense 0..n within the edition; renumbered on every move/remove.
+    position: integer("position").notNull().default(0),
+    // "Profile" (big card); capped at 2 per edition in the routes.
+    featured: boolean("featured").notNull().default(false),
+  },
+  (t) => [uniqueIndex("sc_edition_item_idx").on(t.editionId, t.feedItemId)],
+);
+
+export const showcaseEditionShows = pgTable(
+  "showcase_edition_shows",
+  {
+    id: serial("id").primaryKey(),
+    editionId: integer("edition_id").notNull(),
+    showId: integer("show_id").notNull(),
+  },
+  (t) => [uniqueIndex("sc_edition_show_idx").on(t.editionId, t.showId)],
+);
+
+/**
+ * @deprecated superseded by showcase_editions (rows were migrated across,
+ * preserving ids). Kept in the DB for safety; do not read or write.
  */
 export const presenterSends = pgTable("presenter_sends", {
   id: serial("id").primaryKey(),
@@ -197,6 +253,7 @@ export type Subscriber = typeof subscribers.$inferSelect;
 export type FeedItem = typeof feedItems.$inferSelect;
 export type Issue = typeof issues.$inferSelect;
 export type Show = typeof shows.$inferSelect;
-export type PresenterSend = typeof presenterSends.$inferSelect;
+export type ShowcaseEdition = typeof showcaseEditions.$inferSelect;
+export type ShowcaseEditionItem = typeof showcaseEditionItems.$inferSelect;
 export type Cadence = "daily" | "weekly" | "fortnightly";
-export type PresenterStatus = "draft" | "excluded" | "sent";
+export type PresenterRelevance = "low" | "medium" | "high";

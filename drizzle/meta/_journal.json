@@ -64,6 +64,13 @@
       "when": 1783128617745,
       "tag": "0008_presenter-position",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783141660074,
+      "tag": "0009_showcase-editions",
+      "breakpoints": true
     }
   ]
 }

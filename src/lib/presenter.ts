@@ -6,10 +6,14 @@ import {
   db,
   companies,
   feedItems,
-  presenterSends,
+  showcaseEditions,
+  showcaseEditionItems,
+  showcaseEditionShows,
   shows,
   type FeedItem,
+  type PresenterRelevance,
   type Show,
+  type ShowcaseEdition,
 } from "./db";
 import { getSetting, setSetting } from "./settings";
 import { companyNameMap } from "./company-store";
@@ -25,10 +29,11 @@ import ShowcaseDraftEmail from "../emails/ShowcaseDraftEmail";
 
 /**
  * The Showcase — the presenter and international partner edition, currently
- * in test mode. The daily pipeline classifies show/tour announcements into a
- * draft pool, researches official show pages, and notifies the test list
- * that a draft is ready; nothing is ever sent automatically. Sending happens
- * from admin after review.
+ * in test mode. Stories are rated low/medium/high for Showcase relevance at
+ * ingest; editions are built explicitly in admin ("New Showcase" pre-fills
+ * from unused high-relevance stories and the active show registry), then
+ * edited, previewed and sent to the settings-managed test list. Nothing is
+ * ever sent automatically.
  */
 
 const RECIPIENTS_KEY = "presenter_recipients";
@@ -36,6 +41,7 @@ const DEFAULT_RECIPIENTS = ["kevin@monkeybaa.com.au"];
 const RESEARCH_MAX_PER_RUN = Number(
   process.env.PRESENTER_RESEARCH_MAX_PER_RUN ?? 2,
 );
+const PREFILL_MAX = Number(process.env.PRESENTER_PREFILL_MAX ?? 12);
 const MAX_PROFILES = 2;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -54,32 +60,13 @@ function sydneyDateLabel(now = new Date()): string {
   }).format(now);
 }
 
-/**
- * Draft display/email order: manually positioned items first (position
- * ascending), then unpositioned newcomers newest-first. `draftOrderBy()`
- * is the SQL form; `compareDrafts` is the same rule for in-memory sorting
- * (move actions, tests). Keep the two in sync.
- */
-export function draftOrderBy() {
-  return [
-    sql`${feedItems.presenterPosition} asc nulls last`,
-    desc(feedItems.publishedAt),
-  ];
-}
-
-export function compareDrafts(
-  a: Pick<FeedItem, "presenterPosition" | "publishedAt">,
-  b: Pick<FeedItem, "presenterPosition" | "publishedAt">,
-): number {
-  if (a.presenterPosition !== null && b.presenterPosition !== null) {
-    if (a.presenterPosition !== b.presenterPosition)
-      return a.presenterPosition - b.presenterPosition;
-  } else if (a.presenterPosition !== null) {
-    return -1;
-  } else if (b.presenterPosition !== null) {
-    return 1;
-  }
-  return b.publishedAt.getTime() - a.publishedAt.getTime();
+/** SQL fragment: the feed item is not part of any SENT edition. */
+function notInSentEdition() {
+  return sql`not exists (
+    select 1 from ${showcaseEditionItems} ei
+    join ${showcaseEditions} e on e.id = ei.edition_id
+    where ei.feed_item_id = ${feedItems.id} and e.status = 'sent'
+  )`;
 }
 
 // ---------------------------------------------------------------- recipients
@@ -106,43 +93,331 @@ export async function setPresenterRecipients(raw: string): Promise<string[]> {
   return emails.length > 0 ? emails : DEFAULT_RECIPIENTS;
 }
 
+// ------------------------------------------------------------------ editions
+
+export interface EditionEntry {
+  item: FeedItem;
+  featured: boolean;
+  position: number;
+}
+
+export async function getEdition(id: number): Promise<ShowcaseEdition | null> {
+  const [edition] = await db()
+    .select()
+    .from(showcaseEditions)
+    .where(eq(showcaseEditions.id, id))
+    .limit(1);
+  return edition ?? null;
+}
+
+export async function getEditionItems(
+  editionId: number,
+): Promise<EditionEntry[]> {
+  const rows = await db()
+    .select({
+      item: feedItems,
+      featured: showcaseEditionItems.featured,
+      position: showcaseEditionItems.position,
+    })
+    .from(showcaseEditionItems)
+    .innerJoin(feedItems, eq(showcaseEditionItems.feedItemId, feedItems.id))
+    .where(eq(showcaseEditionItems.editionId, editionId))
+    .orderBy(asc(showcaseEditionItems.position));
+  return rows;
+}
+
+/** Live story/profile counts per edition (drafts have no stored counts). */
+export async function getEditionCounts(): Promise<
+  Map<number, { items: number; profiles: number }>
+> {
+  const rows = await db()
+    .select({
+      editionId: showcaseEditionItems.editionId,
+      items: sql<number>`count(*)::int`,
+      profiles: sql<number>`count(*) filter (where ${showcaseEditionItems.featured})::int`,
+    })
+    .from(showcaseEditionItems)
+    .groupBy(showcaseEditionItems.editionId);
+  return new Map(
+    rows.map((r) => [r.editionId, { items: r.items, profiles: r.profiles }]),
+  );
+}
+
+export async function getEditionShows(editionId: number): Promise<Show[]> {
+  const rows = await db()
+    .select({ show: shows })
+    .from(showcaseEditionShows)
+    .innerJoin(shows, eq(showcaseEditionShows.showId, shows.id))
+    .where(eq(showcaseEditionShows.editionId, editionId));
+  return rows.map((r) => r.show);
+}
+
+/**
+ * "New Showcase": a draft edition pre-filled with the newest unused
+ * high-relevance stories and the active show registry.
+ */
+export async function createEditionFromPool(): Promise<{
+  id: number;
+  itemCount: number;
+  showCount: number;
+}> {
+  const [edition] = await db()
+    .insert(showcaseEditions)
+    .values({})
+    .returning({ id: showcaseEditions.id });
+
+  const pool = await db()
+    .select({ id: feedItems.id })
+    .from(feedItems)
+    .where(and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()))
+    .orderBy(desc(feedItems.publishedAt))
+    .limit(PREFILL_MAX);
+  if (pool.length > 0) {
+    await db()
+      .insert(showcaseEditionItems)
+      .values(
+        pool.map((p, i) => ({
+          editionId: edition.id,
+          feedItemId: p.id,
+          position: i,
+        })),
+      );
+  }
+
+  const activeShows = await db()
+    .select({ id: shows.id })
+    .from(shows)
+    .where(eq(shows.status, "active"));
+  if (activeShows.length > 0) {
+    await db()
+      .insert(showcaseEditionShows)
+      .values(
+        activeShows.map((s) => ({ editionId: edition.id, showId: s.id })),
+      );
+  }
+
+  return { id: edition.id, itemCount: pool.length, showCount: activeShows.length };
+}
+
+/** Copy an edition (any status) into a fresh draft. */
+export async function duplicateEdition(id: number): Promise<number | null> {
+  const source = await getEdition(id);
+  if (!source) return null;
+  const [copy] = await db()
+    .insert(showcaseEditions)
+    .values({})
+    .returning({ id: showcaseEditions.id });
+  const items = await db()
+    .select()
+    .from(showcaseEditionItems)
+    .where(eq(showcaseEditionItems.editionId, id));
+  if (items.length > 0) {
+    await db()
+      .insert(showcaseEditionItems)
+      .values(
+        items.map((it) => ({
+          editionId: copy.id,
+          feedItemId: it.feedItemId,
+          position: it.position,
+          featured: it.featured,
+        })),
+      );
+  }
+  const showRows = await db()
+    .select()
+    .from(showcaseEditionShows)
+    .where(eq(showcaseEditionShows.editionId, id));
+  if (showRows.length > 0) {
+    await db()
+      .insert(showcaseEditionShows)
+      .values(showRows.map((s) => ({ editionId: copy.id, showId: s.showId })));
+  }
+  return copy.id;
+}
+
+export async function deleteEdition(id: number): Promise<boolean> {
+  const edition = await getEdition(id);
+  if (!edition) return false;
+  await db()
+    .delete(showcaseEditionItems)
+    .where(eq(showcaseEditionItems.editionId, id));
+  await db()
+    .delete(showcaseEditionShows)
+    .where(eq(showcaseEditionShows.editionId, id));
+  await db().delete(showcaseEditions).where(eq(showcaseEditions.id, id));
+  return true;
+}
+
+// --------------------------------------------------------- edition contents
+
+/**
+ * Pure reorder rule (exported for tests): swap `id` with its neighbour in
+ * the given ordered id list. Returns the new order, or null when the id is
+ * unknown or already at the edge.
+ */
+export function swapPositions(
+  ids: number[],
+  id: number,
+  dir: "up" | "down",
+): number[] | null {
+  const idx = ids.indexOf(id);
+  if (idx === -1) return null;
+  const target = dir === "up" ? idx - 1 : idx + 1;
+  if (target < 0 || target >= ids.length) return null;
+  const next = [...ids];
+  [next[idx], next[target]] = [next[target], next[idx]];
+  return next;
+}
+
+async function renumberEdition(editionId: number, orderedItemIds: number[]) {
+  for (let i = 0; i < orderedItemIds.length; i++) {
+    await db()
+      .update(showcaseEditionItems)
+      .set({ position: i })
+      .where(
+        and(
+          eq(showcaseEditionItems.editionId, editionId),
+          eq(showcaseEditionItems.feedItemId, orderedItemIds[i]),
+        ),
+      );
+  }
+}
+
+/** Returns false when the story was already in the edition. */
+export async function addItemToEdition(
+  editionId: number,
+  feedItemId: number,
+): Promise<boolean> {
+  const existing = await getEditionItems(editionId);
+  const inserted = await db()
+    .insert(showcaseEditionItems)
+    .values({ editionId, feedItemId, position: existing.length })
+    .onConflictDoNothing()
+    .returning({ id: showcaseEditionItems.id });
+  return inserted.length > 0;
+}
+
+export async function removeItemFromEdition(
+  editionId: number,
+  feedItemId: number,
+): Promise<void> {
+  await db()
+    .delete(showcaseEditionItems)
+    .where(
+      and(
+        eq(showcaseEditionItems.editionId, editionId),
+        eq(showcaseEditionItems.feedItemId, feedItemId),
+      ),
+    );
+  const remaining = await getEditionItems(editionId);
+  await renumberEdition(
+    editionId,
+    remaining.map((r) => r.item.id),
+  );
+}
+
+export async function moveEditionItem(
+  editionId: number,
+  feedItemId: number,
+  dir: "up" | "down",
+): Promise<boolean> {
+  const entries = await getEditionItems(editionId);
+  const next = swapPositions(
+    entries.map((e) => e.item.id),
+    feedItemId,
+    dir,
+  );
+  if (!next) return false;
+  await renumberEdition(editionId, next);
+  return true;
+}
+
+/** Returns false when a third profile was attempted. */
+export async function setEditionItemFeatured(
+  editionId: number,
+  feedItemId: number,
+  featured: boolean,
+): Promise<boolean> {
+  if (featured) {
+    const entries = await getEditionItems(editionId);
+    const others = entries.filter(
+      (e) => e.featured && e.item.id !== feedItemId,
+    );
+    if (others.length >= MAX_PROFILES) return false;
+  }
+  await db()
+    .update(showcaseEditionItems)
+    .set({ featured })
+    .where(
+      and(
+        eq(showcaseEditionItems.editionId, editionId),
+        eq(showcaseEditionItems.feedItemId, feedItemId),
+      ),
+    );
+  return true;
+}
+
+export async function addShowToEdition(
+  editionId: number,
+  showId: number,
+): Promise<void> {
+  await db()
+    .insert(showcaseEditionShows)
+    .values({ editionId, showId })
+    .onConflictDoNothing();
+}
+
+export async function removeShowFromEdition(
+  editionId: number,
+  showId: number,
+): Promise<void> {
+  await db()
+    .delete(showcaseEditionShows)
+    .where(
+      and(
+        eq(showcaseEditionShows.editionId, editionId),
+        eq(showcaseEditionShows.showId, showId),
+      ),
+    );
+}
+
 // ------------------------------------------------------------------ pipeline
 
 export interface PresenterPipelineResult {
   researched: number;
   notified: number;
-  draftCount: number;
+  availableCount: number;
 }
 
 /**
- * Post-ingest Showcase step: research a few un-researched drafts, then send
- * one "draft ready" notification covering any items that haven't been
- * announced yet. Both halves are best-effort — a failure here must never
- * break the cron run.
+ * Post-ingest Showcase step: research a few un-researched high-relevance
+ * stories, then send one "new stories" notification covering any that
+ * haven't been announced yet. Both halves are best-effort — a failure here
+ * must never break the cron run. Editions are never created or sent here.
  */
 export async function runPresenterPipeline(): Promise<PresenterPipelineResult> {
-  const researched = await researchPendingDrafts().catch((err) => {
+  const researched = await researchPendingStories().catch((err) => {
     console.error("Showcase research step failed:", err);
     return 0;
   });
-  const notified = await notifyNewDrafts().catch((err) => {
+  const notified = await notifyNewStories().catch((err) => {
     console.error("Showcase notify step failed:", err);
     return 0;
   });
-  const drafts = await db()
+  const available = await db()
     .select({ id: feedItems.id })
     .from(feedItems)
-    .where(eq(feedItems.presenterStatus, "draft"));
-  return { researched, notified, draftCount: drafts.length };
+    .where(and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()));
+  return { researched, notified, availableCount: available.length };
 }
 
-async function researchPendingDrafts(): Promise<number> {
+async function researchPendingStories(): Promise<number> {
   const pending = await db()
     .select()
     .from(feedItems)
     .where(
       and(
-        eq(feedItems.presenterStatus, "draft"),
+        eq(feedItems.presenterRelevance, "high"),
         isNull(feedItems.presenterResearchedAt),
       ),
     )
@@ -179,26 +454,28 @@ async function researchPendingDrafts(): Promise<number> {
   return pending.length;
 }
 
-async function notifyNewDrafts(): Promise<number> {
+async function notifyNewStories(): Promise<number> {
   const fresh = await db()
     .select()
     .from(feedItems)
     .where(
       and(
-        eq(feedItems.presenterStatus, "draft"),
+        eq(feedItems.presenterRelevance, "high"),
         isNull(feedItems.presenterNotifiedAt),
       ),
     )
     .orderBy(desc(feedItems.publishedAt));
   if (fresh.length === 0) return 0;
 
-  const [to, nameByKey, drafts] = await Promise.all([
+  const [to, nameByKey, available] = await Promise.all([
     getPresenterRecipients(),
     companyNameMap(),
     db()
       .select({ id: feedItems.id })
       .from(feedItems)
-      .where(eq(feedItems.presenterStatus, "draft")),
+      .where(
+        and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()),
+      ),
   ]);
 
   const baseUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
@@ -210,20 +487,20 @@ async function notifyNewDrafts(): Promise<number> {
         heading: it.showTitle ?? it.aiHeading,
         reason: it.presenterReason ?? "",
       })),
-      draftCount: drafts.length,
+      draftCount: available.length,
     }),
   );
 
   if (process.env.SEND_DRY_RUN === "1") {
     console.log(
-      `[dry-run] would notify ${to.join(", ")} of ${fresh.length} new Showcase drafts`,
+      `[dry-run] would notify ${to.join(", ")} of ${fresh.length} new Showcase stories`,
     );
   } else {
     const resend = new Resend(env("RESEND_API_KEY"));
     const { error } = await resend.emails.send({
       from: env("EMAIL_FROM"),
       to,
-      subject: "The Showcase: new draft items to review",
+      subject: "The Showcase: new stories to review",
       html,
     });
     if (error) throw new Error(`Resend send failed: ${error.message}`);
@@ -250,45 +527,42 @@ export interface AssembledShowcase {
 }
 
 /**
- * Pure Showcase assembly (exported for tests): draft items newest first,
- * up to two Profiles, the rest grouped by company, plus the active show
- * registry. Null when there is nothing at all to send.
+ * Pure Showcase assembly (exported for tests): edition entries in edition
+ * order, up to two profiles (featured flag from the edition), the rest
+ * grouped by company, plus the edition's show list. Null when there is
+ * nothing at all to send.
  */
 export function buildShowcaseProps(
-  items: FeedItem[],
+  entries: { item: FeedItem; featured: boolean }[],
   showList: Show[],
   nameByKey: Map<string, string>,
   baseUrl: string,
   dateLabel: string,
 ): AssembledShowcase | null {
-  if (items.length === 0 && showList.length === 0) return null;
+  if (entries.length === 0 && showList.length === 0) return null;
 
-  const profiles: ShowcaseProfile[] = items
-    .filter((it) => it.presenterFeatured)
-    .slice(0, MAX_PROFILES)
-    .map((it) => ({
-      company: companyNameFrom(nameByKey, it.companyKey),
-      hex: FEATURED_STYLE.hex,
-      // The announcement (the news itself)
-      heading: it.aiHeading,
-      summary: it.aiSummary,
-      postUrl: it.postUrl,
-      // The show (evergreen official info, rendered as a distinct block)
-      showTitle: it.showTitle,
-      showBlurb: it.showBlurb,
-      ageRange: it.showAgeRange,
-      showUrl: it.showUrl,
-      imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
-    }));
-  const profiledIds = new Set(
-    items
-      .filter((it) => it.presenterFeatured)
-      .slice(0, MAX_PROFILES)
-      .map((it) => it.id),
-  );
+  const featuredEntries = entries
+    .filter((e) => e.featured)
+    .slice(0, MAX_PROFILES);
+  const profiledIds = new Set(featuredEntries.map((e) => e.item.id));
+
+  const profiles: ShowcaseProfile[] = featuredEntries.map(({ item: it }) => ({
+    company: companyNameFrom(nameByKey, it.companyKey),
+    hex: FEATURED_STYLE.hex,
+    // The announcement (the news itself)
+    heading: it.aiHeading,
+    summary: it.aiSummary,
+    postUrl: it.postUrl,
+    // The show (evergreen official info, rendered as a distinct block)
+    showTitle: it.showTitle,
+    showBlurb: it.showBlurb,
+    ageRange: it.showAgeRange,
+    showUrl: it.showUrl,
+    imageUrl: absolutizeImage(it.showImageUrl ?? it.imageUrl, baseUrl),
+  }));
 
   const grouped = new Map<string, FeedItem[]>();
-  for (const it of items) {
+  for (const { item: it } of entries) {
     if (profiledIds.has(it.id)) continue;
     const list = grouped.get(it.companyKey) ?? [];
     list.push(it);
@@ -339,23 +613,27 @@ export function buildShowcaseProps(
       shows: listings,
       baseUrl,
     },
-    itemCount: items.length,
+    itemCount: entries.length,
     profileCount: profiles.length,
   };
 }
 
-export async function assembleShowcase(): Promise<AssembledShowcase | null> {
+export async function assembleEdition(
+  editionId: number,
+): Promise<AssembledShowcase | null> {
   const baseUrl = env("APP_URL").replace(/\/$/, "");
-  const [items, showList, nameByKey] = await Promise.all([
-    db()
-      .select()
-      .from(feedItems)
-      .where(eq(feedItems.presenterStatus, "draft"))
-      .orderBy(...draftOrderBy()),
-    db().select().from(shows).where(eq(shows.status, "active")),
+  const [entries, showList, nameByKey] = await Promise.all([
+    getEditionItems(editionId),
+    getEditionShows(editionId),
     companyNameMap(),
   ]);
-  return buildShowcaseProps(items, showList, nameByKey, baseUrl, sydneyDateLabel());
+  return buildShowcaseProps(
+    entries,
+    showList,
+    nameByKey,
+    baseUrl,
+    sydneyDateLabel(),
+  );
 }
 
 export async function renderShowcaseHtml(
@@ -373,49 +651,44 @@ export interface ShowcaseSendResult {
 }
 
 /**
- * Send The Showcase to the test list. Draft items are claimed atomically
- * (draft → sent) before the send, so a double-click can't dispatch the same
- * items twice; on failure they are reverted to draft.
+ * Send an edition to the test list. The edition row is claimed atomically
+ * (draft/failed → sending), so a double-click can't dispatch it twice; on
+ * failure it lands in "failed" and stays editable and resendable.
  */
-export async function sendShowcase(): Promise<ShowcaseSendResult> {
-  const assembled = await assembleShowcase();
-  if (!assembled) return { status: "skipped", itemCount: 0, recipientCount: 0 };
-
-  const recipients = await getPresenterRecipients();
-  const [sendRow] = await db()
-    .insert(presenterSends)
-    .values({
-      itemCount: assembled.itemCount,
-      profileCount: assembled.profileCount,
-      recipientCount: recipients.length,
-      recipients: recipients.join(", "),
-    })
-    .returning({ id: presenterSends.id });
-
+export async function sendEdition(
+  editionId: number,
+): Promise<ShowcaseSendResult> {
   const claimed = await db()
-    .update(feedItems)
-    .set({ presenterStatus: "sent", presenterSendId: sendRow.id })
-    .where(eq(feedItems.presenterStatus, "draft"))
-    .returning({ id: feedItems.id });
-
-  // Items were assembled but another request claimed them first: this is
-  // the losing half of a double-click. (A shows-only edition has no items
-  // to claim, so it proceeds.)
-  if (claimed.length === 0 && assembled.itemCount > 0) {
-    await db()
-      .update(presenterSends)
-      .set({ status: "failed" })
-      .where(eq(presenterSends.id, sendRow.id));
+    .update(showcaseEditions)
+    .set({ status: "sending", updatedAt: new Date() })
+    .where(
+      and(
+        eq(showcaseEditions.id, editionId),
+        sql`${showcaseEditions.status} in ('draft', 'failed')`,
+      ),
+    )
+    .returning({ id: showcaseEditions.id });
+  if (claimed.length === 0) {
     return { status: "skipped", itemCount: 0, recipientCount: 0 };
   }
 
   try {
+    const assembled = await assembleEdition(editionId);
+    if (!assembled) {
+      await db()
+        .update(showcaseEditions)
+        .set({ status: "draft" })
+        .where(eq(showcaseEditions.id, editionId));
+      return { status: "skipped", itemCount: 0, recipientCount: 0 };
+    }
+
+    const recipients = await getPresenterRecipients();
     const html = await renderShowcaseHtml(assembled);
     const subject = `The Showcase: Australia's Children's Theatre Alliance (${sydneyDateLabel()})`;
 
     if (process.env.SEND_DRY_RUN === "1") {
       console.log(
-        `[dry-run] would send The Showcase (${assembled.itemCount} items) to ${recipients.join(", ")}`,
+        `[dry-run] would send Showcase edition ${editionId} (${assembled.itemCount} items) to ${recipients.join(", ")}`,
       );
     } else {
       const resend = new Resend(env("RESEND_API_KEY"));
@@ -429,50 +702,50 @@ export async function sendShowcase(): Promise<ShowcaseSendResult> {
     }
 
     await db()
-      .update(presenterSends)
-      .set({ status: "sent", sentAt: new Date() })
-      .where(eq(presenterSends.id, sendRow.id));
+      .update(showcaseEditions)
+      .set({
+        status: "sent",
+        sentAt: new Date(),
+        updatedAt: new Date(),
+        itemCount: assembled.itemCount,
+        profileCount: assembled.profileCount,
+        recipientCount: recipients.length,
+        recipients: recipients.join(", "),
+      })
+      .where(eq(showcaseEditions.id, editionId));
     return {
       status: "sent",
       itemCount: assembled.itemCount,
       recipientCount: recipients.length,
     };
   } catch (err) {
-    // Put the claimed items back in the draft pool and record the failure.
-    if (claimed.length > 0) {
-      await db()
-        .update(feedItems)
-        .set({ presenterStatus: "draft", presenterSendId: null })
-        .where(
-          inArray(
-            feedItems.id,
-            claimed.map((c) => c.id),
-          ),
-        );
-    }
     await db()
-      .update(presenterSends)
-      .set({ status: "failed" })
-      .where(eq(presenterSends.id, sendRow.id));
+      .update(showcaseEditions)
+      .set({ status: "failed", updatedAt: new Date() })
+      .where(eq(showcaseEditions.id, editionId));
     throw err;
   }
 }
 
 // ----------------------------------------------------------------- registry
 
-/** Copy a draft item's show details into the "What's happening" registry. */
-export async function addShowFromItem(itemId: number): Promise<boolean> {
+/**
+ * Copy a story's show details into the "Other happenings" registry.
+ * Returns the show's id (existing or new), or null when the story is gone.
+ */
+export async function addShowFromItem(itemId: number): Promise<number | null> {
   const [item] = await db()
     .select()
     .from(feedItems)
     .where(eq(feedItems.id, itemId))
     .limit(1);
-  if (!item) return false;
+  if (!item) return null;
+  const title = item.showTitle ?? item.aiHeading;
   const inserted = await db()
     .insert(shows)
     .values({
       companyKey: item.companyKey,
-      title: item.showTitle ?? item.aiHeading,
+      title,
       url: item.showUrl,
       blurb: item.showBlurb,
       ageRange: item.showAgeRange,
@@ -480,5 +753,94 @@ export async function addShowFromItem(itemId: number): Promise<boolean> {
     })
     .onConflictDoNothing()
     .returning({ id: shows.id });
-  return inserted.length > 0;
+  if (inserted.length > 0) return inserted[0].id;
+  const [existing] = await db()
+    .select({ id: shows.id })
+    .from(shows)
+    .where(and(eq(shows.companyKey, item.companyKey), eq(shows.title, title)))
+    .limit(1);
+  return existing?.id ?? null;
+}
+
+// ---------------------------------------------------------------- list view
+
+export interface ShowcaseListParams {
+  sort: "date" | "company" | "headline" | "relevance";
+  dir: "asc" | "desc";
+  rel: "high" | "medium" | "low" | "all";
+  co: string;
+  q: string;
+}
+
+/** Validate/default the story-pool filter and sort query params. */
+export function parseShowcaseListParams(
+  sp: Record<string, string | undefined>,
+): ShowcaseListParams {
+  const sorts = ["date", "company", "headline", "relevance"] as const;
+  const rels = ["high", "medium", "low", "all"] as const;
+  return {
+    sort: sorts.find((s) => s === sp.sort) ?? "date",
+    dir: sp.dir === "asc" ? "asc" : "desc",
+    rel: rels.find((r) => r === sp.rel) ?? "high",
+    co: (sp.co ?? "").trim(),
+    q: (sp.q ?? "").trim(),
+  };
+}
+
+export const RELEVANCE_OPTIONS: PresenterRelevance[] = [
+  "high",
+  "medium",
+  "low",
+];
+
+export const STORY_POOL_LIMIT = 30;
+
+/**
+ * The story pool: feed items filtered/sorted for the admin list. In "add"
+ * mode (an editionId is given) stories already in that edition or in any
+ * sent edition are excluded.
+ */
+export async function queryStoryPool(
+  p: ShowcaseListParams,
+  opts: { excludeEditionId?: number } = {},
+): Promise<FeedItem[]> {
+  const conditions = [];
+  if (p.rel !== "all") conditions.push(eq(feedItems.presenterRelevance, p.rel));
+  if (p.co) conditions.push(eq(feedItems.companyKey, p.co));
+  if (p.q) {
+    const q = `%${p.q}%`;
+    conditions.push(
+      sql`(${feedItems.aiHeading} ilike ${q} or ${feedItems.rawTitle} ilike ${q} or ${feedItems.showTitle} ilike ${q})`,
+    );
+  }
+  if (opts.excludeEditionId) {
+    conditions.push(notInSentEdition());
+    conditions.push(
+      sql`not exists (
+        select 1 from ${showcaseEditionItems} ei
+        where ei.edition_id = ${opts.excludeEditionId}
+          and ei.feed_item_id = ${feedItems.id}
+      )`,
+    );
+  }
+
+  const relevanceRank = sql`case ${feedItems.presenterRelevance} when 'high' then 0 when 'medium' then 1 else 2 end`;
+  const orderCol =
+    p.sort === "company"
+      ? feedItems.companyKey
+      : p.sort === "headline"
+        ? feedItems.aiHeading
+        : p.sort === "relevance"
+          ? relevanceRank
+          : feedItems.publishedAt;
+
+  return db()
+    .select()
+    .from(feedItems)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(
+      p.dir === "asc" ? asc(orderCol) : desc(orderCol),
+      desc(feedItems.publishedAt),
+    )
+    .limit(STORY_POOL_LIMIT);
 }

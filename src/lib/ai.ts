@@ -36,26 +36,26 @@ export const COPY_SCHEMA = {
       description:
         "Exactly one sentence, sentence case, plain-spoken, that summarises the post for a newsletter reader. Include concrete details (dates, places, numbers) when present.",
     },
-    presenterRelevant: {
-      type: "boolean",
+    presenterRelevance: {
+      type: "string",
+      enum: ["low", "medium", "high"],
       description:
-        "True ONLY if the post announces a new show, a premiere, a new season, or a tour of a titled production that presenters or venues elsewhere could book or present. False for ticket reminders or promotion of an existing local run, social impact or access work, fundraising, workshops and classes, staffing or company news, awards, and general community posts.",
+        "Relevance to The Showcase, a bulletin for presenters and venues looking to book touring theatre for young audiences. 'high': the post announces a new show, a premiere, a new season, or a tour of a titled production that presenters elsewhere could book or present. 'medium': production news a presenter might follow but cannot book yet, such as a work in development, a creative development showing, casting for a future tour, or a major award for a production. 'low': everything else, including ticket reminders or promotion of an existing local run, social impact and access work, fundraising, workshops and classes, staffing and company news, and general community posts. A politician or dignitary visiting a company is 'low'.",
     },
     showTitle: {
       type: ["string", "null"],
       description:
-        "The production's title exactly as written in the post, or null if presenterRelevant is false or no clear title is given.",
+        "The production's title exactly as written in the post, or null when relevance is low or no clear title is given.",
     },
     presenterReason: {
       type: "string",
-      description:
-        "One short sentence explaining the presenterRelevant decision.",
+      description: "One short sentence explaining the relevance rating.",
     },
   },
   required: [
     "heading",
     "summary",
-    "presenterRelevant",
+    "presenterRelevance",
     "showTitle",
     "presenterReason",
   ],
@@ -65,7 +65,7 @@ export const COPY_SCHEMA = {
 export interface AiCopy {
   heading: string;
   summary: string;
-  presenterRelevant: boolean;
+  presenterRelevance: "low" | "medium" | "high";
   showTitle: string | null;
   presenterReason: string;
 }
@@ -90,7 +90,7 @@ export async function generateCopy(
     messages: [
       {
         role: "user",
-        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${attribution}. Also classify whether the post announces a show or tour that could travel to other venues (for a separate presenter-facing edition).\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
+        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${attribution}. Also rate the post's relevance to a separate presenter-facing edition about bookable touring shows.\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
       },
     ],
   });

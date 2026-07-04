@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, companies, feedItems } from "@/lib/db";
 import { researchItem } from "@/lib/show-research";
+import { showcaseRedirectUrl } from "@/lib/showcase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,9 @@ export async function POST(request: NextRequest) {
   const form = await request.formData();
   const id = Number(form.get("id"));
   const redirect = (message: string) =>
-    NextResponse.redirect(
-      new URL(`/admin?tab=presenters&message=${encodeURIComponent(message)}`, request.url),
-      { status: 303 },
-    );
+    NextResponse.redirect(showcaseRedirectUrl(request.url, form, message), {
+      status: 303,
+    });
   if (!Number.isInteger(id)) return redirect("Invalid input");
 
   const [item] = await db()

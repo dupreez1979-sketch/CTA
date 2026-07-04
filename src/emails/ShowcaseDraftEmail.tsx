@@ -110,7 +110,7 @@ export default function ShowcaseDraftEmail({
                 margin: "0 0 16px",
               }}
             >
-              {`The pipeline spotted ${newItems.length} new show or tour announcement${newItems.length === 1 ? "" : "s"}. The Showcase draft now holds ${draftCount} item${draftCount === 1 ? "" : "s"}, ready for your edits.`}
+              {`The pipeline rated ${newItems.length} new stor${newItems.length === 1 ? "y" : "ies"} highly relevant to The Showcase. ${draftCount} stor${draftCount === 1 ? "y is" : "ies are"} ready for the next edition.`}
             </Text>
             <table
               role="presentation"
@@ -181,7 +181,7 @@ export default function ShowcaseDraftEmail({
                   textDecoration: "underline",
                 }}
               >
-                Review and send The Showcase
+                Open The Showcase builder
               </Link>
             </Text>
           </Section>
