@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import AdminModal from "./AdminModal";
 
 const selectStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)",
@@ -37,6 +38,7 @@ export default function RatingsForm({
   const [socialVal, setSocialVal] = useState(social);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const save = async () => {
@@ -55,7 +57,7 @@ export default function RatingsForm({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        window.alert(data?.message ?? "Could not save the ratings.");
+        setError(data?.message ?? "Could not save the ratings.");
       } else {
         setSaved(true);
         setTimeout(() => setSaved(false), 1500);
@@ -113,6 +115,12 @@ export default function RatingsForm({
       >
         {saved ? "✓" : "Save"}
       </button>
+      <AdminModal
+        open={error !== null}
+        title="That didn't work"
+        message={error ?? ""}
+        onClose={() => setError(null)}
+      />
     </div>
   );
 }

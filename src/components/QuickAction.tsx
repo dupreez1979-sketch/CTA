@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import AdminModal from "./AdminModal";
 
 /**
  * A button that performs an admin action in the background and refreshes
@@ -22,11 +23,12 @@ export default function QuickAction({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const run = async () => {
     if (busy || pending) return;
-    if (confirm && !window.confirm(confirm)) return;
     setBusy(true);
     try {
       const res = await fetch("/api/admin/presenter-item", {
@@ -40,7 +42,7 @@ export default function QuickAction({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        window.alert(
+        setError(
           data?.message ?? "That didn't work. Refresh the page and try again.",
         );
       }
@@ -51,17 +53,35 @@ export default function QuickAction({
   };
 
   return (
-    <button
-      type="button"
-      onClick={run}
-      disabled={busy || pending}
-      style={{
-        ...style,
-        opacity: busy || pending ? 0.5 : 1,
-        cursor: busy || pending ? "wait" : "pointer",
-      }}
-    >
-      {children}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => (confirm ? setConfirming(true) : run())}
+        disabled={busy || pending}
+        style={{
+          ...style,
+          opacity: busy || pending ? 0.5 : 1,
+          cursor: busy || pending ? "wait" : "pointer",
+        }}
+      >
+        {children}
+      </button>
+      {confirm && (
+        <AdminModal
+          open={confirming}
+          title="Just checking"
+          message={confirm}
+          confirmLabel="Yes, go ahead"
+          onConfirm={run}
+          onClose={() => setConfirming(false)}
+        />
+      )}
+      <AdminModal
+        open={error !== null}
+        title="That didn't work"
+        message={error ?? ""}
+        onClose={() => setError(null)}
+      />
+    </>
   );
 }

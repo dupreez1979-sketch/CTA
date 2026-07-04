@@ -143,7 +143,22 @@ export default async function AdminPage({
 
   return (
     <main className="admin-main">
-      <h1 className="admin-title">Alliance Newsletter Admin</h1>
+      <div
+        style={{
+          display: "flex",
+          gap: 14,
+          alignItems: "center",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+        }}
+      >
+        <h1 className="admin-title">Alliance Newsletter Admin</h1>
+        <form action="/api/admin-logout" method="post">
+          <button type="submit" style={{ ...smallButton, background: "var(--cta-white)" }}>
+            Log out
+          </button>
+        </form>
+      </div>
       <p style={{ color: "var(--text-muted)", margin: "0 0 24px" }}>
         The pipeline runs automatically every morning (Sydney time).
       </p>

@@ -25,7 +25,7 @@ Built from the design handoff in [`design/`](design/README.md). Runs on **Netlif
 - **Idempotent sends**: each cadence+window claims a row in `issues` before sending — a retry or double-click in admin never double-sends.
 - **Featured story** (weekly/fortnightly): Claude picks the most newsworthy post of the window; fortnightly adds the "in this issue" company index.
 - **Images**: the feed's Facebook image URLs expire, so each image is copied to Netlify Blobs at ingest and served from `/api/img/[key]`; items without an image get a brand-coloured placeholder slot.
-- **Admin** (`/admin`, basic auth): subscriber counts/list + CSV export, fetch-posts button, live issue previews, "send test to me", manual send, issue log.
+- **Admin** (`/admin`, branded login at `/admin/login`, password from `ADMIN_PASSWORD`, 30-day session cookie): subscriber counts/list + CSV export, fetch-posts button, live issue previews, "send test to me", manual send, issue log.
 - **Function limits**: ingest is capped per run (`INGEST_MAX_PER_RUN`, default 10, processed in parallel) so each invocation fits Netlify's function time limit; leftovers are picked up by the next run.
 - **The Showcase** (test mode): a separate edition for presenters and international partners covering only shows that can tour. The per-item Claude call also classifies each post; show/tour announcements enter a draft pool, official show pages are researched automatically from each company's "shows page URL" (Companies tab), and the test list (default `kevin@monkeybaa.com.au`, editable on The Showcase tab) gets a "draft ready" email. Nothing sends automatically — review, edit and send from the tab. A "Shows in the Spotlight" registry of available shows (`shows` table) rounds out each edition. Research per pipeline run is capped by `PRESENTER_RESEARCH_MAX_PER_RUN` (default 2).
 
@@ -64,7 +64,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/dail
 
 ### Post-deploy smoke test
 
-1. Open `/` and subscribe with your own email (row appears in `/admin` — user `admin`, password `ADMIN_PASSWORD`).
+1. Open `/` and subscribe with your own email (row appears in `/admin` — log in with `ADMIN_PASSWORD`).
 2. In `/admin`, click **Fetch new posts now** — new feed items get AI copy and appear in the previews.
 3. Open the **daily preview**, then **send a test** to yourself; check rendering in Gmail + Outlook.
 4. Click **Send daily now** to send for real, and click the unsubscribe link in the email to confirm the status flips in `/admin`.
