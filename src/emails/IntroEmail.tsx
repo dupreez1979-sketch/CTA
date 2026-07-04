@@ -99,8 +99,8 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
         }}
       >
         <Container
-          width={600}
-          style={{ width: "100%", maxWidth: 600, backgroundColor: COLORS.cream }}
+          width={680}
+          style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
           {/* Masthead */}
           <Section
@@ -108,7 +108,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
             style={{
               backgroundColor: COLORS.creamWarm,
               borderBottom: `3px solid ${INK}`,
-              padding: "28px 34px 26px",
+              padding: "28px 40px 26px",
             }}
           >
             <Row>
@@ -156,7 +156,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           </Section>
 
           {/* Greeting */}
-          <Section className="px" style={{ padding: "26px 34px 0" }}>
+          <Section className="px" style={{ padding: "26px 40px 0" }}>
             <Text className="body-p" style={{ ...body(16), margin: "0 0 10px" }}>
               Hello,
             </Text>
@@ -169,7 +169,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           </Section>
 
           {/* Headline + intro copy */}
-          <Section className="px" style={{ padding: "18px 34px 4px" }}>
+          <Section className="px" style={{ padding: "18px 40px 4px" }}>
             <Text className="intro-h" style={{ ...display(32, 0.94), margin: "0 0 16px" }}>
               Australia&#39;s professional children&#39;s theatre makers,
               working together
@@ -181,7 +181,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           </Section>
 
           {/* Logo grid of the companies working together in the Alliance */}
-          <Section className="px" style={{ padding: "8px 34px 4px" }}>
+          <Section className="px" style={{ padding: "8px 40px 4px" }}>
             <table
               role="presentation"
               width="100%"
@@ -217,7 +217,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           </Section>
 
           {/* Age-range copy sits below the logo grid */}
-          <Section className="px" style={{ padding: "16px 34px 4px" }}>
+          <Section className="px" style={{ padding: "16px 40px 4px" }}>
             <Text className="body-p" style={body()}>
               We cover theatre for children aged 0 to 14, with a focused lens
               on children aged 0 to 8. These are the early and primary years
@@ -228,7 +228,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           </Section>
 
           {/* Newsletter card */}
-          <Section className="px" style={{ padding: "22px 34px 6px" }}>
+          <Section className="px" style={{ padding: "22px 40px 6px" }}>
             <table
               role="presentation"
               width="100%"
@@ -284,7 +284,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           {/* Website CTA — the loudest block on the page */}
           <Section
             className="px"
-            style={{ padding: "26px 34px 8px", textAlign: "center" }}
+            style={{ padding: "26px 40px 8px", textAlign: "center" }}
           >
             <Text
               className="card-h"
@@ -314,7 +314,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           </Section>
 
           {/* Get involved — deliberately quiet */}
-          <Section className="px" style={{ padding: "22px 34px 8px" }}>
+          <Section className="px" style={{ padding: "22px 40px 8px" }}>
             <table
               role="presentation"
               width="100%"
@@ -371,7 +371,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
             style={{
               backgroundColor: COLORS.purple,
               borderTop: `3px solid ${INK}`,
-              padding: "26px 34px",
+              padding: "26px 40px",
               marginTop: 28,
             }}
           >

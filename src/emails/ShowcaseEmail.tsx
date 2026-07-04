@@ -304,8 +304,8 @@ export default function ShowcaseEmail({
         }}
       >
         <Container
-          width={600}
-          style={{ width: "100%", maxWidth: 600, backgroundColor: COLORS.cream }}
+          width={680}
+          style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
           {/* Masthead */}
           <Section
@@ -313,7 +313,7 @@ export default function ShowcaseEmail({
             style={{
               backgroundColor: COLORS.creamWarm,
               borderBottom: `3px solid ${INK}`,
-              padding: "28px 34px 26px",
+              padding: "28px 40px 26px",
             }}
           >
             <Row>
@@ -374,7 +374,7 @@ export default function ShowcaseEmail({
           </Section>
 
           {/* Intro line */}
-          <Section className="px" style={{ padding: "22px 34px 4px" }}>
+          <Section className="px" style={{ padding: "22px 40px 4px" }}>
             <Text className="intro-h" style={display(26, 0.94)}>
               Discover Australia&#39;s best children&#39;s theatre
             </Text>
@@ -399,7 +399,7 @@ export default function ShowcaseEmail({
             <Section
               key={p.postUrl + p.heading}
               className="px"
-              style={{ padding: "18px 34px 6px" }}
+              style={{ padding: "18px 40px 6px" }}
             >
               <table
                 role="presentation"
@@ -619,7 +619,7 @@ export default function ShowcaseEmail({
 
           {/* More news (heading only shown when profiles sit above it) */}
           {companies.length > 0 && (
-            <Section className="px" style={{ padding: "26px 34px 6px" }}>
+            <Section className="px" style={{ padding: "26px 40px 6px" }}>
               {profiles.length > 0 && <SectionHeading>More news</SectionHeading>}
               {companies.map((co) => (
                 <table
@@ -840,7 +840,7 @@ export default function ShowcaseEmail({
 
           {/* Shows in the Spotlight */}
           {shows.length > 0 && (
-            <Section className="px" style={{ padding: "30px 34px 6px" }}>
+            <Section className="px" style={{ padding: "30px 40px 6px" }}>
               <SectionHeading>In the Spotlight</SectionHeading>
               <Text
                 style={{
@@ -915,7 +915,7 @@ export default function ShowcaseEmail({
                 backgroundColor: COLORS.mint,
                 borderTop: `3px solid ${INK}`,
                 borderBottom: `3px solid ${INK}`,
-                padding: "30px 34px 24px",
+                padding: "30px 40px 24px",
                 marginTop: 30,
               }}
             >
@@ -1033,7 +1033,7 @@ export default function ShowcaseEmail({
               with the Spotlight boxes above) */}
           <Section
             className="px"
-            style={{ padding: "38px 34px 12px", textAlign: "center" as const }}
+            style={{ padding: "38px 40px 12px", textAlign: "center" as const }}
           >
             <Img
               src={logo}
@@ -1088,7 +1088,7 @@ export default function ShowcaseEmail({
             style={{
               backgroundColor: COLORS.purple,
               borderTop: `3px solid ${INK}`,
-              padding: "26px 34px",
+              padding: "26px 40px",
               marginTop: 28,
             }}
           >

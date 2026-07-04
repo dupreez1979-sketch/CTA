@@ -26,7 +26,8 @@ import {
 
 /**
  * The Alliance newsletter email — all three cadences share this template.
- * Table-based, fully inline-styled, 600px content width, per the design
+ * Table-based, fully inline-styled, 680px content width (per modern email
+ * practice; the handoff's original 600px felt narrow on desktop), per the
  * handoff (design/README.md). Impact won't load in most email clients:
  * the Haettenschweiler / Arial Narrow Bold fallback stack is intentional.
  * Puzzle shapes are pre-rendered PNGs served from {baseUrl}/shapes/.
@@ -139,11 +140,11 @@ export default function AllianceEmail({
           color: INK,
         }}
       >
-        {/* Hybrid width: the attribute keeps desktop Outlook at 600px; the
+        {/* Hybrid width: the attribute keeps desktop Outlook at 680px; the
             CSS makes modern clients fluid (full-width on phones). */}
         <Container
-          width={600}
-          style={{ width: "100%", maxWidth: 600, backgroundColor: COLORS.cream }}
+          width={680}
+          style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
           {/* Masthead */}
           <Section
@@ -151,7 +152,7 @@ export default function AllianceEmail({
             style={{
               backgroundColor: COLORS.creamWarm,
               borderBottom: `3px solid ${INK}`,
-              padding: "28px 34px 26px",
+              padding: "28px 40px 26px",
             }}
           >
             <Row>
@@ -212,7 +213,7 @@ export default function AllianceEmail({
           </Section>
 
           {/* Intro line */}
-          <Section className="px" style={{ padding: "22px 34px 4px" }}>
+          <Section className="px" style={{ padding: "22px 40px 4px" }}>
             <Text className="intro-h" style={display(26, 0.94)}>
               {intro}
             </Text>
@@ -220,7 +221,7 @@ export default function AllianceEmail({
 
           {/* Index chips (fortnightly) */}
           {indexNames && indexNames.length > 0 && (
-            <Section className="px" style={{ padding: "12px 34px 4px" }}>
+            <Section className="px" style={{ padding: "12px 40px 4px" }}>
               <Text
                 style={{
                   fontFamily: FONT_BODY,
@@ -262,7 +263,7 @@ export default function AllianceEmail({
 
           {/* Featured story (weekly + fortnightly) */}
           {featured && (
-            <Section className="px" style={{ padding: "18px 34px 6px" }}>
+            <Section className="px" style={{ padding: "18px 40px 6px" }}>
               <table
                 role="presentation"
                 width="100%"
@@ -371,7 +372,7 @@ export default function AllianceEmail({
           )}
 
           {/* Company sections */}
-          <Section className="px" style={{ padding: "10px 34px 6px" }}>
+          <Section className="px" style={{ padding: "10px 40px 6px" }}>
             {companies.map((co) => (
               <table
                 key={co.name}
@@ -501,7 +502,7 @@ export default function AllianceEmail({
             style={{
               backgroundColor: COLORS.purple,
               borderTop: `3px solid ${INK}`,
-              padding: "26px 34px",
+              padding: "26px 40px",
               marginTop: 28,
             }}
           >
