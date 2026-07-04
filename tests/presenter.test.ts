@@ -215,13 +215,14 @@ describe("swapPositions", () => {
 });
 
 describe("parseShowcaseListParams", () => {
-  it("defaults to newest-first high-relevance", () => {
+  it("defaults to newest-first high-relevance page 1", () => {
     expect(parseShowcaseListParams({})).toEqual({
       sort: "date",
       dir: "desc",
       rel: "high",
       co: "",
       q: "",
+      pg: 1,
     });
   });
 
@@ -233,6 +234,7 @@ describe("parseShowcaseListParams", () => {
         rel: "all",
         co: "terrapin",
         q: " tour ",
+        pg: "3",
       }),
     ).toEqual({
       sort: "relevance",
@@ -240,10 +242,17 @@ describe("parseShowcaseListParams", () => {
       rel: "all",
       co: "terrapin",
       q: "tour",
+      pg: 3,
     });
     expect(
-      parseShowcaseListParams({ sort: "bogus", dir: "sideways", rel: "nah" }),
-    ).toEqual({ sort: "date", dir: "desc", rel: "high", co: "", q: "" });
+      parseShowcaseListParams({
+        sort: "bogus",
+        dir: "sideways",
+        rel: "nah",
+        pg: "-2",
+      }),
+    ).toEqual({ sort: "date", dir: "desc", rel: "high", co: "", q: "", pg: 1 });
+    expect(parseShowcaseListParams({ pg: "abc" }).pg).toBe(1);
   });
 });
 

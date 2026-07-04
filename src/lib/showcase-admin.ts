@@ -18,7 +18,7 @@ export function showcaseRedirectUrl(
     edition = Number.isInteger(raw) && raw > 0 ? raw : null;
   }
   if (edition) params.set("edition", String(edition));
-  for (const key of ["rel", "co", "q", "sort", "dir"] as const) {
+  for (const key of ["rel", "co", "q", "sort", "dir", "pg"] as const) {
     const v = form.get(key);
     if (typeof v === "string" && v) params.set(key, v);
   }

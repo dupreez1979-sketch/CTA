@@ -770,20 +770,24 @@ export interface ShowcaseListParams {
   rel: "high" | "medium" | "low" | "all";
   co: string;
   q: string;
+  /** 1-based page through the full history, STORY_POOL_LIMIT per page. */
+  pg: number;
 }
 
-/** Validate/default the story-pool filter and sort query params. */
+/** Validate/default the story-pool filter, sort and paging query params. */
 export function parseShowcaseListParams(
   sp: Record<string, string | undefined>,
 ): ShowcaseListParams {
   const sorts = ["date", "company", "headline", "relevance"] as const;
   const rels = ["high", "medium", "low", "all"] as const;
+  const pg = Number(sp.pg);
   return {
     sort: sorts.find((s) => s === sp.sort) ?? "date",
     dir: sp.dir === "asc" ? "asc" : "desc",
     rel: rels.find((r) => r === sp.rel) ?? "high",
     co: (sp.co ?? "").trim(),
     q: (sp.q ?? "").trim(),
+    pg: Number.isInteger(pg) && pg > 0 ? pg : 1,
   };
 }
 
@@ -795,15 +799,22 @@ export const RELEVANCE_OPTIONS: PresenterRelevance[] = [
 
 export const STORY_POOL_LIMIT = 30;
 
+export interface StoryPoolPage {
+  rows: FeedItem[];
+  /** True when another page of history exists beyond this one. */
+  hasMore: boolean;
+}
+
 /**
- * The story pool: feed items filtered/sorted for the admin list. In "add"
- * mode (an editionId is given) stories already in that edition or in any
- * sent edition are excluded.
+ * The story pool: feed items filtered/sorted/paged for the admin list. In
+ * "add" mode (an editionId is given) stories already in that edition are
+ * excluded; stories used in past sent editions still appear (marked in the
+ * UI) so they can be deliberately reused.
  */
 export async function queryStoryPool(
   p: ShowcaseListParams,
   opts: { excludeEditionId?: number } = {},
-): Promise<FeedItem[]> {
+): Promise<StoryPoolPage> {
   const conditions = [];
   if (p.rel !== "all") conditions.push(eq(feedItems.presenterRelevance, p.rel));
   if (p.co) conditions.push(eq(feedItems.companyKey, p.co));
@@ -814,7 +825,6 @@ export async function queryStoryPool(
     );
   }
   if (opts.excludeEditionId) {
-    conditions.push(notInSentEdition());
     conditions.push(
       sql`not exists (
         select 1 from ${showcaseEditionItems} ei
@@ -834,7 +844,8 @@ export async function queryStoryPool(
           ? relevanceRank
           : feedItems.publishedAt;
 
-  return db()
+  // Fetch one extra row to know whether a further page exists.
+  const rows = await db()
     .select()
     .from(feedItems)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -842,5 +853,36 @@ export async function queryStoryPool(
       p.dir === "asc" ? asc(orderCol) : desc(orderCol),
       desc(feedItems.publishedAt),
     )
-    .limit(STORY_POOL_LIMIT);
+    .limit(STORY_POOL_LIMIT + 1)
+    .offset((p.pg - 1) * STORY_POOL_LIMIT);
+  return {
+    rows: rows.slice(0, STORY_POOL_LIMIT),
+    hasMore: rows.length > STORY_POOL_LIMIT,
+  };
+}
+
+/**
+ * Which stories have appeared in a sent Showcase, and when (latest send).
+ * Used to badge the story pool.
+ */
+export async function getUsedStoryDates(): Promise<Map<number, Date | null>> {
+  const rows = await db()
+    .select({
+      feedItemId: showcaseEditionItems.feedItemId,
+      sentAt: showcaseEditions.sentAt,
+    })
+    .from(showcaseEditionItems)
+    .innerJoin(
+      showcaseEditions,
+      eq(showcaseEditionItems.editionId, showcaseEditions.id),
+    )
+    .where(eq(showcaseEditions.status, "sent"));
+  const map = new Map<number, Date | null>();
+  for (const r of rows) {
+    const prev = map.get(r.feedItemId);
+    if (prev === undefined || (r.sentAt && (!prev || r.sentAt > prev))) {
+      map.set(r.feedItemId, r.sentAt);
+    }
+  }
+  return map;
 }

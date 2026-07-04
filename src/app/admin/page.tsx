@@ -7,7 +7,6 @@ import {
   feedItems,
   showcaseEditions,
   shows,
-  type FeedItem,
   type ShowcaseEdition,
 } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
@@ -15,15 +14,16 @@ import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
 import {
   RELEVANCE_OPTIONS,
-  STORY_POOL_LIMIT,
   getEdition,
   getEditionCounts,
   getEditionItems,
   getEditionShows,
   getPresenterRecipients,
+  getUsedStoryDates,
   parseShowcaseListParams,
   queryStoryPool,
   type ShowcaseListParams,
+  type StoryPoolPage,
 } from "@/lib/presenter";
 import {
   SCHEDULE_DESCRIPTION,
@@ -959,7 +959,7 @@ async function ShowcaseTab({ sp }: { sp: ShowcaseParams }) {
  */
 async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const params = parseShowcaseListParams(sp);
-  const [editions, counts, recipients, companyRows, registry, pool] =
+  const [editions, counts, recipients, companyRows, registry, pool, usedDates] =
     await Promise.all([
       db().select().from(showcaseEditions),
       getEditionCounts(),
@@ -967,6 +967,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
       db().select().from(companies).orderBy(asc(companies.name)),
       db().select().from(shows).orderBy(asc(shows.title)),
       queryStoryPool(params),
+      getUsedStoryDates(),
     ]);
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
 
@@ -1176,7 +1177,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           missed story or keep one out for good.
         </p>
         <StoryPoolTable
-          rows={pool}
+          pool={pool}
+          usedDates={usedDates}
           nameByKey={nameByKey}
           companyRows={companyRows}
           mode="browse"
@@ -1341,22 +1343,27 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
  * stories already used are excluded by the query upstream.
  */
 function StoryPoolTable({
-  rows,
+  pool,
+  usedDates,
   nameByKey,
   companyRows,
   mode,
   editionId,
   params,
 }: {
-  rows: FeedItem[];
+  pool: StoryPoolPage;
+  usedDates: Map<number, Date | null>;
   nameByKey: Map<string, string>;
   companyRows: { key: string; name: string }[];
   mode: "browse" | "add";
   editionId?: number;
   params: ShowcaseListParams;
 }) {
+  const { rows, hasMore } = pool;
   const href = (over: Partial<ShowcaseListParams>) => {
-    const merged = { ...params, ...over };
+    // Changing sort or filters implicitly resets to page 1 unless the
+    // override sets pg itself.
+    const merged = { ...params, pg: 1, ...over };
     const q = new URLSearchParams({ tab: "presenters" });
     if (editionId) q.set("edition", String(editionId));
     if (merged.rel !== "high") q.set("rel", merged.rel);
@@ -1364,6 +1371,7 @@ function StoryPoolTable({
     if (merged.q) q.set("q", merged.q);
     if (merged.sort !== "date") q.set("sort", merged.sort);
     if (merged.dir !== "desc") q.set("dir", merged.dir);
+    if (merged.pg > 1) q.set("pg", String(merged.pg));
     return `/admin?${q.toString()}`;
   };
   const sortLink = (key: ShowcaseListParams["sort"], label: string) => (
@@ -1388,10 +1396,15 @@ function StoryPoolTable({
       {params.q && <input type="hidden" name="q" value={params.q} />}
       {params.sort !== "date" && <input type="hidden" name="sort" value={params.sort} />}
       {params.dir !== "desc" && <input type="hidden" name="dir" value={params.dir} />}
+      {params.pg > 1 && <input type="hidden" name="pg" value={params.pg} />}
     </>
   );
   const isFiltered =
-    params.rel !== "high" || params.co || params.q || params.sort !== "date";
+    params.rel !== "high" ||
+    params.co ||
+    params.q ||
+    params.sort !== "date" ||
+    params.pg > 1;
 
   return (
     <>
@@ -1448,7 +1461,16 @@ function StoryPoolTable({
       </form>
       {rows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
-          No stories match this view. Try All ratings or a different search.
+          {params.pg > 1 ? (
+            <>
+              No more stories this far back.{" "}
+              <a href={href({})} style={{ color: "var(--cta-ink)", fontWeight: 600 }}>
+                Back to the first page
+              </a>
+            </>
+          ) : (
+            "No stories match this view. Try All ratings or a different search."
+          )}
         </p>
       ) : (
         <>
@@ -1482,6 +1504,21 @@ function StoryPoolTable({
                       >
                         ↗
                       </a>
+                      {usedDates.has(p.id) && (
+                        <span
+                          style={{
+                            ...badge("var(--cta-mint)"),
+                            marginLeft: 8,
+                            fontSize: 10,
+                          }}
+                          title="This story has appeared in a sent Showcase"
+                        >
+                          Sent
+                          {usedDates.get(p.id)
+                            ? ` ${usedDates.get(p.id)!.toISOString().slice(0, 10)}`
+                            : ""}
+                        </span>
+                      )}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       <form
@@ -1525,11 +1562,37 @@ function StoryPoolTable({
               </tbody>
             </table>
           </div>
-          {rows.length === STORY_POOL_LIMIT && (
-            <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
-              Showing the first {STORY_POOL_LIMIT} stories in this view.
-              Refine the filters to see more.
-            </p>
+          {(hasMore || params.pg > 1) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                marginTop: 10,
+                fontSize: 12.5,
+                fontWeight: 600,
+              }}
+            >
+              {params.pg > 1 && (
+                <a
+                  href={href({ pg: params.pg - 1 })}
+                  style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+                >
+                  ← Previous
+                </a>
+              )}
+              <span style={{ color: "var(--text-muted)" }}>
+                Page {params.pg}
+              </span>
+              {hasMore && (
+                <a
+                  href={href({ pg: params.pg + 1 })}
+                  style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+                >
+                  Further back →
+                </a>
+              )}
+            </div>
           )}
         </>
       )}
@@ -1553,9 +1616,12 @@ async function EditionBuilder({
     db().select().from(companies).orderBy(asc(companies.name)),
     getPresenterRecipients(),
   ]);
-  const pool = editable
-    ? await queryStoryPool(params, { excludeEditionId: edition.id })
-    : [];
+  const [pool, usedDates] = editable
+    ? await Promise.all([
+        queryStoryPool(params, { excludeEditionId: edition.id }),
+        getUsedStoryDates(),
+      ])
+    : [{ rows: [], hasMore: false }, new Map<number, Date | null>()];
   const registry = editable
     ? await db()
         .select()
@@ -1910,10 +1976,13 @@ async function EditionBuilder({
           <h2 style={h2}>Add stories</h2>
           <p style={muted}>
             Stories not yet in this Showcase. High relevance is shown by
-            default; switch the rating filter or search to dig deeper.
+            default; switch the rating filter, search, or page further back
+            to dig deeper. Stories marked <strong>Sent</strong> have already
+            appeared in a past Showcase but can be added again on purpose.
           </p>
           <StoryPoolTable
-            rows={pool}
+            pool={pool}
+            usedDates={usedDates}
             nameByKey={nameByKey}
             companyRows={companyRows}
             mode="add"
