@@ -12,7 +12,9 @@ import {
   setEditionItemFeatured,
   setEditionItemSocial,
 } from "@/lib/presenter";
-import { rewriteTimeReferences } from "@/lib/ai";
+import { reassessRatings, rewriteTimeReferences } from "@/lib/ai";
+import { companyNameFrom } from "@/lib/companies";
+import { companyNameMap } from "@/lib/company-store";
 import { showcaseRedirectUrl } from "@/lib/showcase-admin";
 
 export const dynamic = "force-dynamic";
@@ -112,6 +114,31 @@ export async function POST(request: NextRequest) {
         ? `"${item.aiHeading.slice(0, 50)}" rated high, it will be offered to new Showcases`
         : `"${item.aiHeading.slice(0, 50)}" rated ${relevance}`,
     );
+  }
+
+  if (action === "reassess") {
+    try {
+      const nameByKey = await companyNameMap();
+      const rated = await reassessRatings({
+        heading: item.aiHeading,
+        summary: item.aiSummary,
+        rawTitle: item.rawTitle,
+        company: companyNameFrom(nameByKey, item.companyKey),
+      });
+      await db()
+        .update(feedItems)
+        .set({
+          presenterRelevance: rated.presenterRelevance,
+          socialRelevance: rated.socialRelevance,
+          presenterReason: rated.presenterReason,
+        })
+        .where(eq(feedItems.id, id));
+      return redirect(
+        `AI re-rated "${item.aiHeading.slice(0, 40)}": show ${rated.presenterRelevance}, social ${rated.socialRelevance}`,
+      );
+    } catch (err) {
+      return redirect(`Could not re-rate: ${err}`, false);
+    }
   }
 
   if (action === "ratings") {

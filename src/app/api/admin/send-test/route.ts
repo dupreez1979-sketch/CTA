@@ -5,24 +5,50 @@ import type { Cadence } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
-/** Admin: send the current issue for a cadence to a single test address. */
+const MAX_TEST_RECIPIENTS = 10;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Admin: send the current issue for a cadence to one or more test
+ * addresses (comma separated). Each recipient gets their own footer
+ * links when they are a subscriber.
+ */
 export async function POST(request: NextRequest) {
   const form = await request.formData();
   const cadence = String(form.get("cadence") ?? "");
-  const to = String(form.get("to") ?? "").trim();
-  if (!["daily", "weekly", "fortnightly"].includes(cadence) || !to.includes("@")) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const recipients = [
+    ...new Set(
+      String(form.get("to") ?? "")
+        .split(/[,;\s]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => EMAIL_RE.test(s)),
+    ),
+  ].slice(0, MAX_TEST_RECIPIENTS);
+  const redirect = (message: string) =>
+    NextResponse.redirect(
+      new URL(
+        `/admin?tab=sending&message=${encodeURIComponent(message)}`,
+        request.url,
+      ),
+      { status: 303 },
+    );
+  if (!["daily", "weekly", "fortnightly"].includes(cadence) || recipients.length === 0) {
+    return redirect("Enter at least one valid email address");
   }
   try {
-    const result = await sendTest(issueWindow(cadence as Cadence, new Date()), to);
-    return NextResponse.redirect(
-      new URL(`/admin?tab=sending&message=${encodeURIComponent(result === "sent" ? `Test ${cadence} issue sent to ${to}` : `No items in the ${cadence} window — nothing to send`)}`, request.url),
-      { status: 303 },
+    const window = issueWindow(cadence as Cadence, new Date());
+    let sent = 0;
+    for (const to of recipients) {
+      const result = await sendTest(window, to);
+      if (result === "no-items") {
+        return redirect(`No items in the ${cadence} window — nothing to send`);
+      }
+      sent++;
+    }
+    return redirect(
+      `Test ${cadence} issue sent to ${sent} address${sent === 1 ? "" : "es"}: ${recipients.join(", ")}`,
     );
   } catch (err) {
-    return NextResponse.redirect(
-      new URL(`/admin?tab=sending&message=${encodeURIComponent(`Send failed: ${err}`)}`, request.url),
-      { status: 303 },
-    );
+    return redirect(`Send failed: ${err}`);
   }
 }

@@ -11,9 +11,14 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const form = await request.formData();
   const action = String(form.get("action") ?? "");
+  const anchor = String(form.get("anchor") ?? "");
+  const hash = /^[a-z][a-z0-9-]*$/.test(anchor) ? `#${anchor}` : "";
   const redirect = (message: string) =>
     NextResponse.redirect(
-      new URL(`/admin?tab=presenters&message=${encodeURIComponent(message)}`, request.url),
+      new URL(
+        `/admin?tab=presenters&message=${encodeURIComponent(message)}${hash}`,
+        request.url,
+      ),
       { status: 303 },
     );
 

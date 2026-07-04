@@ -23,5 +23,12 @@ export function showcaseRedirectUrl(
     if (typeof v === "string" && v) params.set(key, v);
   }
   params.set("message", message);
-  return new URL(`/admin?${params.toString()}`, requestUrl);
+  // A hidden "anchor" input sends the browser back to the section the
+  // action came from instead of the top of the page.
+  const anchor = form.get("anchor");
+  const hash =
+    typeof anchor === "string" && /^[a-z][a-z0-9-]*$/.test(anchor)
+      ? `#${anchor}`
+      : "";
+  return new URL(`/admin?${params.toString()}${hash}`, requestUrl);
 }

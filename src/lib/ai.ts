@@ -152,6 +152,57 @@ export async function pickFeatured(
   return parsed.index >= 0 && parsed.index < items.length ? parsed.index : 0;
 }
 
+const REASSESS_SCHEMA = {
+  type: "object",
+  properties: {
+    presenterRelevance: COPY_SCHEMA.properties.presenterRelevance,
+    socialRelevance: COPY_SCHEMA.properties.socialRelevance,
+    presenterReason: {
+      type: "string",
+      description: "One short sentence explaining the two ratings.",
+    },
+  },
+  required: ["presenterRelevance", "socialRelevance", "presenterReason"],
+  additionalProperties: false,
+} as const;
+
+/**
+ * Re-rate a story that was ingested before the current rating rules
+ * existed (or that the classifier got wrong). Works from the stored
+ * headline, summary and raw post text; one small Haiku call.
+ */
+export async function reassessRatings(item: {
+  heading: string;
+  summary: string;
+  rawTitle: string | null;
+  company: string;
+}): Promise<{
+  presenterRelevance: "low" | "medium" | "high";
+  socialRelevance: "low" | "medium" | "high";
+  presenterReason: string;
+}> {
+  const response = await client().messages.create({
+    model: MODEL,
+    max_tokens: 250,
+    system: VOICE,
+    output_config: { format: { type: "json_schema", schema: REASSESS_SCHEMA } },
+    messages: [
+      {
+        role: "user",
+        content: `Rate this story by ${item.company} for the two Showcase scales described in the schema.\n\nHeadline: ${item.heading}\nSummary: ${item.summary}\nOriginal post text: ${(item.rawTitle ?? "").slice(0, 1500) || "(none)"}`,
+      },
+    ],
+  });
+  await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
+  const text = response.content.find((b) => b.type === "text");
+  if (!text) throw new Error("No text block in reassess response");
+  return JSON.parse(text.text) as {
+    presenterRelevance: "low" | "medium" | "high";
+    socialRelevance: "low" | "medium" | "high";
+    presenterReason: string;
+  };
+}
+
 const REWRITE_TIME_SCHEMA = {
   type: "object",
   properties: {

@@ -434,10 +434,10 @@ function SendingTab() {
           style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}
         >
           <input
-            type="email"
+            type="text"
             name="to"
             required
-            placeholder="you@example.org"
+            placeholder="you@example.org, colleague@example.org"
             style={{ ...inputStyle, minWidth: 220, flex: "1 1 220px" }}
           />
           <select name="cadence" style={inputStyle}>
@@ -1168,7 +1168,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
         </form>
       </section>
 
-      <section className="admin-card">
+      <section className="admin-card" id="story-pool">
         <h2 style={h2}>Story pool</h2>
         <p style={muted}>
           Every story the feed has brought in, rated by the AI twice: once
@@ -1185,10 +1185,11 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           companyRows={companyRows}
           mode="browse"
           params={params}
+          anchor="story-pool"
         />
       </section>
 
-      <section className="admin-card">
+      <section className="admin-card" id="registry">
         <h2 style={h2}>Shows in the Spotlight</h2>
         <p style={muted}>
           The registry of shows available now. New Showcases start with all
@@ -1213,6 +1214,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                 <tr key={s.id} style={s.status === "archived" ? { opacity: 0.55 } : undefined}>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
                     <form action="/api/admin/shows" method="post" id={`show-${s.id}`}>
+                      <input type="hidden" name="anchor" value="registry" />
                       <input type="hidden" name="action" value="update" />
                       <input type="hidden" name="id" value={s.id} />
                       <input
@@ -1269,6 +1271,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                       Save
                     </button>
                     <form action="/api/admin/shows" method="post" style={{ display: "inline", marginRight: 6 }}>
+                      <input type="hidden" name="anchor" value="registry" />
                       <input
                         type="hidden"
                         name="action"
@@ -1280,6 +1283,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                       </button>
                     </form>
                     <form action="/api/admin/shows" method="post" style={{ display: "inline" }}>
+                      <input type="hidden" name="anchor" value="registry" />
                       <input type="hidden" name="action" value="delete" />
                       <input type="hidden" name="id" value={s.id} />
                       <ConfirmSubmit
@@ -1315,6 +1319,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
             borderTop: "2px dashed rgba(30,30,29,0.25)",
           }}
         >
+          <input type="hidden" name="anchor" value="registry" />
           <input type="hidden" name="action" value="add" />
           <input
             name="title"
@@ -1367,6 +1372,7 @@ function StoryPoolTable({
   mode,
   editionId,
   params,
+  anchor,
 }: {
   pool: StoryPoolPage;
   usedDates: Map<number, Date | null>;
@@ -1375,6 +1381,8 @@ function StoryPoolTable({
   mode: "browse" | "add";
   editionId?: number;
   params: ShowcaseListParams;
+  /** Section id to return to after filtering (forms) and paging (links). */
+  anchor: string;
 }) {
   const { rows, hasMore } = pool;
   const href = (over: Partial<ShowcaseListParams>) => {
@@ -1397,6 +1405,7 @@ function StoryPoolTable({
         sort: key,
         dir: params.sort === key && params.dir === "desc" ? "asc" : "desc",
       })}
+      scroll={false}
       style={{ color: "inherit", textDecoration: "none" }}
     >
       {label}
@@ -1414,7 +1423,7 @@ function StoryPoolTable({
     <>
       <form
         method="get"
-        action="/admin"
+        action={`/admin#${anchor}`}
         style={{
           display: "flex",
           gap: 8,
@@ -1460,6 +1469,7 @@ function StoryPoolTable({
                 ? `/admin?tab=presenters&edition=${editionId}`
                 : "/admin?tab=presenters"
             }
+            scroll={false}
             style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
           >
             Clear
@@ -1471,7 +1481,7 @@ function StoryPoolTable({
           {params.pg > 1 ? (
             <>
               No more stories this far back.{" "}
-              <Link href={href({})} style={{ color: "var(--cta-ink)", fontWeight: 600 }}>
+              <Link href={href({})} scroll={false} style={{ color: "var(--cta-ink)", fontWeight: 600 }}>
                 Back to the first page
               </Link>
             </>
@@ -1528,11 +1538,19 @@ function StoryPoolTable({
                       )}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <RatingsForm
-                        itemId={p.id}
-                        show={p.presenterRelevance}
-                        social={p.socialRelevance}
-                      />
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <RatingsForm
+                          itemId={p.id}
+                          show={p.presenterRelevance}
+                          social={p.socialRelevance}
+                        />
+                        <QuickAction
+                          fields={{ action: "reassess", id: p.id }}
+                          style={{ ...smallButton, background: "var(--cta-white)" }}
+                        >
+                          AI re-rate
+                        </QuickAction>
+                      </div>
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {mode === "add" && editionId && (
@@ -1586,6 +1604,7 @@ function StoryPoolTable({
               {params.pg > 1 && (
                 <Link
                   href={href({ pg: params.pg - 1 })}
+                  scroll={false}
                   style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
                 >
                   ← Previous
@@ -1597,6 +1616,7 @@ function StoryPoolTable({
               {hasMore && (
                 <Link
                   href={href({ pg: params.pg + 1 })}
+                  scroll={false}
                   style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
                 >
                   Further back →
@@ -1809,7 +1829,7 @@ async function EditionBuilder({
       )}
 
       {editable && (
-        <section className="admin-card">
+        <section className="admin-card" id="add-stories">
           <h2 style={h2}>Add stories</h2>
           <p style={muted}>
             Stories not yet in this Showcase. High relevance is shown by
@@ -1825,11 +1845,12 @@ async function EditionBuilder({
             mode="add"
             editionId={edition.id}
             params={params}
+            anchor="add-stories"
           />
         </section>
       )}
 
-      <section className="admin-card">
+      <section className="admin-card" id="edition-shows">
         <h2 style={h2}>Spotlight shows in this Showcase</h2>
         <p style={muted}>
           The show grid at the bottom of this edition, two cards per row.
@@ -1878,6 +1899,7 @@ async function EditionBuilder({
             </span>
             {editable && (
               <form action="/api/admin/showcase-edition" method="post">
+                <input type="hidden" name="anchor" value="edition-shows" />
                 <input type="hidden" name="action" value="remove-show" />
                 <input type="hidden" name="id" value={edition.id} />
                 <input type="hidden" name="showId" value={s.id} />
@@ -1900,6 +1922,7 @@ async function EditionBuilder({
               marginTop: 14,
             }}
           >
+            <input type="hidden" name="anchor" value="edition-shows" />
             <input type="hidden" name="action" value="add-show" />
             <input type="hidden" name="id" value={edition.id} />
             <select name="showId" style={smallInput}>
