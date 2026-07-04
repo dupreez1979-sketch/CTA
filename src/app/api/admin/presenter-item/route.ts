@@ -92,6 +92,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (action === "ratings") {
+    const rel = String(form.get("relevance") ?? "") as PresenterRelevance;
+    const soc = String(form.get("socialRelevance") ?? "") as PresenterRelevance;
+    if (!RELEVANCE_OPTIONS.includes(rel) || !RELEVANCE_OPTIONS.includes(soc))
+      return redirect("Invalid input");
+    await db()
+      .update(feedItems)
+      .set({ presenterRelevance: rel, socialRelevance: soc })
+      .where(eq(feedItems.id, id));
+    return redirect(
+      `"${item.aiHeading.slice(0, 40)}" rated show ${rel}, social ${soc}`,
+    );
+  }
+
+  if (action === "social-relevance") {
+    const relevance = String(form.get("relevance") ?? "") as PresenterRelevance;
+    if (!RELEVANCE_OPTIONS.includes(relevance))
+      return redirect("Invalid input");
+    await db()
+      .update(feedItems)
+      .set({ socialRelevance: relevance })
+      .where(eq(feedItems.id, id));
+    return redirect(
+      relevance === "high"
+        ? `"${item.aiHeading.slice(0, 50)}" rated high for Social Theatre, it will be offered to new Showcases`
+        : `"${item.aiHeading.slice(0, 50)}" rated ${relevance} for Social Theatre`,
+    );
+  }
+
   // Everything below operates on a draft/failed edition's membership.
   const editionId = Number(form.get("edition"));
   if (!Number.isInteger(editionId) || editionId <= 0)

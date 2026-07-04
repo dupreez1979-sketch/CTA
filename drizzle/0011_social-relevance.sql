@@ -1,0 +1,1 @@
+ALTER TABLE "feed_items" ADD COLUMN "social_relevance" text DEFAULT 'low' NOT NULL;

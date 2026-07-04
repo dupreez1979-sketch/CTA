@@ -82,6 +82,7 @@ async function ingestItem(
       imageUrl,
       // The Showcase: high-relevance stories are offered to new editions.
       presenterRelevance: copy.presenterRelevance,
+      socialRelevance: copy.socialRelevance,
       presenterReason: copy.presenterReason,
       showTitle: copy.showTitle,
     })

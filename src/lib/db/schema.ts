@@ -82,6 +82,13 @@ export const feedItems = pgTable(
     })
       .notNull()
       .default("low"),
+    // Social Theatre rating: theatre embedded in social settings (health,
+    // access, community), NOT education/workshops or fundraising.
+    socialRelevance: text("social_relevance", {
+      enum: ["low", "medium", "high"],
+    })
+      .notNull()
+      .default("low"),
     presenterReason: text("presenter_reason"),
     showTitle: text("show_title"),
     showUrl: text("show_url"),

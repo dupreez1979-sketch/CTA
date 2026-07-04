@@ -42,6 +42,7 @@ const RESEARCH_MAX_PER_RUN = Number(
   process.env.PRESENTER_RESEARCH_MAX_PER_RUN ?? 2,
 );
 const PREFILL_MAX = Number(process.env.PRESENTER_PREFILL_MAX ?? 12);
+const SOCIAL_PREFILL_MAX = Number(process.env.PRESENTER_SOCIAL_PREFILL_MAX ?? 4);
 const MAX_PROFILES = 2;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -58,6 +59,11 @@ function sydneyDateLabel(now = new Date()): string {
     month: "long",
     year: "numeric",
   }).format(now);
+}
+
+/** SQL fragment: rated high for the Showcase or for Social Theatre. */
+function highOrSocialHigh() {
+  return sql`(${feedItems.presenterRelevance} = 'high' or ${feedItems.socialRelevance} = 'high')`;
 }
 
 /** SQL fragment: the feed item is not part of any SENT edition. */
@@ -178,22 +184,37 @@ export async function createEditionFromPool(): Promise<{
     .values({})
     .returning({ id: showcaseEditions.id });
 
-  const pool = await db()
-    .select({ id: feedItems.id })
-    .from(feedItems)
-    .where(and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()))
-    .orderBy(desc(feedItems.publishedAt))
-    .limit(PREFILL_MAX);
-  if (pool.length > 0) {
-    await db()
-      .insert(showcaseEditionItems)
-      .values(
-        pool.map((p, i) => ({
-          editionId: edition.id,
-          feedItemId: p.id,
-          position: i,
-        })),
-      );
+  const [pool, socialPool] = await Promise.all([
+    db()
+      .select({ id: feedItems.id })
+      .from(feedItems)
+      .where(and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()))
+      .orderBy(desc(feedItems.publishedAt))
+      .limit(PREFILL_MAX),
+    db()
+      .select({ id: feedItems.id })
+      .from(feedItems)
+      .where(and(eq(feedItems.socialRelevance, "high"), notInSentEdition()))
+      .orderBy(desc(feedItems.publishedAt))
+      .limit(SOCIAL_PREFILL_MAX),
+  ]);
+  const newsIds = new Set(pool.map((p) => p.id));
+  const socialOnly = socialPool.filter((p) => !newsIds.has(p.id));
+  const rows = [
+    ...pool.map((p, i) => ({
+      editionId: edition.id,
+      feedItemId: p.id,
+      position: i,
+    })),
+    ...socialOnly.map((p, i) => ({
+      editionId: edition.id,
+      feedItemId: p.id,
+      position: pool.length + i,
+      social: true,
+    })),
+  ];
+  if (rows.length > 0) {
+    await db().insert(showcaseEditionItems).values(rows);
   }
 
   const activeShows = await db()
@@ -208,7 +229,7 @@ export async function createEditionFromPool(): Promise<{
       );
   }
 
-  return { id: edition.id, itemCount: pool.length, showCount: activeShows.length };
+  return { id: edition.id, itemCount: rows.length, showCount: activeShows.length };
 }
 
 /** Copy an edition (any status) into a fresh draft. */
@@ -283,17 +304,19 @@ export function swapPositions(
 }
 
 async function renumberEdition(editionId: number, orderedItemIds: number[]) {
-  for (let i = 0; i < orderedItemIds.length; i++) {
-    await db()
-      .update(showcaseEditionItems)
-      .set({ position: i })
-      .where(
-        and(
-          eq(showcaseEditionItems.editionId, editionId),
-          eq(showcaseEditionItems.feedItemId, orderedItemIds[i]),
-        ),
-      );
-  }
+  if (orderedItemIds.length === 0) return;
+  // One statement instead of N updates — reordering stays snappy even on
+  // a big edition.
+  const pairs = orderedItemIds
+    .map((id, i) => `(${Number(id)}, ${i})`)
+    .join(", ");
+  await db().execute(
+    sql`update showcase_edition_items as ei
+        set position = v.pos
+        from (values ${sql.raw(pairs)}) as v(feed_item_id, pos)
+        where ei.edition_id = ${editionId}
+          and ei.feed_item_id = v.feed_item_id`,
+  );
 }
 
 /** Returns false when the story was already in the edition. */
@@ -453,7 +476,7 @@ export async function runPresenterPipeline(): Promise<PresenterPipelineResult> {
   const available = await db()
     .select({ id: feedItems.id })
     .from(feedItems)
-    .where(and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()));
+    .where(and(highOrSocialHigh(), notInSentEdition()));
   return { researched, notified, availableCount: available.length };
 }
 
@@ -504,12 +527,7 @@ async function notifyNewStories(): Promise<number> {
   const fresh = await db()
     .select()
     .from(feedItems)
-    .where(
-      and(
-        eq(feedItems.presenterRelevance, "high"),
-        isNull(feedItems.presenterNotifiedAt),
-      ),
-    )
+    .where(and(highOrSocialHigh(), isNull(feedItems.presenterNotifiedAt)))
     .orderBy(desc(feedItems.publishedAt));
   if (fresh.length === 0) return 0;
 
@@ -519,9 +537,7 @@ async function notifyNewStories(): Promise<number> {
     db()
       .select({ id: feedItems.id })
       .from(feedItems)
-      .where(
-        and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()),
-      ),
+      .where(and(highOrSocialHigh(), notInSentEdition())),
   ]);
 
   const baseUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
@@ -854,7 +870,8 @@ export async function addShowFromItem(itemId: number): Promise<number | null> {
 export interface ShowcaseListParams {
   sort: "date" | "company" | "headline" | "relevance";
   dir: "asc" | "desc";
-  rel: "high" | "medium" | "low" | "all";
+  /** Show relevance, or the "s-" variants filtering on social relevance. */
+  rel: "high" | "medium" | "low" | "all" | "s-high" | "s-medium" | "s-low";
   co: string;
   q: string;
   /** 1-based page through the full history, STORY_POOL_LIMIT per page. */
@@ -866,7 +883,15 @@ export function parseShowcaseListParams(
   sp: Record<string, string | undefined>,
 ): ShowcaseListParams {
   const sorts = ["date", "company", "headline", "relevance"] as const;
-  const rels = ["high", "medium", "low", "all"] as const;
+  const rels = [
+    "high",
+    "medium",
+    "low",
+    "all",
+    "s-high",
+    "s-medium",
+    "s-low",
+  ] as const;
   const pg = Number(sp.pg);
   return {
     sort: sorts.find((s) => s === sp.sort) ?? "date",
@@ -903,7 +928,18 @@ export async function queryStoryPool(
   opts: { excludeEditionId?: number } = {},
 ): Promise<StoryPoolPage> {
   const conditions = [];
-  if (p.rel !== "all") conditions.push(eq(feedItems.presenterRelevance, p.rel));
+  if (p.rel.startsWith("s-")) {
+    conditions.push(
+      eq(
+        feedItems.socialRelevance,
+        p.rel.slice(2) as "high" | "medium" | "low",
+      ),
+    );
+  } else if (p.rel !== "all") {
+    conditions.push(
+      eq(feedItems.presenterRelevance, p.rel as "high" | "medium" | "low"),
+    );
+  }
   if (p.co) conditions.push(eq(feedItems.companyKey, p.co));
   if (p.q) {
     const q = `%${p.q}%`;

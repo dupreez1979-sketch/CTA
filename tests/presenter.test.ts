@@ -31,6 +31,7 @@ function item(overrides: Partial<FeedItem>): FeedItem {
     aiSummary: `Summary ${id}`,
     imageUrl: null,
     presenterRelevance: "high",
+    socialRelevance: "low",
     presenterReason: "Announces a new touring show",
     showTitle: null,
     showUrl: null,
@@ -309,6 +310,8 @@ describe("parseShowcaseListParams", () => {
       }),
     ).toEqual({ sort: "date", dir: "desc", rel: "high", co: "", q: "", pg: 1 });
     expect(parseShowcaseListParams({ pg: "abc" }).pg).toBe(1);
+    expect(parseShowcaseListParams({ rel: "s-high" }).rel).toBe("s-high");
+    expect(parseShowcaseListParams({ rel: "s-bogus" }).rel).toBe("high");
   });
 });
 
@@ -325,6 +328,12 @@ describe("COPY_SCHEMA showcase classification", () => {
     );
     expect(COPY_SCHEMA.additionalProperties).toBe(false);
     expect(COPY_SCHEMA.properties.presenterRelevance.enum).toEqual([
+      "low",
+      "medium",
+      "high",
+    ]);
+    expect(COPY_SCHEMA.required).toContain("socialRelevance");
+    expect(COPY_SCHEMA.properties.socialRelevance.enum).toEqual([
       "low",
       "medium",
       "high",

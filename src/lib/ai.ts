@@ -42,6 +42,12 @@ export const COPY_SCHEMA = {
       description:
         "Relevance to The Showcase, a bulletin for presenters and venues looking to book touring theatre for young audiences. 'high': the post announces a new show, a premiere, a new season, or a tour of a titled production that presenters elsewhere could book or present. 'medium': production news a presenter might follow but cannot book yet, such as a work in development, a creative development showing, casting for a future tour, or a major award for a production. 'low': everything else, including ticket reminders or promotion of an existing local run, social impact and access work, fundraising, workshops and classes, staffing and company news, and general community posts. A politician or dignitary visiting a company is 'low'.",
     },
+    socialRelevance: {
+      type: "string",
+      enum: ["low", "medium", "high"],
+      description:
+        "Relevance to Social Theatre, a section about theatre embedded as social infrastructure. 'high': theatre genuinely working in social settings, such as performances or programmes in hospitals and health care, work with and for children with disability, relaxed or sensory-adapted performances, removing barriers to access, community wellbeing partnerships, or theatre reaching children who otherwise could not attend. 'medium': a post partly about such work. 'low': everything else. Education and learning programmes, school workshops and classes are NOT social theatre, and neither is fundraising.",
+    },
     showTitle: {
       type: ["string", "null"],
       description:
@@ -56,6 +62,7 @@ export const COPY_SCHEMA = {
     "heading",
     "summary",
     "presenterRelevance",
+    "socialRelevance",
     "showTitle",
     "presenterReason",
   ],
@@ -66,6 +73,7 @@ export interface AiCopy {
   heading: string;
   summary: string;
   presenterRelevance: "low" | "medium" | "high";
+  socialRelevance: "low" | "medium" | "high";
   showTitle: string | null;
   presenterReason: string;
 }

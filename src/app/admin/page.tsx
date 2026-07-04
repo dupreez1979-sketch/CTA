@@ -182,23 +182,20 @@ export default async function AdminPage({
 }
 
 async function OverviewTab() {
-  const counts = await db()
-    .select({
-      cadence: subscribers.cadence,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(subscribers)
-    .where(eq(subscribers.status, "active"))
-    .groupBy(subscribers.cadence);
+  const [counts, recentIssues] = await Promise.all([
+    db()
+      .select({
+        cadence: subscribers.cadence,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(subscribers)
+      .where(eq(subscribers.status, "active"))
+      .groupBy(subscribers.cadence),
+    db().select().from(issues).orderBy(desc(issues.id)).limit(20),
+  ]);
   const countByCadence = Object.fromEntries(
     counts.map((c) => [c.cadence, c.count]),
   );
-
-  const recentIssues = await db()
-    .select()
-    .from(issues)
-    .orderBy(desc(issues.id))
-    .limit(20);
 
   return (
     <>
@@ -523,25 +520,25 @@ function SendingTab() {
 }
 
 async function SubscribersTab() {
-  const counts = await db()
-    .select({
-      cadence: subscribers.cadence,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(subscribers)
-    .where(eq(subscribers.status, "active"))
-    .groupBy(subscribers.cadence);
+  const [counts, recent, notifyEmails] = await Promise.all([
+    db()
+      .select({
+        cadence: subscribers.cadence,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(subscribers)
+      .where(eq(subscribers.status, "active"))
+      .groupBy(subscribers.cadence),
+    db()
+      .select()
+      .from(subscribers)
+      .orderBy(desc(subscribers.createdAt))
+      .limit(200),
+    getNotifyEmails(),
+  ]);
   const countByCadence = Object.fromEntries(
     counts.map((c) => [c.cadence, c.count]),
   );
-
-  const recent = await db()
-    .select()
-    .from(subscribers)
-    .orderBy(desc(subscribers.createdAt))
-    .limit(200);
-
-  const notifyEmails = await getNotifyEmails();
 
   return (
     <>
@@ -692,22 +689,20 @@ async function SubscribersTab() {
 async function CompaniesTab() {
   // Seeds the table on first load, then read the raw rows for editing
   await loadCompanies();
-  const companyRows = await db()
-    .select()
-    .from(companies)
-    .orderBy(asc(companies.name));
-
-  const unfiled = await db()
-    .select()
-    .from(feedItems)
-    .where(
-      and(
-        eq(feedItems.companyKey, "around-the-alliance"),
-        eq(feedItems.reviewed, false),
-      ),
-    )
-    .orderBy(desc(feedItems.publishedAt))
-    .limit(15);
+  const [companyRows, unfiled] = await Promise.all([
+    db().select().from(companies).orderBy(asc(companies.name)),
+    db()
+      .select()
+      .from(feedItems)
+      .where(
+        and(
+          eq(feedItems.companyKey, "around-the-alliance"),
+          eq(feedItems.reviewed, false),
+        ),
+      )
+      .orderBy(desc(feedItems.publishedAt))
+      .limit(15),
+  ]);
 
   return (
     <>
@@ -1173,10 +1168,12 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
       <section className="admin-card">
         <h2 style={h2}>Story pool</h2>
         <p style={muted}>
-          Every story the feed has brought in, rated for Showcase relevance
-          by the AI. Stories rated <strong>High</strong> are offered to each
-          New Showcase automatically. Change a rating here to promote a
-          missed story or keep one out for good.
+          Every story the feed has brought in, rated by the AI twice: once
+          for show relevance and once for Social Theatre (theatre in health,
+          access and community settings, not education or fundraising).
+          Stories rated <strong>High</strong> on either scale are offered to
+          each New Showcase automatically, in the matching section. Change a
+          rating here to promote a missed story or keep one out for good.
         </p>
         <StoryPoolTable
           pool={pool}
@@ -1441,9 +1438,12 @@ function StoryPoolTable({
           <input type="hidden" name="edition" value={editionId} />
         ) : null}
         <select name="rel" defaultValue={params.rel} style={smallInput}>
-          <option value="high">High relevance</option>
-          <option value="medium">Medium relevance</option>
-          <option value="low">Low relevance</option>
+          <option value="high">Show: high</option>
+          <option value="medium">Show: medium</option>
+          <option value="low">Show: low</option>
+          <option value="s-high">Social Theatre: high</option>
+          <option value="s-medium">Social Theatre: medium</option>
+          <option value="s-low">Social Theatre: low</option>
           <option value="all">All ratings</option>
         </select>
         <select name="co" defaultValue={params.co} style={smallInput}>
@@ -1543,20 +1543,39 @@ function StoryPoolTable({
                         method="post"
                         style={{ display: "flex", gap: 6, alignItems: "center" }}
                       >
-                        <input type="hidden" name="action" value="relevance" />
+                        <input type="hidden" name="action" value="ratings" />
                         <input type="hidden" name="id" value={p.id} />
                         {passthrough}
-                        <select
-                          name="relevance"
-                          defaultValue={p.presenterRelevance}
-                          style={smallInput}
-                        >
-                          {RELEVANCE_OPTIONS.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </select>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+                            Show{" "}
+                            <select
+                              name="relevance"
+                              defaultValue={p.presenterRelevance}
+                              style={smallInput}
+                            >
+                              {RELEVANCE_OPTIONS.map((r) => (
+                                <option key={r} value={r}>
+                                  {r}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+                            Social{" "}
+                            <select
+                              name="socialRelevance"
+                              defaultValue={p.socialRelevance}
+                              style={{ ...smallInput, background: "var(--cta-mint)" }}
+                            >
+                              {RELEVANCE_OPTIONS.map((r) => (
+                                <option key={r} value={r}>
+                                  {r}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
                         <button type="submit" style={{ ...smallButton, background: "var(--cta-white)" }}>
                           Save
                         </button>
@@ -1651,25 +1670,27 @@ async function EditionBuilder({
 }) {
   const editable = edition.status === "draft" || edition.status === "failed";
   const params = parseShowcaseListParams(sp);
-  const [entries, editionShows, companyRows, recipients] = await Promise.all([
-    getEditionItems(edition.id),
-    getEditionShows(edition.id),
-    db().select().from(companies).orderBy(asc(companies.name)),
-    getPresenterRecipients(),
-  ]);
-  const [pool, usedDates] = editable
-    ? await Promise.all([
-        queryStoryPool(params, { excludeEditionId: edition.id }),
-        getUsedStoryDates(),
-      ])
-    : [{ rows: [], hasMore: false }, new Map<number, Date | null>()];
-  const registry = editable
-    ? await db()
-        .select()
-        .from(shows)
-        .where(eq(shows.status, "active"))
-        .orderBy(asc(shows.title))
-    : [];
+  // One parallel round-trip for everything the builder needs.
+  const [entries, editionShows, companyRows, recipients, pool, usedDates, registry] =
+    await Promise.all([
+      getEditionItems(edition.id),
+      getEditionShows(edition.id),
+      db().select().from(companies).orderBy(asc(companies.name)),
+      getPresenterRecipients(),
+      editable
+        ? queryStoryPool(params, { excludeEditionId: edition.id })
+        : Promise.resolve({ rows: [], hasMore: false }),
+      editable
+        ? getUsedStoryDates()
+        : Promise.resolve(new Map<number, Date | null>()),
+      editable
+        ? db()
+            .select()
+            .from(shows)
+            .where(eq(shows.status, "active"))
+            .orderBy(asc(shows.title))
+        : Promise.resolve([]),
+    ]);
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
   const companyName = (key: string) =>
     nameByKey.get(key) ?? "Around the Alliance";
