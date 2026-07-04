@@ -105,7 +105,7 @@ const MOBILE_STYLES = `
   .logo { height: 88px !important; }
   .footer-logo { height: 48px !important; }
   .ncti-logo { height: 30px !important; }
-  .date-meta { font-size: 13px !important; }
+  .date-meta { font-size: 13px !important; display: block !important; padding-left: 0 !important; margin-top: 8px !important; white-space: nowrap !important; }
   .intro-h { font-size: 30px !important; }
   .banner-h { font-size: 24px !important; }
   .item-h { font-size: 24px !important; }
@@ -124,6 +124,10 @@ const MOBILE_STYLES = `
   .grid-img { height: 200px !important; }
   /* Stacked cards don't need matching heights, so let titles flow free. */
   .grid-title { font-size: 23px !important; line-height: 1.1 !important; height: auto !important; }
+  /* Stacked cards don't need fixed slots; auto heights stop clipped text. */
+  .grid-slot { height: auto !important; overflow: visible !important; }
+  .grid-co { font-size: 14px !important; }
+  .grid-body { padding-bottom: 18px !important; }
   .footer-p { font-size: 14px !important; }
   .footer-link { font-size: 14px !important; }
 }
@@ -175,7 +179,7 @@ function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
           </td>
         </tr>
         <tr>
-          <td style={{ padding: "12px 14px 14px" }}>
+          <td className="grid-body" style={{ padding: "12px 14px 14px" }}>
             <Text
               className="grid-title"
               style={{
@@ -188,6 +192,7 @@ function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
               {s.title}
             </Text>
             <Text
+              className="grid-slot grid-co"
               style={{
                 fontFamily: FONT_BODY,
                 fontWeight: 600,
@@ -200,10 +205,10 @@ function SpotlightCard({ s, hex }: { s: ShowcaseListing; hex: string }) {
             >
               {s.company}
             </Text>
-            <Text style={{ height: 30, margin: "0 0 8px" }}>
+            <Text className="grid-slot" style={{ height: 30, margin: "0 0 8px" }}>
               {s.ageRange ? <AgeChip ageRange={s.ageRange} /> : " "}
             </Text>
-            <Text style={{ height: 20, margin: 0 }}>
+            <Text className="grid-slot" style={{ height: 20, margin: 0 }}>
               {s.url ? (
                 <Link
                   href={s.url}
@@ -440,7 +445,9 @@ export default function ShowcaseEmail({
                             padding: "4px 10px",
                             border: `2px solid ${INK}`,
                             borderRadius: 999,
-                            marginRight: 8,
+                            marginRight: 10,
+                            marginBottom: 8,
+                            verticalAlign: "middle",
                           }}
                         >
                           Profile
@@ -454,6 +461,8 @@ export default function ShowcaseEmail({
                             border: `2px solid ${INK}`,
                             borderRadius: 9,
                             boxShadow: `3px 3px 0 ${INK}`,
+                            marginBottom: 8,
+                            verticalAlign: "middle",
                           }}
                         >
                           {p.company}
@@ -493,7 +502,7 @@ export default function ShowcaseEmail({
                             paddingBottom: 1,
                           }}
                         >
-                          Read the announcement →
+                          More →
                         </Link>
                       </Text>
 
@@ -570,7 +579,7 @@ export default function ShowcaseEmail({
                                       boxShadow: `3px 3px 0 ${INK}`,
                                     }}
                                   >
-                                    Visit the show page →
+                                    More →
                                   </Link>
                                 )}
                               </td>
@@ -597,7 +606,7 @@ export default function ShowcaseEmail({
                               boxShadow: `3px 3px 0 ${INK}`,
                             }}
                           >
-                            Visit the show page →
+                            More →
                           </Link>
                         </Text>
                       )}
@@ -709,14 +718,7 @@ export default function ShowcaseEmail({
                                   >
                                     {it.summary}
                                   </Text>
-                                  <Text
-                                    style={{
-                                      margin:
-                                        it.showTitle || it.showBlurb || it.showUrl
-                                          ? "0 0 12px"
-                                          : 0,
-                                    }}
-                                  >
+                                  <Text style={{ margin: 0 }}>
                                     <Link
                                       href={it.postUrl}
                                       className="item-link"
@@ -730,12 +732,16 @@ export default function ShowcaseEmail({
                                         paddingBottom: 1,
                                       }}
                                     >
-                                      Read the announcement →
+                                      More →
                                     </Link>
                                   </Text>
+                                </td>
+                              </tr>
 
-                                  {/* About the show */}
-                                  {(it.showTitle || it.showBlurb || it.showUrl) && (
+                              {/* About the show: full width below the row */}
+                              {(it.showTitle || it.showBlurb || it.showUrl) && (
+                                <tr>
+                                  <td colSpan={2} style={{ paddingTop: 14 }}>
                                     <table
                                       role="presentation"
                                       width="100%"
@@ -810,7 +816,7 @@ export default function ShowcaseEmail({
                                                     paddingBottom: 1,
                                                   }}
                                                 >
-                                                  Visit the show page →
+                                                  More →
                                                 </Link>
                                               </Text>
                                             )}
@@ -818,9 +824,9 @@ export default function ShowcaseEmail({
                                         </tr>
                                       </tbody>
                                     </table>
-                                  )}
-                                </td>
-                              </tr>
+                                  </td>
+                                </tr>
+                              )}
                             </tbody>
                           </table>
                         </td>
@@ -1012,7 +1018,7 @@ export default function ShowcaseEmail({
                               paddingBottom: 1,
                             }}
                           >
-                            Read the announcement →
+                            More →
                           </Link>
                         </Text>
                       </td>
@@ -1059,6 +1065,7 @@ export default function ShowcaseEmail({
               className="feat-btn"
               style={{
                 display: "inline-block",
+                whiteSpace: "nowrap",
                 fontFamily: FONT_BODY,
                 fontWeight: 700,
                 fontSize: 14,
@@ -1066,12 +1073,12 @@ export default function ShowcaseEmail({
                 backgroundColor: COLORS.yellow,
                 border: `2px solid ${INK}`,
                 borderRadius: 12,
-                padding: "11px 20px",
+                padding: "11px 16px",
                 textDecoration: "none",
                 boxShadow: `4px 4px 0 ${INK}`,
               }}
             >
-              Visit childrenstheatrealliance.com.au →
+              childrenstheatrealliance.com.au →
             </Link>
           </Section>
 
