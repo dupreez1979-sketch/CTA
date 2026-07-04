@@ -6,9 +6,12 @@ import { researchItem } from "@/lib/show-research";
 export const dynamic = "force-dynamic";
 
 /**
- * Admin: (re-)research one Showcase draft item against its company's shows
- * page. Overwrites the show fields with whatever fresh research finds;
- * fields it can't find are left as they are for manual editing.
+ * Admin: "Save + research" on a Showcase draft card. The card's whole edit
+ * form is submitted here (via formAction), so any typed changes — most
+ * importantly the show title research depends on — are saved first, then
+ * the item is (re-)researched against its company's shows page. Research
+ * overwrites the show fields with whatever it finds; fields it can't find
+ * keep their saved values for manual editing.
  */
 export async function POST(request: NextRequest) {
   const form = await request.formData();
@@ -26,9 +29,35 @@ export async function POST(request: NextRequest) {
     .where(eq(feedItems.id, id))
     .limit(1);
   if (!item) return redirect("Post not found");
-  if (!item.showTitle)
+
+  // Persist the submitted edits first (the card's full form arrives here).
+  // A bare POST with just the id (no field inputs) skips this.
+  let showTitle = item.showTitle;
+  let saved = false;
+  if (form.has("showTitle")) {
+    const val = (name: string) => String(form.get(name) ?? "").trim() || null;
+    const aiHeading = String(form.get("aiHeading") ?? "").trim();
+    const aiSummary = String(form.get("aiSummary") ?? "").trim();
+    showTitle = val("showTitle");
+    await db()
+      .update(feedItems)
+      .set({
+        aiHeading: aiHeading || item.aiHeading,
+        aiSummary: aiSummary || item.aiSummary,
+        showTitle,
+        showUrl: val("showUrl"),
+        showBlurb: val("showBlurb"),
+        showAgeRange: val("showAgeRange"),
+        showImageUrl: val("showImageUrl"),
+      })
+      .where(eq(feedItems.id, id));
+    saved = true;
+  }
+  const prefix = saved ? "Saved. " : "";
+
+  if (!showTitle)
     return redirect(
-      "Add a show title first — research looks the title up on the company's shows page",
+      `${prefix}To research, type the show's name into the Show title field first — research looks it up on the company's shows page`,
     );
 
   const [company] = await db()
@@ -38,14 +67,10 @@ export async function POST(request: NextRequest) {
     .limit(1);
   if (!company?.showsPageUrl)
     return redirect(
-      "This company has no shows page URL yet — add one on the Companies tab",
+      `${prefix}This company has no shows page URL yet — add one on the Companies tab, then research again`,
     );
 
-  const result = await researchItem(
-    item.showTitle,
-    item.guid,
-    company.showsPageUrl,
-  );
+  const result = await researchItem(showTitle, item.guid, company.showsPageUrl);
   await db()
     .update(feedItems)
     .set({
@@ -65,7 +90,7 @@ export async function POST(request: NextRequest) {
   ].filter(Boolean);
   return redirect(
     found.length > 0
-      ? `Research found: ${found.join(", ")}`
-      : "Research could not find a matching show — fill the fields in by hand",
+      ? `${prefix}Research found: ${found.join(", ")}`
+      : `${prefix}Research could not find "${showTitle}" on the company's shows page — fill the fields in by hand`,
   );
 }

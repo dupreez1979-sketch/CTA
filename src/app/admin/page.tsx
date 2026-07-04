@@ -945,6 +945,7 @@ async function ShowcaseTab({ find }: { find?: string }) {
   }
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
   const companyName = (key: string) => nameByKey.get(key) ?? "Around the Alliance";
+  const showsPageByKey = new Map(companyRows.map((c) => [c.key, c.showsPageUrl]));
 
   // Email order (position, then newest) for drafts; excluded items last.
   const drafts = draftItems
@@ -1187,15 +1188,14 @@ async function ShowcaseTab({ find }: { find?: string }) {
                     </button>
                   </form>
                 )}
-                <form action="/api/admin/presenter-research" method="post" style={{ display: "inline" }}>
-                  <input type="hidden" name="id" value={it.id} />
-                  <button
-                    type="submit"
-                    style={{ ...smallButton, background: "var(--cta-white)" }}
-                  >
-                    {it.presenterResearchedAt ? "Re-research" : "Research"}
-                  </button>
-                </form>
+                <button
+                  form={`sc-${it.id}`}
+                  type="submit"
+                  formAction="/api/admin/presenter-research"
+                  style={{ ...smallButton, background: "var(--cta-white)" }}
+                >
+                  {it.presenterResearchedAt ? "Save + re-research" : "Save + research"}
+                </button>
                 <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
                   <input type="hidden" name="action" value="add-show" />
                   <input type="hidden" name="id" value={it.id} />
@@ -1218,6 +1218,19 @@ async function ShowcaseTab({ find }: { find?: string }) {
                   </button>
                 </form>
               </div>
+              {!showsPageByKey.get(it.companyKey) && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginTop: 8,
+                  }}
+                >
+                  Research needs {companyName(it.companyKey)}&#39;s shows page
+                  URL before it can find this show. Add it on the Companies
+                  tab.
+                </div>
+              )}
             </details>
             {!excluded && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
