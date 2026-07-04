@@ -204,7 +204,7 @@ export default async function AdminPage({
         </div>
       )}
 
-      {tab === "overview" && <OverviewTab />}
+      {tab === "overview" && <OverviewTab sp={sp} />}
       {tab === "editions" && <EditionsTab sp={sp} />}
       {tab === "subscribers" && <SubscribersTab sp={sp} />}
       {tab === "settings" && <SettingsTab />}
@@ -213,8 +213,18 @@ export default async function AdminPage({
   );
 }
 
-async function OverviewTab() {
-  const [counts, showcaseCount, recentIssues] = await Promise.all([
+const SENDS_PAGE = 15;
+
+async function OverviewTab({
+  sp,
+}: {
+  sp: Record<string, string | undefined>;
+}) {
+  const opgRaw = Number(sp.opg);
+  const opg = Number.isInteger(opgRaw) && opgRaw > 0 ? opgRaw : 1;
+  // Fetch enough of each source to fill the requested page after merging.
+  const fetchCount = opg * SENDS_PAGE + 1;
+  const [counts, showcaseCount, recentIssues, sentEditions] = await Promise.all([
     db()
       .select({
         cadence: subscribers.cadence,
@@ -224,11 +234,50 @@ async function OverviewTab() {
       .where(eq(subscribers.status, "active"))
       .groupBy(subscribers.cadence),
     getShowcaseSubscriberCount(),
-    db().select().from(issues).orderBy(desc(issues.id)).limit(20),
+    db().select().from(issues).orderBy(desc(issues.id)).limit(fetchCount),
+    db()
+      .select()
+      .from(showcaseEditions)
+      .where(eq(showcaseEditions.status, "sent"))
+      .orderBy(desc(showcaseEditions.sentAt))
+      .limit(fetchCount),
   ]);
   const countByCadence = Object.fromEntries(
     counts.map((c) => [c.cadence, c.count]),
   );
+
+  // One send log: cadence issues and live Showcase sends, newest first.
+  const allSends = [
+    ...recentIssues.map((i) => ({
+      key: `issue-${i.id}`,
+      type: i.cadence as string,
+      showcase: false,
+      label: i.windowKey,
+      status: i.status as string,
+      items: i.itemCount,
+      recipients: i.recipientCount,
+      sentAt: i.sentAt,
+      stamp: (i.sentAt ?? i.windowStart).getTime(),
+      href:
+        i.status === "sent" && i.recipientCount > 0
+          ? `/admin?tab=editions&issue=${i.id}`
+          : null,
+    })),
+    ...sentEditions.map((e) => ({
+      key: `edition-${e.id}`,
+      type: "The Showcase",
+      showcase: true,
+      label: (e.sentAt ?? e.createdAt).toISOString().slice(0, 10),
+      status: e.status as string,
+      items: e.itemCount,
+      recipients: e.recipientCount,
+      sentAt: e.sentAt,
+      stamp: (e.sentAt ?? e.createdAt).getTime(),
+      href: `/admin?tab=presenters&edition=${e.id}`,
+    })),
+  ].sort((a, b) => b.stamp - a.stamp);
+  const pageSends = allSends.slice((opg - 1) * SENDS_PAGE, opg * SENDS_PAGE);
+  const hasMoreSends = allSends.length > opg * SENDS_PAGE;
 
   return (
     <>
@@ -306,12 +355,17 @@ async function OverviewTab() {
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Recent issues</h2>
+        <h2 style={h2}>Recent sends</h2>
+        <p style={muted}>
+          Every dispatched edition: the daily, weekly and fortnightly issues
+          and each live Showcase send. Click a recipient count to see exactly
+          who received it.
+        </p>
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={th}>Cadence</th>
+                <th style={th}>Edition</th>
                 <th style={th}>Window</th>
                 <th style={th}>Status</th>
                 <th style={th}>Items</th>
@@ -320,42 +374,87 @@ async function OverviewTab() {
               </tr>
             </thead>
             <tbody>
-              {recentIssues.map((i) => (
-                <tr key={i.id}>
-                  <td style={td}>{i.cadence}</td>
-                  <td style={td}>{i.windowKey}</td>
-                  <td style={td}>{i.status}</td>
-                  <td style={td}>{i.itemCount}</td>
+              {pageSends.map((r) => (
+                <tr key={r.key}>
                   <td style={td}>
-                    {i.status === "sent" && i.recipientCount > 0 ? (
+                    {r.showcase ? (
+                      <span style={badge("var(--cta-teal)")}>The Showcase</span>
+                    ) : (
+                      r.type
+                    )}
+                  </td>
+                  <td style={td}>{r.label}</td>
+                  <td style={td}>{r.status}</td>
+                  <td style={td}>{r.items}</td>
+                  <td style={td}>
+                    {r.href ? (
                       <Link
                         prefetch={false}
-                        href={`/admin?tab=editions&issue=${i.id}`}
+                        href={r.href}
                         style={{ color: "var(--cta-ink)", fontWeight: 600 }}
                       >
-                        {i.recipientCount}
+                        {r.recipients}
                       </Link>
                     ) : (
-                      i.recipientCount
+                      r.recipients
                     )}
                   </td>
                   <td style={td}>
-                    {i.sentAt
-                      ? i.sentAt.toISOString().replace("T", " ").slice(0, 16)
+                    {r.sentAt
+                      ? r.sentAt.toISOString().replace("T", " ").slice(0, 16)
                       : "—"}
                   </td>
                 </tr>
               ))}
-              {recentIssues.length === 0 && (
+              {pageSends.length === 0 && (
                 <tr>
                   <td style={td} colSpan={6}>
-                    No issues yet — the pipeline hasn&#39;t run.
+                    {opg > 1
+                      ? "No sends this far back."
+                      : "No sends yet. The pipeline hasn't run."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        {(opg > 1 || hasMoreSends) && (
+          <div
+            style={{
+              display: "flex",
+              gap: 14,
+              justifyContent: "space-between",
+              marginTop: 12,
+              fontSize: 13.5,
+              fontWeight: 600,
+            }}
+          >
+            <span>
+              {opg > 1 && (
+                <Link
+                  prefetch={false}
+                  scroll={false}
+                  href={`/admin?tab=overview&opg=${opg - 1}`}
+                  style={{ color: "var(--cta-ink)" }}
+                >
+                  ← Newer
+                </Link>
+              )}
+            </span>
+            <span>
+              {hasMoreSends && (
+                <Link
+                  prefetch={false}
+                  scroll={false}
+                  href={`/admin?tab=overview&opg=${opg + 1}`}
+                  style={{ color: "var(--cta-ink)" }}
+                >
+                  Further back →
+                </Link>
+              )}
+            </span>
+          </div>
+        )}
       </section>
     </>
   );
@@ -1321,6 +1420,9 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     ? (sp.esort as "date" | "status" | "stories")
     : "date";
   const edir = sp.edir === "asc" ? "asc" : "desc";
+  const epgRaw = Number(sp.epg);
+  const epg = Number.isInteger(epgRaw) && epgRaw > 0 ? epgRaw : 1;
+  const EDITIONS_PAGE = 15;
   const sorted = [...editions].sort((a, b) => {
     const cmp =
       esort === "status"
@@ -1330,12 +1432,18 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           : stampOf(a) - stampOf(b);
     return edir === "asc" ? cmp : -cmp;
   });
+  const pageEditions = sorted.slice(
+    (epg - 1) * EDITIONS_PAGE,
+    epg * EDITIONS_PAGE,
+  );
+  const hasMoreEditions = sorted.length > epg * EDITIONS_PAGE;
 
   const eSortLink = (key: string, label: string) => {
     const nextDir = esort === key && edir === "desc" ? "asc" : "desc";
     return (
       <Link
             prefetch={false}
+        scroll={false}
         href={`/admin?tab=presenters&esort=${key}&edir=${nextDir}`}
         style={{ color: "inherit", textDecoration: "none" }}
       >
@@ -1383,7 +1491,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((e) => {
+              {pageEditions.map((e) => {
                 const editable = e.status === "draft" || e.status === "failed";
                 return (
                   <tr key={e.id}>
@@ -1397,9 +1505,17 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                     <td style={td}>{profilesOf(e)}</td>
                     <td style={td}>
                       {e.recipients ??
-                        (e.status === "sent"
-                          ? `${e.recipientCount} subscriber${e.recipientCount === 1 ? "" : "s"}`
-                          : "")}
+                        (e.status === "sent" ? (
+                          <Link
+                            prefetch={false}
+                            href={`/admin?tab=presenters&edition=${e.id}`}
+                            style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                          >
+                            {`${e.recipientCount} subscriber${e.recipientCount === 1 ? "" : "s"}`}
+                          </Link>
+                        ) : (
+                          ""
+                        ))}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {editable && (
@@ -1499,17 +1615,55 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                   </tr>
                 );
               })}
-              {sorted.length === 0 && (
+              {pageEditions.length === 0 && (
                 <tr>
                   <td style={td} colSpan={6}>
-                    No Showcases yet. Press New Showcase to build the first
-                    one.
+                    {epg > 1
+                      ? "No Showcases this far back."
+                      : "No Showcases yet. Press New Showcase to build the first one."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        {(epg > 1 || hasMoreEditions) && (
+          <div
+            style={{
+              display: "flex",
+              gap: 14,
+              justifyContent: "space-between",
+              marginTop: 12,
+              fontSize: 13.5,
+              fontWeight: 600,
+            }}
+          >
+            <span>
+              {epg > 1 && (
+                <Link
+                  prefetch={false}
+                  scroll={false}
+                  href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg - 1}`}
+                  style={{ color: "var(--cta-ink)" }}
+                >
+                  ← Newer
+                </Link>
+              )}
+            </span>
+            <span>
+              {hasMoreEditions && (
+                <Link
+                  prefetch={false}
+                  scroll={false}
+                  href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg + 1}`}
+                  style={{ color: "var(--cta-ink)" }}
+                >
+                  Further back →
+                </Link>
+              )}
+            </span>
+          </div>
+        )}
       </section>
 
       <section className="admin-card">
