@@ -20,6 +20,7 @@ import {
   getEditionShows,
   getPresenterRecipients,
   getUsedStoryDates,
+  hasRelativeTime,
   parseShowcaseListParams,
   queryStoryPool,
   type ShowcaseListParams,
@@ -1650,7 +1651,8 @@ async function EditionBuilder({
   const showsPageByKey = new Map(
     companyRows.map((c) => [c.key, c.showsPageUrl]),
   );
-  const profileCount = entries.filter((e) => e.featured).length;
+  const profileCount = entries.filter((e) => e.featured && !e.social).length;
+  const socialCount = entries.filter((e) => e.social).length;
   const inEditionShowIds = new Set(editionShows.map((s) => s.id));
   const addableShows = registry.filter((s) => !inEditionShowIds.has(s.id));
 
@@ -1674,7 +1676,7 @@ async function EditionBuilder({
         <p style={muted}>
           {edition.status === "sent"
             ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? ""}. Sent editions are read-only; duplicate to reuse it.`
-            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${entries.length - profileCount} more stor${entries.length - profileCount === 1 ? "y" : "ies"}, ${editionShows.length} spotlight show${editionShows.length === 1 ? "" : "s"}.`}
+            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. ${profileCount} profile${profileCount === 1 ? "" : "s"}, ${socialCount} Social Theatre stor${socialCount === 1 ? "y" : "ies"}, ${entries.length - profileCount - socialCount} more stor${entries.length - profileCount - socialCount === 1 ? "y" : "ies"}, ${editionShows.length} spotlight show${editionShows.length === 1 ? "" : "s"}.`}
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <a
@@ -1743,7 +1745,7 @@ async function EditionBuilder({
           </p>
         )}
         {!editable &&
-          entries.map(({ item: it, featured }, i) => (
+          entries.map(({ item: it, featured, social: isSocial }, i) => (
             <div key={it.id} style={{ fontSize: 13.5, padding: "6px 0" }}>
               <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
                 {i + 1}.
@@ -1751,15 +1753,20 @@ async function EditionBuilder({
               <strong>{it.showTitle ?? it.aiHeading}</strong>
               {" · "}
               {companyName(it.companyKey)}
-              {featured && (
+              {featured && !isSocial && (
                 <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
                   Profile
+                </span>
+              )}
+              {isSocial && (
+                <span style={{ ...badge("var(--cta-mint)"), marginLeft: 8 }}>
+                  Social Theatre
                 </span>
               )}
             </div>
           ))}
         {editable &&
-          entries.map(({ item: it, featured }, i) => (
+          entries.map(({ item: it, featured, social: isSocial }, i) => (
             <div
               key={it.id}
               style={{
@@ -1791,14 +1798,24 @@ async function EditionBuilder({
                   {companyName(it.companyKey)}
                   {" · "}
                   {it.publishedAt.toISOString().slice(0, 10)}
-                  {featured && (
+                  {featured && !isSocial && (
                     <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
                       Profile
                     </span>
                   )}
-                  {!it.showTitle && (
+                  {isSocial && (
+                    <span style={{ ...badge("var(--cta-mint)"), marginLeft: 8 }}>
+                      Social Theatre
+                    </span>
+                  )}
+                  {!it.showTitle && !isSocial && (
                     <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
                       Needs show title
+                    </span>
+                  )}
+                  {hasRelativeTime(`${it.aiHeading} ${it.aiSummary}`) && (
+                    <span style={{ ...badge("var(--cta-pink)"), marginLeft: 8 }}>
+                      Time words
                     </span>
                   )}
                 </summary>
@@ -1954,7 +1971,7 @@ async function EditionBuilder({
                     <input
                       type="hidden"
                       name="action"
-                      value={featured ? "unfeature" : "feature"}
+                      value={featured && !isSocial ? "unfeature" : "feature"}
                     />
                     <input type="hidden" name="id" value={it.id} />
                     <input type="hidden" name="edition" value={edition.id} />
@@ -1962,9 +1979,37 @@ async function EditionBuilder({
                       type="submit"
                       style={{ ...smallButton, background: "var(--cta-yellow)" }}
                     >
-                      {featured ? "Remove profile" : "Make profile"}
+                      {featured && !isSocial ? "Remove profile" : "Make profile"}
                     </button>
                   </form>
+                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                    <input
+                      type="hidden"
+                      name="action"
+                      value={isSocial ? "unsocial" : "social"}
+                    />
+                    <input type="hidden" name="id" value={it.id} />
+                    <input type="hidden" name="edition" value={edition.id} />
+                    <button
+                      type="submit"
+                      style={{ ...smallButton, background: "var(--cta-mint)" }}
+                    >
+                      {isSocial ? "Remove from Social Theatre" : "Move to Social Theatre"}
+                    </button>
+                  </form>
+                  {hasRelativeTime(`${it.aiHeading} ${it.aiSummary}`) && (
+                    <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                      <input type="hidden" name="action" value="rewrite-time" />
+                      <input type="hidden" name="id" value={it.id} />
+                      <input type="hidden" name="edition" value={edition.id} />
+                      <button
+                        type="submit"
+                        style={{ ...smallButton, background: "var(--cta-pink)" }}
+                      >
+                        Fix time words
+                      </button>
+                    </form>
+                  )}
                   <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
                     <input type="hidden" name="action" value="add-show" />
                     <input type="hidden" name="id" value={it.id} />

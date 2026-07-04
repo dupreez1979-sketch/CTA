@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildShowcaseProps,
+  hasRelativeTime,
   parseShowcaseListParams,
   swapPositions,
 } from "@/lib/presenter";
@@ -202,6 +203,51 @@ describe("buildShowcaseProps", () => {
     expect(out.props.shows[0].imageUrl).toBe(`${BASE}/api/img/alpha`);
     expect(out.props.shows[1].imageUrl).toBeNull();
     expect(out.itemCount).toBe(0);
+  });
+});
+
+describe("buildShowcaseProps Social Theatre", () => {
+  it("puts social stories in their own section, out of news and profiles", () => {
+    const entries = [
+      { ...entry({ showTitle: "Big Show" }, true) },
+      { ...entry({ companyKey: "patch-theatre" }), social: true },
+      { ...entry({ companyKey: "terrapin" }) },
+    ];
+    const out = buildShowcaseProps(entries, [], NAMES, BASE, "4 July 2026")!;
+    expect(out.props.social).toHaveLength(1);
+    expect(out.props.social[0].company).toBe("Patch Theatre");
+    expect(out.props.social[0].heading).toBe(entries[1].item.aiHeading);
+    // Not duplicated into the company sections
+    expect(out.props.companies.map((c) => c.name)).toEqual(["Terrapin"]);
+    expect(out.profileCount).toBe(1);
+  });
+
+  it("social wins when a story is somehow flagged both ways", () => {
+    const both = { ...entry({}, true), social: true };
+    const out = buildShowcaseProps([both], [], NAMES, BASE, "4 July 2026")!;
+    expect(out.props.profiles).toHaveLength(0);
+    expect(out.props.social).toHaveLength(1);
+  });
+
+  it("is empty when nothing is tagged", () => {
+    const out = buildShowcaseProps([entry({})], [], NAMES, BASE, "4 July 2026")!;
+    expect(out.props.social).toEqual([]);
+  });
+});
+
+describe("hasRelativeTime", () => {
+  it("flags relative time words", () => {
+    expect(hasRelativeTime("We open tomorrow night at the Playhouse")).toBe(true);
+    expect(hasRelativeTime("Catch the final shows this weekend")).toBe(true);
+    expect(hasRelativeTime("Auditions were held yesterday")).toBe(true);
+    expect(hasRelativeTime("Tickets on sale next week")).toBe(true);
+    expect(hasRelativeTime("TODAY is the day")).toBe(true);
+  });
+
+  it("leaves absolute dates and ordinary copy alone", () => {
+    expect(hasRelativeTime("Opens on Saturday 12 July at the Playhouse")).toBe(false);
+    expect(hasRelativeTime("A three week national tour across 2027")).toBe(false);
+    expect(hasRelativeTime("The last performance sold out")).toBe(false);
   });
 });
 

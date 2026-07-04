@@ -34,7 +34,7 @@ export const COPY_SCHEMA = {
     summary: {
       type: "string",
       description:
-        "Exactly one sentence, sentence case, plain-spoken, that summarises the post for a newsletter reader. Include concrete details (dates, places, numbers) when present.",
+        "Exactly one sentence, sentence case, plain-spoken, that summarises the post for a newsletter reader. Include concrete details (dates, places, numbers) when present. Never use relative time words (today, tonight, tomorrow, yesterday, this weekend, next week): readers may see this days or weeks after the post. Convert them to absolute dates using the posted date, e.g. 'on Saturday 12 July' or 'in mid July'.",
     },
     presenterRelevance: {
       type: "string",
@@ -90,7 +90,7 @@ export async function generateCopy(
     messages: [
       {
         role: "user",
-        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${attribution}. Also rate the post's relevance to a separate presenter-facing edition about bookable touring shows.\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
+        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${attribution}. Also rate the post's relevance to a separate presenter-facing edition about bookable touring shows. Important: the reader may see this days or weeks after the post, so never write relative time words like today, tomorrow or next week; use the posted date below to convert them to absolute dates.\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
       },
     ],
   });
@@ -142,6 +142,61 @@ export async function pickFeatured(
   if (!text) throw new Error("No text block in featured-pick response");
   const parsed = JSON.parse(text.text) as { index: number };
   return parsed.index >= 0 && parsed.index < items.length ? parsed.index : 0;
+}
+
+const REWRITE_TIME_SCHEMA = {
+  type: "object",
+  properties: {
+    heading: {
+      type: "string",
+      description:
+        "The headline with any relative time expression converted to an absolute date; otherwise word-for-word identical.",
+    },
+    summary: {
+      type: "string",
+      description:
+        "The summary with any relative time expression converted to an absolute date; otherwise word-for-word identical.",
+    },
+  },
+  required: ["heading", "summary"],
+  additionalProperties: false,
+} as const;
+
+/**
+ * Fix copy written before the no-relative-time rule (or that slipped
+ * through): convert "tomorrow" / "next week" style phrases to absolute
+ * dates anchored on the post's publish date, changing nothing else.
+ */
+export async function rewriteTimeReferences(
+  heading: string,
+  summary: string,
+  publishedAt: Date,
+): Promise<{ heading: string; summary: string }> {
+  const posted = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Sydney",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(publishedAt);
+  const response = await client().messages.create({
+    model: MODEL,
+    max_tokens: 300,
+    system: VOICE,
+    output_config: {
+      format: { type: "json_schema", schema: REWRITE_TIME_SCHEMA },
+    },
+    messages: [
+      {
+        role: "user",
+        content: `This newsletter copy was written about a post published on ${posted}. Readers may see it much later, so rewrite ONLY relative time expressions (today, tonight, tomorrow, yesterday, this weekend, next week and similar) into absolute dates calculated from the publish date, e.g. "tomorrow" becomes "on Saturday 12 July". If an exact day can't be worked out, use the month ("in mid July"). Keep every other word unchanged.\n\nHeadline: ${heading}\nSummary: ${summary}`,
+      },
+    ],
+  });
+  await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
+  const text = response.content.find((b) => b.type === "text");
+  if (!text) throw new Error("No text block in time-rewrite response");
+  return JSON.parse(text.text) as { heading: string; summary: string };
 }
 
 const SHOW_URL_SCHEMA = {

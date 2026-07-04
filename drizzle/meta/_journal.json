@@ -71,6 +71,13 @@
       "when": 1783141660074,
       "tag": "0009_showcase-editions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783146199478,
+      "tag": "0010_social-theatre",
+      "breakpoints": true
     }
   ]
 }

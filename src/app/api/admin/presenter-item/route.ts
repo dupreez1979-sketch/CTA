@@ -10,7 +10,9 @@ import {
   moveEditionItem,
   removeItemFromEdition,
   setEditionItemFeatured,
+  setEditionItemSocial,
 } from "@/lib/presenter";
+import { rewriteTimeReferences } from "@/lib/ai";
 import { showcaseRedirectUrl } from "@/lib/showcase-admin";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +60,25 @@ export async function POST(request: NextRequest) {
     return redirect(`Saved "${item.showTitle ?? aiHeading}"`);
   }
 
+  if (action === "rewrite-time") {
+    try {
+      const fixed = await rewriteTimeReferences(
+        item.aiHeading,
+        item.aiSummary,
+        item.publishedAt,
+      );
+      await db()
+        .update(feedItems)
+        .set({ aiHeading: fixed.heading, aiSummary: fixed.summary })
+        .where(eq(feedItems.id, id));
+      return redirect(
+        "Time words rewritten to absolute dates. Check the copy reads well",
+      );
+    } catch (err) {
+      return redirect(`Could not rewrite the copy: ${err}`);
+    }
+  }
+
   if (action === "relevance") {
     const relevance = String(form.get("relevance") ?? "") as PresenterRelevance;
     if (!RELEVANCE_OPTIONS.includes(relevance))
@@ -102,6 +123,15 @@ export async function POST(request: NextRequest) {
     await removeItemFromEdition(editionId, id);
     return redirect(
       "Removed from this Showcase. The story stays in the pool; set its relevance to Low if it should not come back",
+    );
+  }
+
+  if (action === "social" || action === "unsocial") {
+    await setEditionItemSocial(editionId, id, action === "social");
+    return redirect(
+      action === "social"
+        ? "Moved to Social Theatre (a social story can't also be a profile)"
+        : "Back with the news stories",
     );
   }
 

@@ -79,10 +79,20 @@ export interface ShowcaseListing {
   imageUrl: string | null;
 }
 
+export interface ShowcaseSocialItem {
+  company: string;
+  heading: string;
+  summary: string;
+  postUrl: string;
+  imageUrl: string | null;
+}
+
 export interface ShowcaseEmailProps {
   dateLabel: string;
   profiles: ShowcaseProfile[];
   companies: ShowcaseSection[];
+  /** Social Theatre stories; the section is hidden when empty. */
+  social: ShowcaseSocialItem[];
   shows: ShowcaseListing[];
   baseUrl: string;
 }
@@ -241,6 +251,7 @@ export default function ShowcaseEmail({
   dateLabel,
   profiles,
   companies,
+  social,
   shows,
   baseUrl,
 }: ShowcaseEmailProps) {
@@ -323,7 +334,7 @@ export default function ShowcaseEmail({
                     boxShadow: `3px 3px 0 ${INK}`,
                   }}
                 >
-                  The Showcase
+                  The Showcase Edition
                 </span>
                 <span
                   className="date-meta"
@@ -871,6 +882,139 @@ export default function ShowcaseEmail({
                   ))}
                 </tbody>
               </table>
+            </Section>
+          )}
+
+          {/* Social Theatre — deliberately its own world: dark band, light
+              type, no show cards. Hidden when no stories are tagged. */}
+          {social.length > 0 && (
+            <Section
+              className="px"
+              style={{
+                backgroundColor: COLORS.ocean,
+                borderTop: `3px solid ${INK}`,
+                borderBottom: `3px solid ${INK}`,
+                padding: "30px 34px 24px",
+                marginTop: 30,
+              }}
+            >
+              <Text
+                className="intro-h"
+                style={{ ...display(26, 0.94), color: COLORS.mint }}
+              >
+                Social Theatre
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONT_BODY,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  letterSpacing: "0.04em",
+                  color: COLORS.creamWarm,
+                  margin: "8px 0 2px",
+                }}
+              >
+                Theatre embedded as Social Infrastructure
+              </Text>
+              {social.map((it) => (
+                <table
+                  key={it.postUrl + it.heading}
+                  role="presentation"
+                  width="100%"
+                  cellPadding={0}
+                  cellSpacing={0}
+                  style={{ borderCollapse: "separate", marginTop: 20 }}
+                >
+                  <tbody>
+                    <tr>
+                      <td
+                        width={100}
+                        className="thumb-td"
+                        style={{
+                          width: 100,
+                          verticalAlign: "top",
+                          paddingRight: 16,
+                        }}
+                      >
+                        <div
+                          className="thumb-box"
+                          style={{
+                            width: 100,
+                            height: 100,
+                            border: `2px solid ${COLORS.mint}`,
+                            borderRadius: 14,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <ImageSlot
+                            imageUrl={it.imageUrl}
+                            hex={COLORS.teal}
+                            width={100}
+                            height={100}
+                            radius={12}
+                            alt=""
+                            cls="thumb-img"
+                          />
+                        </div>
+                      </td>
+                      <td style={{ verticalAlign: "top" }}>
+                        <Text
+                          style={{
+                            fontFamily: FONT_BODY,
+                            fontWeight: 700,
+                            fontSize: 10,
+                            letterSpacing: "0.14em",
+                            textTransform: "uppercase",
+                            color: COLORS.mint,
+                            margin: "0 0 5px",
+                          }}
+                        >
+                          {it.company}
+                        </Text>
+                        <Text
+                          className="item-h"
+                          style={{
+                            ...display(20, 0.98),
+                            color: COLORS.white,
+                            margin: "0 0 7px",
+                          }}
+                        >
+                          {it.heading}
+                        </Text>
+                        <Text
+                          className="item-p"
+                          style={{
+                            fontFamily: FONT_BODY,
+                            fontSize: 13.5,
+                            lineHeight: 1.55,
+                            color: COLORS.creamWarm,
+                            margin: "0 0 9px",
+                          }}
+                        >
+                          {it.summary}
+                        </Text>
+                        <Text style={{ margin: 0 }}>
+                          <Link
+                            href={it.postUrl}
+                            className="item-link"
+                            style={{
+                              fontFamily: FONT_BODY,
+                              fontWeight: 700,
+                              fontSize: 12.5,
+                              color: COLORS.mint,
+                              textDecoration: "none",
+                              borderBottom: `2px solid ${COLORS.mint}`,
+                              paddingBottom: 1,
+                            }}
+                          >
+                            Read the announcement →
+                          </Link>
+                        </Text>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ))}
             </Section>
           )}
 

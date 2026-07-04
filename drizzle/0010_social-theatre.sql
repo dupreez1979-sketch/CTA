@@ -1,0 +1,1 @@
+ALTER TABLE "showcase_edition_items" ADD COLUMN "social" boolean DEFAULT false NOT NULL;

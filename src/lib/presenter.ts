@@ -98,7 +98,18 @@ export async function setPresenterRecipients(raw: string): Promise<string[]> {
 export interface EditionEntry {
   item: FeedItem;
   featured: boolean;
+  social: boolean;
   position: number;
+}
+
+/**
+ * Copy that mentions relative time reads wrong days later ("we open
+ * tomorrow"). Used to flag stories in the builder for a rewrite.
+ */
+export function hasRelativeTime(text: string): boolean {
+  return /\b(today|tonight|tomorrow|yesterday|this (week|weekend|month|morning|afternoon|evening)|next (week|weekend|month)|last (night|week|weekend))\b/i.test(
+    text,
+  );
 }
 
 export async function getEdition(id: number): Promise<ShowcaseEdition | null> {
@@ -117,6 +128,7 @@ export async function getEditionItems(
     .select({
       item: feedItems,
       featured: showcaseEditionItems.featured,
+      social: showcaseEditionItems.social,
       position: showcaseEditionItems.position,
     })
     .from(showcaseEditionItems)
@@ -220,6 +232,7 @@ export async function duplicateEdition(id: number): Promise<number | null> {
           feedItemId: it.feedItemId,
           position: it.position,
           featured: it.featured,
+          social: it.social,
         })),
       );
   }
@@ -347,7 +360,8 @@ export async function setEditionItemFeatured(
   }
   await db()
     .update(showcaseEditionItems)
-    .set({ featured })
+    // A profile can't also sit in Social Theatre.
+    .set(featured ? { featured, social: false } : { featured })
     .where(
       and(
         eq(showcaseEditionItems.editionId, editionId),
@@ -355,6 +369,24 @@ export async function setEditionItemFeatured(
       ),
     );
   return true;
+}
+
+/** Tag a story into (or out of) the Social Theatre section. */
+export async function setEditionItemSocial(
+  editionId: number,
+  feedItemId: number,
+  social: boolean,
+): Promise<void> {
+  await db()
+    .update(showcaseEditionItems)
+    // A Social Theatre story can't also be a profile.
+    .set(social ? { social, featured: false } : { social })
+    .where(
+      and(
+        eq(showcaseEditionItems.editionId, editionId),
+        eq(showcaseEditionItems.feedItemId, feedItemId),
+      ),
+    );
 }
 
 export async function addShowToEdition(
@@ -528,12 +560,12 @@ export interface AssembledShowcase {
 
 /**
  * Pure Showcase assembly (exported for tests): edition entries in edition
- * order, up to two profiles (featured flag from the edition), the rest
- * grouped by company, plus the edition's show list. Null when there is
- * nothing at all to send.
+ * order, up to two profiles (featured flag from the edition), Social
+ * Theatre stories in their own section, the rest grouped by company, plus
+ * the edition's show list. Null when there is nothing at all to send.
  */
 export function buildShowcaseProps(
-  entries: { item: FeedItem; featured: boolean }[],
+  entries: { item: FeedItem; featured: boolean; social?: boolean }[],
   showList: Show[],
   nameByKey: Map<string, string>,
   baseUrl: string,
@@ -546,9 +578,23 @@ export function buildShowcaseProps(
   const clean = (s: string | null) => (s === null ? null : decodeEntities(s));
 
   const featuredEntries = entries
-    .filter((e) => e.featured)
+    .filter((e) => e.featured && !e.social)
     .slice(0, MAX_PROFILES);
   const profiledIds = new Set(featuredEntries.map((e) => e.item.id));
+
+  // Social Theatre: the announcement through the social lens, no show card.
+  const socialItems = entries
+    .filter((e) => e.social)
+    .map(({ item: it }) => ({
+      company: companyNameFrom(nameByKey, it.companyKey),
+      heading: it.aiHeading,
+      summary: it.aiSummary,
+      postUrl: it.postUrl,
+      imageUrl: absolutizeImage(it.imageUrl, baseUrl),
+    }));
+  const socialIds = new Set(
+    entries.filter((e) => e.social).map((e) => e.item.id),
+  );
 
   const profiles: ShowcaseProfile[] = featuredEntries.map(({ item: it }) => ({
     company: companyNameFrom(nameByKey, it.companyKey),
@@ -567,7 +613,7 @@ export function buildShowcaseProps(
 
   const grouped = new Map<string, FeedItem[]>();
   for (const { item: it } of entries) {
-    if (profiledIds.has(it.id)) continue;
+    if (profiledIds.has(it.id) || socialIds.has(it.id)) continue;
     const list = grouped.get(it.companyKey) ?? [];
     list.push(it);
     grouped.set(it.companyKey, list);
@@ -617,6 +663,7 @@ export function buildShowcaseProps(
       dateLabel,
       profiles,
       companies: sections,
+      social: socialItems,
       shows: listings,
       baseUrl,
     },

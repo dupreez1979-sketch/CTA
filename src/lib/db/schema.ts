@@ -177,6 +177,9 @@ export const showcaseEditionItems = pgTable(
     position: integer("position").notNull().default(0),
     // "Profile" (big card); capped at 2 per edition in the routes.
     featured: boolean("featured").notNull().default(false),
+    // "Social Theatre" section: the story through the social lens, no show
+    // card. Mutually exclusive with featured (enforced in the routes).
+    social: boolean("social").notNull().default(false),
   },
   (t) => [uniqueIndex("sc_edition_item_idx").on(t.editionId, t.feedItemId)],
 );
