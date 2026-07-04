@@ -27,6 +27,7 @@ Built from the design handoff in [`design/`](design/README.md). Runs on **Netlif
 - **Images**: the feed's Facebook image URLs expire, so each image is copied to Netlify Blobs at ingest and served from `/api/img/[key]`; items without an image get a brand-coloured placeholder slot.
 - **Admin** (`/admin`, basic auth): subscriber counts/list + CSV export, fetch-posts button, live issue previews, "send test to me", manual send, issue log.
 - **Function limits**: ingest is capped per run (`INGEST_MAX_PER_RUN`, default 10, processed in parallel) so each invocation fits Netlify's function time limit; leftovers are picked up by the next run.
+- **The Showcase** (test mode): a separate edition for presenters and international partners covering only shows that can tour. The per-item Claude call also classifies each post; show/tour announcements enter a draft pool, official show pages are researched automatically from each company's "shows page URL" (Companies tab), and the test list (default `kevin@monkeybaa.com.au`, editable on The Showcase tab) gets a "draft ready" email. Nothing sends automatically — review, edit and send from the tab. A "What's happening" registry of available shows (`shows` table) rounds out each edition. Research per pipeline run is capped by `PRESENTER_RESEARCH_MAX_PER_RUN` (default 2).
 
 ## Local development
 

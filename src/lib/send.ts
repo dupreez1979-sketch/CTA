@@ -43,7 +43,7 @@ export interface AssembledIssue {
  * APP_URL. Handles relative "/api/img/<key>" paths (how new rows are
  * stored) and legacy rows that baked in a full origin at ingest time.
  */
-function absolutizeImage(url: string | null, baseUrl: string): string | null {
+export function absolutizeImage(url: string | null, baseUrl: string): string | null {
   if (!url) return null;
   if (url.startsWith("/")) return `${baseUrl}${url}`;
   const legacy = url.match(/\/api\/img\/[A-Za-z0-9_-]+$/);

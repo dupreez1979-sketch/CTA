@@ -23,7 +23,7 @@ children. Voice: bold, warm, plain-spoken advocacy. Short declarative
 sentences. Australian spelling ("theatre", not "theater"). No emoji, no
 exclamation-spam — warmth comes from plain confident language.`;
 
-const COPY_SCHEMA = {
+export const COPY_SCHEMA = {
   type: "object",
   properties: {
     heading: {
@@ -36,14 +36,38 @@ const COPY_SCHEMA = {
       description:
         "Exactly one sentence, sentence case, plain-spoken, that summarises the post for a newsletter reader. Include concrete details (dates, places, numbers) when present.",
     },
+    presenterRelevant: {
+      type: "boolean",
+      description:
+        "True ONLY if the post announces a new show, a premiere, a new season, or a tour of a titled production that presenters or venues elsewhere could book or present. False for ticket reminders or promotion of an existing local run, social impact or access work, fundraising, workshops and classes, staffing or company news, awards, and general community posts.",
+    },
+    showTitle: {
+      type: ["string", "null"],
+      description:
+        "The production's title exactly as written in the post, or null if presenterRelevant is false or no clear title is given.",
+    },
+    presenterReason: {
+      type: "string",
+      description:
+        "One short sentence explaining the presenterRelevant decision.",
+    },
   },
-  required: ["heading", "summary"],
+  required: [
+    "heading",
+    "summary",
+    "presenterRelevant",
+    "showTitle",
+    "presenterReason",
+  ],
   additionalProperties: false,
 } as const;
 
 export interface AiCopy {
   heading: string;
   summary: string;
+  presenterRelevant: boolean;
+  showTitle: string | null;
+  presenterReason: string;
 }
 
 /**
@@ -66,7 +90,7 @@ export async function generateCopy(
     messages: [
       {
         role: "user",
-        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${attribution}.\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
+        content: `Write the newsletter headline and one-sentence summary for this Facebook post by ${attribution}. Also classify whether the post announces a show or tour that could travel to other venues (for a separate presenter-facing edition).\n\nPost title: ${item.title || "(none)"}\nPost text: ${item.text.slice(0, 2000) || "(none)"}\nPosted: ${item.publishedAt.toISOString()}`,
       },
     ],
   });
@@ -118,4 +142,50 @@ export async function pickFeatured(
   if (!text) throw new Error("No text block in featured-pick response");
   const parsed = JSON.parse(text.text) as { index: number };
   return parsed.index >= 0 && parsed.index < items.length ? parsed.index : 0;
+}
+
+const SHOW_URL_SCHEMA = {
+  type: "object",
+  properties: {
+    index: {
+      type: "integer",
+      description:
+        "Zero-based index of the link that is the official page for the show, or -1 if none of the links match.",
+    },
+  },
+  required: ["index"],
+  additionalProperties: false,
+} as const;
+
+/**
+ * The Showcase's research fallback: given the links found on a company's
+ * shows page, pick the one that is the official page for the named show.
+ * Only called when deterministic title matching was ambiguous. Returns the
+ * link index, or null when no link matches.
+ */
+export async function pickShowUrl(
+  showTitle: string,
+  links: { url: string; text: string }[],
+): Promise<number | null> {
+  if (links.length === 0) return null;
+  const list = links
+    .map((l, i) => `${i}. "${l.text}" -> ${l.url}`)
+    .join("\n");
+  const response = await client().messages.create({
+    model: MODEL,
+    max_tokens: 150,
+    system: VOICE,
+    output_config: { format: { type: "json_schema", schema: SHOW_URL_SCHEMA } },
+    messages: [
+      {
+        role: "user",
+        content: `These links were found on a theatre company's shows page. Which one is the official page for the production titled "${showTitle}"? Answer -1 if none of them clearly is.\n\n${list}`,
+      },
+    ],
+  });
+  await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
+  const text = response.content.find((b) => b.type === "text");
+  if (!text) throw new Error("No text block in show-url response");
+  const parsed = JSON.parse(text.text) as { index: number };
+  return parsed.index >= 0 && parsed.index < links.length ? parsed.index : null;
 }

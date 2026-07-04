@@ -1,8 +1,17 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { db, subscribers, issues, companies, feedItems } from "@/lib/db";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import {
+  db,
+  subscribers,
+  issues,
+  companies,
+  feedItems,
+  presenterSends,
+  shows,
+} from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
+import { getPresenterRecipients } from "@/lib/presenter";
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
@@ -19,6 +28,7 @@ const TABS = [
   { id: "sending", label: "Sending" },
   { id: "subscribers", label: "Subscribers" },
   { id: "companies", label: "Companies" },
+  { id: "presenters", label: "The Showcase" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -150,6 +160,7 @@ export default async function AdminPage({
       {tab === "sending" && <SendingTab />}
       {tab === "subscribers" && <SubscribersTab />}
       {tab === "companies" && <CompaniesTab />}
+      {tab === "presenters" && <ShowcaseTab />}
     </main>
   );
 }
@@ -699,6 +710,7 @@ async function CompaniesTab() {
             <tr>
               <th style={th}>Company</th>
               <th style={th}>Match words</th>
+              <th style={th}>Shows page (for The Showcase)</th>
               <th style={th}></th>
             </tr>
           </thead>
@@ -723,6 +735,16 @@ async function CompaniesTab() {
                     name="match"
                     defaultValue={c.match}
                     style={{ ...smallInput, width: "100%", minWidth: 220 }}
+                  />
+                </td>
+                <td style={td}>
+                  <input
+                    form={`co-${c.id}`}
+                    name="showsPageUrl"
+                    type="url"
+                    defaultValue={c.showsPageUrl ?? ""}
+                    placeholder="https://company.com.au/shows"
+                    style={{ ...smallInput, width: "100%", minWidth: 200 }}
                   />
                 </td>
                 <td style={{ ...td, whiteSpace: "nowrap" }}>
@@ -774,10 +796,20 @@ async function CompaniesTab() {
           placeholder="Match words (e.g. brymore, brymoreproductions)"
           style={{ ...inputStyle, minWidth: 240, flex: "2 1 240px" }}
         />
+        <input
+          name="showsPageUrl"
+          type="url"
+          placeholder="Shows page URL (optional)"
+          style={{ ...inputStyle, minWidth: 200, flex: "1 1 200px" }}
+        />
         <button type="submit" style={buttonStyle}>
           Add company
         </button>
       </form>
+      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 0" }}>
+        The shows page URL is where The Showcase looks up official show
+        pages, copy and images for that company.
+      </p>
     </section>
 
     <section className="admin-card">
@@ -847,6 +879,551 @@ async function CompaniesTab() {
         </>
       )}
     </section>
+    </>
+  );
+}
+
+const fieldLabel: React.CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "var(--text-muted)",
+  fontWeight: 600,
+  margin: "10px 0 4px",
+};
+
+async function ShowcaseTab() {
+  const [recipients, companyRows, draftItems, registry, recentSends] =
+    await Promise.all([
+      getPresenterRecipients(),
+      db().select().from(companies).orderBy(asc(companies.name)),
+      db()
+        .select()
+        .from(feedItems)
+        .where(inArray(feedItems.presenterStatus, ["draft", "excluded"]))
+        .orderBy(
+          asc(feedItems.presenterStatus),
+          desc(feedItems.publishedAt),
+        )
+        .limit(30),
+      db().select().from(shows).orderBy(asc(shows.title)),
+      db().select().from(presenterSends).orderBy(desc(presenterSends.id)).limit(10),
+    ]);
+  // Recent posts the classifier left out — promotable by hand.
+  const otherPosts = await db()
+    .select()
+    .from(feedItems)
+    .where(sql`${feedItems.presenterStatus} is null`)
+    .orderBy(desc(feedItems.publishedAt))
+    .limit(25);
+  const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
+  const companyName = (key: string) => nameByKey.get(key) ?? "Around the Alliance";
+
+  const drafts = draftItems.filter((i) => i.presenterStatus === "draft");
+  const profileCount = drafts.filter((i) => i.presenterFeatured).length;
+  const activeShows = registry.filter((s) => s.status === "active");
+
+  return (
+    <>
+      <section className="admin-card">
+        <h2 style={h2}>The Showcase — test mode</h2>
+        <p style={muted}>
+          A special edition for presenters and international partners: only
+          shows that can tour or be presented elsewhere. The morning pipeline
+          files new show and tour announcements into the draft below and
+          emails this list when there is something to review. It never sends
+          itself — you review, edit and send from here.
+        </p>
+        <form
+          action="/api/admin/presenter-recipients"
+          method="post"
+          style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
+        >
+          <input
+            type="text"
+            name="emails"
+            defaultValue={recipients.join(", ")}
+            placeholder="kevin@monkeybaa.com.au"
+            style={{ ...inputStyle, flex: "1 1 280px", minWidth: 220 }}
+          />
+          <button type="submit" style={buttonStyle}>
+            Save test list
+          </button>
+        </form>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 0" }}>
+          Sends and draft notifications go only to these addresses while the
+          edition is being tested.
+        </p>
+      </section>
+
+      <section className="admin-card">
+        <h2 style={h2}>Draft</h2>
+        <p style={muted}>
+          Show and tour announcements waiting for the next Showcase. Pick up
+          to two as <strong>profiles</strong> (the big cards at the top),
+          tidy the copy, and exclude anything that shouldn&#39;t travel. The
+          official show fields are filled by automatic research of the
+          company&#39;s shows page where possible — everything is editable.
+        </p>
+        {draftItems.length === 0 && (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            Nothing in the draft yet. New show announcements land here after
+            each feed fetch; if the classifier missed one, add it below.
+          </p>
+        )}
+        {draftItems.map((it) => {
+          const excluded = it.presenterStatus === "excluded";
+          return (
+            <div
+              key={it.id}
+              style={{
+                border: "2px solid var(--cta-ink)",
+                borderRadius: 14,
+                padding: "14px 16px",
+                marginBottom: 16,
+                background: excluded ? "var(--cta-white)" : "var(--cta-cream-warm)",
+                opacity: excluded ? 0.6 : 1,
+              }}
+            >
+              <div style={{ fontSize: 13, marginBottom: 4 }}>
+                <strong>{companyName(it.companyKey)}</strong>
+                {" · "}
+                {it.publishedAt.toISOString().slice(0, 10)}
+                {" · "}
+                <a
+                  href={it.postUrl}
+                  target="_blank"
+                  style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                >
+                  original post ↗
+                </a>
+                {it.presenterFeatured && !excluded && (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      background: "var(--cta-yellow)",
+                      border: "2px solid var(--cta-ink)",
+                      borderRadius: 999,
+                      padding: "2px 9px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Profile
+                  </span>
+                )}
+                {excluded && (
+                  <span style={{ marginLeft: 8, color: "var(--text-muted)", fontWeight: 600 }}>
+                    (excluded)
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+                {it.presenterReason ?? "Added by hand"}
+                {" · "}
+                {it.presenterResearchedAt
+                  ? `researched ${it.presenterResearchedAt.toISOString().slice(0, 10)}`
+                  : "not researched yet"}
+              </div>
+
+              <form action="/api/admin/presenter-item" method="post" id={`sc-${it.id}`}>
+                <input type="hidden" name="action" value="update" />
+                <input type="hidden" name="id" value={it.id} />
+              </form>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                  columnGap: 14,
+                }}
+              >
+                <div>
+                  <label style={fieldLabel}>Heading</label>
+                  <input
+                    form={`sc-${it.id}`}
+                    name="aiHeading"
+                    defaultValue={it.aiHeading}
+                    required
+                    style={{ ...smallInput, width: "100%" }}
+                  />
+                  <label style={fieldLabel}>Summary</label>
+                  <textarea
+                    form={`sc-${it.id}`}
+                    name="aiSummary"
+                    defaultValue={it.aiSummary}
+                    required
+                    rows={2}
+                    style={{ ...smallInput, width: "100%", resize: "vertical" }}
+                  />
+                  <label style={fieldLabel}>Show title</label>
+                  <input
+                    form={`sc-${it.id}`}
+                    name="showTitle"
+                    defaultValue={it.showTitle ?? ""}
+                    placeholder="e.g. The Peasant Prince"
+                    style={{ ...smallInput, width: "100%" }}
+                  />
+                  <label style={fieldLabel}>Age range</label>
+                  <input
+                    form={`sc-${it.id}`}
+                    name="showAgeRange"
+                    defaultValue={it.showAgeRange ?? ""}
+                    placeholder="e.g. ages 6 to 12"
+                    style={{ ...smallInput, width: "100%" }}
+                  />
+                </div>
+                <div>
+                  <label style={fieldLabel}>Official show page URL</label>
+                  <input
+                    form={`sc-${it.id}`}
+                    name="showUrl"
+                    type="url"
+                    defaultValue={it.showUrl ?? ""}
+                    placeholder="https://company.com.au/shows/…"
+                    style={{ ...smallInput, width: "100%" }}
+                  />
+                  <label style={fieldLabel}>Official blurb</label>
+                  <textarea
+                    form={`sc-${it.id}`}
+                    name="showBlurb"
+                    defaultValue={it.showBlurb ?? ""}
+                    rows={3}
+                    placeholder="Official copy from the show page (falls back to the summary)"
+                    style={{ ...smallInput, width: "100%", resize: "vertical" }}
+                  />
+                  <label style={fieldLabel}>Image URL</label>
+                  <input
+                    form={`sc-${it.id}`}
+                    name="showImageUrl"
+                    defaultValue={it.showImageUrl ?? ""}
+                    placeholder="Leave empty to use the post image"
+                    style={{ ...smallInput, width: "100%" }}
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  marginTop: 12,
+                }}
+              >
+                <button form={`sc-${it.id}`} type="submit" style={smallButton}>
+                  Save
+                </button>
+                {!excluded && (
+                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                    <input
+                      type="hidden"
+                      name="action"
+                      value={it.presenterFeatured ? "unfeature" : "feature"}
+                    />
+                    <input type="hidden" name="id" value={it.id} />
+                    <button
+                      type="submit"
+                      style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                    >
+                      {it.presenterFeatured ? "Remove profile" : "Make profile"}
+                    </button>
+                  </form>
+                )}
+                <form action="/api/admin/presenter-research" method="post" style={{ display: "inline" }}>
+                  <input type="hidden" name="id" value={it.id} />
+                  <button
+                    type="submit"
+                    style={{ ...smallButton, background: "var(--cta-white)" }}
+                  >
+                    {it.presenterResearchedAt ? "Re-research" : "Research"}
+                  </button>
+                </form>
+                <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                  <input type="hidden" name="action" value="add-show" />
+                  <input type="hidden" name="id" value={it.id} />
+                  <button
+                    type="submit"
+                    style={{ ...smallButton, background: "var(--cta-white)" }}
+                  >
+                    Add to What&#39;s happening
+                  </button>
+                </form>
+                <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
+                  <input
+                    type="hidden"
+                    name="action"
+                    value={excluded ? "restore" : "exclude"}
+                  />
+                  <input type="hidden" name="id" value={it.id} />
+                  <button type="submit" style={dangerButton}>
+                    {excluded ? "Restore" : "Exclude"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          );
+        })}
+        {otherPosts.length > 0 && (
+          <form
+            action="/api/admin/presenter-item"
+            method="post"
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginTop: 6,
+              paddingTop: 16,
+              borderTop: "2px dashed rgba(30,30,29,0.25)",
+            }}
+          >
+            <input type="hidden" name="action" value="promote" />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              Classifier missed one?
+            </span>
+            <select name="id" style={{ ...smallInput, maxWidth: 380 }}>
+              {otherPosts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {companyName(p.companyKey)}: {p.aiHeading.slice(0, 60)}
+                </option>
+              ))}
+            </select>
+            <button type="submit" style={smallButton}>
+              Add to draft
+            </button>
+          </form>
+        )}
+      </section>
+
+      <section className="admin-card">
+        <h2 style={h2}>What&#39;s happening</h2>
+        <p style={muted}>
+          The curated list of shows available now, shown at the bottom of
+          every Showcase. Add shows here by hand or with &quot;Add to
+          What&#39;s happening&quot; on a draft item. Archive a show to take
+          it out of the email without losing it.
+        </p>
+        <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>Show</th>
+                <th style={th}>Company</th>
+                <th style={th}>Show page URL</th>
+                <th style={th}>Blurb</th>
+                <th style={th}>Ages</th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {registry.map((s) => (
+                <tr key={s.id} style={s.status === "archived" ? { opacity: 0.55 } : undefined}>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <form action="/api/admin/shows" method="post" id={`show-${s.id}`}>
+                      <input type="hidden" name="action" value="update" />
+                      <input type="hidden" name="id" value={s.id} />
+                      <input
+                        name="title"
+                        defaultValue={s.title}
+                        required
+                        style={{ ...smallInput, width: 170 }}
+                      />
+                    </form>
+                  </td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {companyName(s.companyKey)}
+                  </td>
+                  <td style={td}>
+                    <input
+                      form={`show-${s.id}`}
+                      name="url"
+                      type="url"
+                      defaultValue={s.url ?? ""}
+                      style={{ ...smallInput, width: "100%", minWidth: 170 }}
+                    />
+                  </td>
+                  <td style={td}>
+                    <input
+                      form={`show-${s.id}`}
+                      name="blurb"
+                      defaultValue={s.blurb ?? ""}
+                      style={{ ...smallInput, width: "100%", minWidth: 180 }}
+                    />
+                  </td>
+                  <td style={td}>
+                    <input
+                      form={`show-${s.id}`}
+                      name="ageRange"
+                      defaultValue={s.ageRange ?? ""}
+                      style={{ ...smallInput, width: 90 }}
+                    />
+                  </td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <button
+                      form={`show-${s.id}`}
+                      type="submit"
+                      style={{ ...smallButton, marginRight: 6 }}
+                    >
+                      Save
+                    </button>
+                    <form action="/api/admin/shows" method="post" style={{ display: "inline", marginRight: 6 }}>
+                      <input
+                        type="hidden"
+                        name="action"
+                        value={s.status === "archived" ? "activate" : "archive"}
+                      />
+                      <input type="hidden" name="id" value={s.id} />
+                      <button type="submit" style={{ ...smallButton, background: "var(--cta-white)" }}>
+                        {s.status === "archived" ? "Unarchive" : "Archive"}
+                      </button>
+                    </form>
+                    <form action="/api/admin/shows" method="post" style={{ display: "inline" }}>
+                      <input type="hidden" name="action" value="delete" />
+                      <input type="hidden" name="id" value={s.id} />
+                      <ConfirmSubmit
+                        message={`Delete ${s.title} from the show list permanently?`}
+                        style={dangerButton}
+                      >
+                        Delete
+                      </ConfirmSubmit>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+              {registry.length === 0 && (
+                <tr>
+                  <td style={td} colSpan={6}>
+                    No shows listed yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <form
+          action="/api/admin/shows"
+          method="post"
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+            marginTop: 18,
+            paddingTop: 16,
+            borderTop: "2px dashed rgba(30,30,29,0.25)",
+          }}
+        >
+          <input type="hidden" name="action" value="add" />
+          <input
+            name="title"
+            required
+            placeholder="Show title"
+            style={{ ...inputStyle, minWidth: 180, flex: "1 1 180px" }}
+          />
+          <select name="companyKey" style={inputStyle}>
+            {companyRows.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input
+            name="url"
+            type="url"
+            placeholder="Show page URL (optional)"
+            style={{ ...inputStyle, minWidth: 180, flex: "1 1 180px" }}
+          />
+          <input
+            name="ageRange"
+            placeholder="Ages (optional)"
+            style={{ ...inputStyle, width: 130 }}
+          />
+          <button type="submit" style={buttonStyle}>
+            Add show
+          </button>
+        </form>
+      </section>
+
+      <section className="admin-card">
+        <h2 style={h2}>Preview and send</h2>
+        <p style={muted}>
+          The next Showcase holds <strong>{profileCount}</strong> profile
+          {profileCount === 1 ? "" : "s"},{" "}
+          <strong>{drafts.length - profileCount}</strong> further item
+          {drafts.length - profileCount === 1 ? "" : "s"} and{" "}
+          <strong>{activeShows.length}</strong> show
+          {activeShows.length === 1 ? "" : "s"} in What&#39;s happening.
+        </p>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "center",
+            marginBottom: 18,
+          }}
+        >
+          <a
+            href="/admin/preview/presenter"
+            target="_blank"
+            style={{
+              ...buttonStyle,
+              textDecoration: "none",
+              background: "var(--cta-white)",
+            }}
+          >
+            Preview The Showcase ↗
+          </a>
+          <form action="/api/admin/presenter-send" method="post">
+            <ConfirmSubmit
+              message={`Send The Showcase to the test list (${recipients.join(", ")}) now? The ${drafts.length} draft item${drafts.length === 1 ? "" : "s"} will be marked as sent.`}
+              style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+            >
+              Send to test list
+            </ConfirmSubmit>
+          </form>
+        </div>
+        <h2 style={{ ...h2, fontSize: 20 }}>Recent Showcase sends</h2>
+        <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>Sent at</th>
+                <th style={th}>Status</th>
+                <th style={th}>Items</th>
+                <th style={th}>Profiles</th>
+                <th style={th}>Recipients</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentSends.map((s) => (
+                <tr key={s.id}>
+                  <td style={td}>
+                    {s.sentAt
+                      ? s.sentAt.toISOString().replace("T", " ").slice(0, 16)
+                      : "—"}
+                  </td>
+                  <td style={td}>{s.status}</td>
+                  <td style={td}>{s.itemCount}</td>
+                  <td style={td}>{s.profileCount}</td>
+                  <td style={td}>{s.recipients ?? s.recipientCount}</td>
+                </tr>
+              ))}
+              {recentSends.length === 0 && (
+                <tr>
+                  <td style={td} colSpan={5}>
+                    No Showcase sends yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   );
 }

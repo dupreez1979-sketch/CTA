@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ingestFeed } from "@/lib/ingest";
 import { cadencesDueNow, issueWindow } from "@/lib/cadence";
 import { sendIssue } from "@/lib/send";
+import { runPresenterPipeline } from "@/lib/presenter";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,15 @@ export async function GET(request: NextRequest) {
     results.ingest = await ingestFeed();
   } catch (err) {
     results.ingest = { error: String(err) };
+  }
+
+  // The Showcase: research new drafts and notify the test list that a
+  // draft is ready. Never sends the edition itself — that happens from
+  // admin after review.
+  try {
+    results.showcase = await runPresenterPipeline();
+  } catch (err) {
+    results.showcase = { error: String(err) };
   }
 
   const anchor = process.env.FORTNIGHT_ANCHOR ?? "2026-07-06";

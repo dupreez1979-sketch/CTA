@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
   if (action === "add") {
     const name = String(form.get("name") ?? "").trim();
     const match = String(form.get("match") ?? "").trim();
+    const showsPageUrl = String(form.get("showsPageUrl") ?? "").trim();
     if (!name) return redirect("Please enter a company name");
     // Ensure the table is seeded before the first manual add
     await loadCompanies();
@@ -29,7 +30,12 @@ export async function POST(request: NextRequest) {
     if (!key) return redirect("Please enter a valid company name");
     const inserted = await db()
       .insert(companies)
-      .values({ key, name, match: match || name.toLowerCase() })
+      .values({
+        key,
+        name,
+        match: match || name.toLowerCase(),
+        showsPageUrl: showsPageUrl || null,
+      })
       .onConflictDoNothing()
       .returning({ id: companies.id });
     return redirect(
@@ -43,10 +49,15 @@ export async function POST(request: NextRequest) {
     const id = Number(form.get("id"));
     const name = String(form.get("name") ?? "").trim();
     const match = String(form.get("match") ?? "").trim();
+    const showsPageUrl = String(form.get("showsPageUrl") ?? "").trim();
     if (!Number.isInteger(id) || !name) return redirect("Invalid input");
     await db()
       .update(companies)
-      .set({ name, match: match || name.toLowerCase() })
+      .set({
+        name,
+        match: match || name.toLowerCase(),
+        showsPageUrl: showsPageUrl || null,
+      })
       .where(eq(companies.id, id));
     return redirect(`Updated ${name}`);
   }

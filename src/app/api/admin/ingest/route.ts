@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingestFeed } from "@/lib/ingest";
+import { runPresenterPipeline } from "@/lib/presenter";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Admin: fetch new posts from the feed on demand (same ingest step the
- * daily pipeline runs). Handy after first deploy and for browser-only
- * smoke tests — no curl required.
+ * daily pipeline runs, including The Showcase's research/notify step).
+ * Handy after first deploy and for browser-only smoke tests — no curl
+ * required.
  */
 export async function POST(request: NextRequest) {
   try {
     const result = await ingestFeed();
-    const message = `Fetched feed: ${result.seen} posts seen, ${result.added} new ingested${result.remaining > 0 ? `, ${result.remaining} still queued (click again)` : ""}`;
+    const showcase = await runPresenterPipeline().catch(() => null);
+    const showcaseNote =
+      showcase && showcase.draftCount > 0
+        ? `; The Showcase draft holds ${showcase.draftCount} item${showcase.draftCount === 1 ? "" : "s"}`
+        : "";
+    const message = `Fetched feed: ${result.seen} posts seen, ${result.added} new ingested${result.remaining > 0 ? `, ${result.remaining} still queued (click again)` : ""}${showcaseNote}`;
     return NextResponse.redirect(
       new URL(`/admin?tab=sending&message=${encodeURIComponent(message)}`, request.url),
       { status: 303 },
