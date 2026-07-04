@@ -169,7 +169,7 @@ export default function ShowcaseEmail({
         <style>{MOBILE_STYLES}</style>
       </Head>
       <Preview>
-        {`Shows from Australia's children's theatre makers`}
+        {`Discover Australia's best children's theatre. News. Shows. Tours. Announcements.`}
       </Preview>
       <Body
         style={{
@@ -252,7 +252,21 @@ export default function ShowcaseEmail({
           {/* Intro line */}
           <Section className="px" style={{ padding: "22px 34px 4px" }}>
             <Text className="intro-h" style={display(26, 0.94)}>
-              Shows from Australia&#39;s children&#39;s theatre makers.
+              Discover Australia&#39;s best children&#39;s theatre
+            </Text>
+            <Text
+              className="date-meta"
+              style={{
+                fontFamily: FONT_BODY,
+                fontWeight: 700,
+                fontSize: 13,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: COLORS.textMuted,
+                margin: "10px 0 0",
+              }}
+            >
+              News. Shows. Tours. Announcements.
             </Text>
           </Section>
 
@@ -475,10 +489,10 @@ export default function ShowcaseEmail({
             </Section>
           ))}
 
-          {/* Also on the move */}
+          {/* More news (heading only shown when profiles sit above it) */}
           {companies.length > 0 && (
             <Section className="px" style={{ padding: "26px 34px 6px" }}>
-              <SectionHeading>The latest news</SectionHeading>
+              {profiles.length > 0 && <SectionHeading>More news</SectionHeading>}
               {companies.map((co) => (
                 <table
                   key={co.name}
@@ -702,7 +716,7 @@ export default function ShowcaseEmail({
           {/* Shows in the Spotlight */}
           {shows.length > 0 && (
             <Section className="px" style={{ padding: "30px 34px 6px" }}>
-              <SectionHeading>Shows in the Spotlight</SectionHeading>
+              <SectionHeading>In the Spotlight</SectionHeading>
               <Text
                 style={{
                   fontFamily: FONT_BODY,
@@ -798,70 +812,56 @@ export default function ShowcaseEmail({
             </Section>
           )}
 
-          {/* Alliance website */}
-          <Section className="px" style={{ padding: "30px 34px 6px" }}>
-            <table
-              role="presentation"
-              width="100%"
-              cellPadding={0}
-              cellSpacing={0}
+          {/* Alliance website (deliberately no card, so it doesn't compete
+              with the Spotlight boxes above) */}
+          <Section
+            className="px"
+            style={{ padding: "38px 34px 12px", textAlign: "center" as const }}
+          >
+            <Img
+              src={logo}
+              alt="The Children's Theatre Alliance"
+              className="logo"
+              height={84}
               style={{
-                borderCollapse: "separate",
-                backgroundColor: COLORS.white,
-                border: `3px solid ${INK}`,
-                borderRadius: 18,
-                boxShadow: `6px 6px 0 ${INK}`,
+                display: "block",
+                height: 84,
+                width: "auto",
+                margin: "0 auto 18px",
+              }}
+            />
+            <Text
+              style={{
+                fontFamily: FONT_BODY,
+                fontSize: 14,
+                lineHeight: 1.55,
+                color: COLORS.textBody,
+                textAlign: "center" as const,
+                margin: "0 0 18px",
               }}
             >
-              <tbody>
-                <tr>
-                  <td align="center" style={{ padding: "24px 22px 26px" }}>
-                    <Text
-                      className="item-h"
-                      style={{
-                        ...display(24, 0.96),
-                        textAlign: "center" as const,
-                        margin: "0 0 8px",
-                      }}
-                    >
-                      Learn more about the Alliance
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: FONT_BODY,
-                        fontSize: 14,
-                        lineHeight: 1.55,
-                        color: COLORS.textBody,
-                        textAlign: "center" as const,
-                        margin: "0 0 16px",
-                      }}
-                    >
-                      The national platform of Australia&#39;s professional
-                      theatre companies making work for children.
-                    </Text>
-                    <Link
-                      href="https://www.childrenstheatrealliance.com.au/"
-                      className="feat-btn"
-                      style={{
-                        display: "inline-block",
-                        fontFamily: FONT_BODY,
-                        fontWeight: 700,
-                        fontSize: 14,
-                        color: INK,
-                        backgroundColor: COLORS.yellow,
-                        border: `2px solid ${INK}`,
-                        borderRadius: 12,
-                        padding: "11px 20px",
-                        textDecoration: "none",
-                        boxShadow: `4px 4px 0 ${INK}`,
-                      }}
-                    >
-                      Visit childrenstheatrealliance.com.au →
-                    </Link>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+              The national platform of Australia&#39;s professional theatre
+              companies making work for children.
+            </Text>
+            <Link
+              href="https://www.childrenstheatrealliance.com.au/"
+              className="feat-btn"
+              style={{
+                display: "inline-block",
+                fontFamily: FONT_BODY,
+                fontWeight: 700,
+                fontSize: 14,
+                color: INK,
+                backgroundColor: COLORS.yellow,
+                border: `2px solid ${INK}`,
+                borderRadius: 12,
+                padding: "11px 20px",
+                textDecoration: "none",
+                boxShadow: `4px 4px 0 ${INK}`,
+              }}
+            >
+              Visit childrenstheatrealliance.com.au →
+            </Link>
           </Section>
 
           {/* Footer */}
