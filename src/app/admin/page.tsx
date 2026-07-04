@@ -166,6 +166,7 @@ export default async function AdminPage({
       <nav className="admin-tabs">
         {TABS.map((t) => (
           <Link
+            prefetch={false}
             key={t.id}
             href={`/admin?tab=${t.id}`}
             className="admin-tab"
@@ -1010,6 +1011,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     const nextDir = esort === key && edir === "desc" ? "asc" : "desc";
     return (
       <Link
+            prefetch={false}
         href={`/admin?tab=presenters&esort=${key}&edir=${nextDir}`}
         style={{ color: "inherit", textDecoration: "none" }}
       >
@@ -1071,6 +1073,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {editable && (
                         <Link
+            prefetch={false}
                           href={`/admin?tab=presenters&edition=${e.id}`}
                           style={{
                             ...smallButton,
@@ -1416,6 +1419,7 @@ function StoryPoolTable({
   };
   const sortLink = (key: ShowcaseListParams["sort"], label: string) => (
     <Link
+            prefetch={false}
       href={href({
         sort: key,
         dir: params.sort === key && params.dir === "desc" ? "asc" : "desc",
@@ -1479,6 +1483,7 @@ function StoryPoolTable({
         </button>
         {isFiltered && (
           <Link
+            prefetch={false}
             href={
               editionId
                 ? `/admin?tab=presenters&edition=${editionId}`
@@ -1496,7 +1501,7 @@ function StoryPoolTable({
           {params.pg > 1 ? (
             <>
               No more stories this far back.{" "}
-              <Link href={href({})} scroll={false} style={{ color: "var(--cta-ink)", fontWeight: 600 }}>
+              <Link prefetch={false} href={href({})} scroll={false} style={{ color: "var(--cta-ink)", fontWeight: 600 }}>
                 Back to the first page
               </Link>
             </>
@@ -1618,6 +1623,7 @@ function StoryPoolTable({
             >
               {params.pg > 1 && (
                 <Link
+            prefetch={false}
                   href={href({ pg: params.pg - 1 })}
                   scroll={false}
                   style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
@@ -1630,6 +1636,7 @@ function StoryPoolTable({
               </span>
               {hasMore && (
                 <Link
+            prefetch={false}
                   href={href({ pg: params.pg + 1 })}
                   scroll={false}
                   style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
@@ -1713,6 +1720,7 @@ async function EditionBuilder({
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <Link
+            prefetch={false}
             href="/admin?tab=presenters"
             style={{ ...buttonStyle, textDecoration: "none", background: "var(--cta-white)" }}
           >
