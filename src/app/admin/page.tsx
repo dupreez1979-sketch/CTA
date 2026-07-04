@@ -14,7 +14,6 @@ import { loadCompanies } from "@/lib/company-store";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
 import {
-  RELEVANCE_OPTIONS,
   getEdition,
   getEditionCounts,
   getEditionItems,
@@ -35,6 +34,8 @@ import {
 import Link from "next/link";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import MoveButtons from "@/components/MoveButtons";
+import QuickAction from "@/components/QuickAction";
+import RatingsForm from "@/components/RatingsForm";
 
 export const dynamic = "force-dynamic";
 
@@ -1402,19 +1403,6 @@ function StoryPoolTable({
       {params.sort === key ? (params.dir === "asc" ? " ↑" : " ↓") : ""}
     </Link>
   );
-  const passthrough = (
-    <>
-      {editionId ? (
-        <input type="hidden" name="edition" value={editionId} />
-      ) : null}
-      {params.rel !== "high" && <input type="hidden" name="rel" value={params.rel} />}
-      {params.co && <input type="hidden" name="co" value={params.co} />}
-      {params.q && <input type="hidden" name="q" value={params.q} />}
-      {params.sort !== "date" && <input type="hidden" name="sort" value={params.sort} />}
-      {params.dir !== "desc" && <input type="hidden" name="dir" value={params.dir} />}
-      {params.pg > 1 && <input type="hidden" name="pg" value={params.pg} />}
-    </>
-  );
   const isFiltered =
     params.rel !== "high" ||
     params.co ||
@@ -1540,48 +1528,11 @@ function StoryPoolTable({
                       )}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <form
-                        action="/api/admin/presenter-item"
-                        method="post"
-                        style={{ display: "flex", gap: 6, alignItems: "center" }}
-                      >
-                        <input type="hidden" name="action" value="ratings" />
-                        <input type="hidden" name="id" value={p.id} />
-                        {passthrough}
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-                            Show{" "}
-                            <select
-                              name="relevance"
-                              defaultValue={p.presenterRelevance}
-                              style={smallInput}
-                            >
-                              {RELEVANCE_OPTIONS.map((r) => (
-                                <option key={r} value={r}>
-                                  {r}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-                            Social{" "}
-                            <select
-                              name="socialRelevance"
-                              defaultValue={p.socialRelevance}
-                              style={{ ...smallInput, background: "var(--cta-mint)" }}
-                            >
-                              {RELEVANCE_OPTIONS.map((r) => (
-                                <option key={r} value={r}>
-                                  {r}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        </div>
-                        <button type="submit" style={{ ...smallButton, background: "var(--cta-white)" }}>
-                          Save
-                        </button>
-                      </form>
+                      <RatingsForm
+                        itemId={p.id}
+                        show={p.presenterRelevance}
+                        social={p.socialRelevance}
+                      />
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {mode === "add" && editionId && (
@@ -1592,30 +1543,27 @@ function StoryPoolTable({
                             gap: 6,
                           }}
                         >
-                          <form action="/api/admin/presenter-item" method="post">
-                            <input type="hidden" name="action" value="add" />
-                            <input type="hidden" name="id" value={p.id} />
-                            {passthrough}
-                            <button type="submit" style={{ ...smallButton, width: "100%" }}>
-                              Add to news
-                            </button>
-                          </form>
-                          <form action="/api/admin/presenter-item" method="post">
-                            <input type="hidden" name="action" value="add" />
-                            <input type="hidden" name="social" value="1" />
-                            <input type="hidden" name="id" value={p.id} />
-                            {passthrough}
-                            <button
-                              type="submit"
-                              style={{
-                                ...smallButton,
-                                width: "100%",
-                                background: "var(--cta-mint)",
-                              }}
-                            >
-                              Add to Social Theatre
-                            </button>
-                          </form>
+                          <QuickAction
+                            fields={{ action: "add", id: p.id, edition: editionId }}
+                            style={{ ...smallButton, width: "100%" }}
+                          >
+                            Add to news
+                          </QuickAction>
+                          <QuickAction
+                            fields={{
+                              action: "add",
+                              social: "1",
+                              id: p.id,
+                              edition: editionId,
+                            }}
+                            style={{
+                              ...smallButton,
+                              width: "100%",
+                              background: "var(--cta-mint)",
+                            }}
+                          >
+                            Add to Social Theatre
+                          </QuickAction>
                         </div>
                       )}
                     </td>
@@ -2202,49 +2150,34 @@ function BuilderStoryCard({
                     </button>
                   )}
                   {!isSocial && (
-                    <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                      <input
-                        type="hidden"
-                        name="action"
-                        value={featured ? "unfeature" : "feature"}
-                      />
-                      <input type="hidden" name="id" value={it.id} />
-                      <input type="hidden" name="edition" value={editionId} />
-                      <button
-                        type="submit"
-                        style={{ ...smallButton, background: "var(--cta-yellow)" }}
-                      >
-                        {featured ? "Remove profile" : "Make profile"}
-                      </button>
-                    </form>
-                  )}
-                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                    <input
-                      type="hidden"
-                      name="action"
-                      value={isSocial ? "unsocial" : "social"}
-                    />
-                    <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={editionId} />
-                    <button
-                      type="submit"
-                      style={{ ...smallButton, background: "var(--cta-mint)" }}
+                    <QuickAction
+                      fields={{
+                        action: featured ? "unfeature" : "feature",
+                        id: it.id,
+                        edition: editionId,
+                      }}
+                      style={{ ...smallButton, background: "var(--cta-yellow)" }}
                     >
-                      {isSocial ? "Remove from Social Theatre" : "Move to Social Theatre"}
-                    </button>
-                  </form>
+                      {featured ? "Remove profile" : "Make profile"}
+                    </QuickAction>
+                  )}
+                  <QuickAction
+                    fields={{
+                      action: isSocial ? "unsocial" : "social",
+                      id: it.id,
+                      edition: editionId,
+                    }}
+                    style={{ ...smallButton, background: "var(--cta-mint)" }}
+                  >
+                    {isSocial ? "Remove from Social Theatre" : "Move to Social Theatre"}
+                  </QuickAction>
                   {hasRelativeTime(`${it.aiHeading} ${it.aiSummary}`) && (
-                    <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                      <input type="hidden" name="action" value="rewrite-time" />
-                      <input type="hidden" name="id" value={it.id} />
-                      <input type="hidden" name="edition" value={editionId} />
-                      <button
-                        type="submit"
-                        style={{ ...smallButton, background: "var(--cta-pink)" }}
-                      >
-                        Fix time words
-                      </button>
-                    </form>
+                    <QuickAction
+                      fields={{ action: "rewrite-time", id: it.id, edition: editionId }}
+                      style={{ ...smallButton, background: "var(--cta-pink)" }}
+                    >
+                      Fix time words
+                    </QuickAction>
                   )}
                   {!isSocial && (
                     <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
@@ -2259,17 +2192,13 @@ function BuilderStoryCard({
                       </button>
                     </form>
                   )}
-                  <form action="/api/admin/presenter-item" method="post" style={{ display: "inline" }}>
-                    <input type="hidden" name="action" value="remove" />
-                    <input type="hidden" name="id" value={it.id} />
-                    <input type="hidden" name="edition" value={editionId} />
-                    <ConfirmSubmit
-                      message="Remove this story from this Showcase? It stays in the story pool."
-                      style={dangerButton}
-                    >
-                      Remove
-                    </ConfirmSubmit>
-                  </form>
+                  <QuickAction
+                    fields={{ action: "remove", id: it.id, edition: editionId }}
+                    confirm="Remove this story from this Showcase? It stays in the story pool."
+                    style={dangerButton}
+                  >
+                    Remove
+                  </QuickAction>
                 </div>
                 {!isSocial && !showsPageUrl && (
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>

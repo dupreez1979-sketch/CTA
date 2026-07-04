@@ -26,11 +26,17 @@ export async function POST(request: NextRequest) {
   const form = await request.formData();
   const action = String(form.get("action") ?? "");
   const id = Number(form.get("id"));
-  const redirect = (message: string) =>
-    NextResponse.redirect(showcaseRedirectUrl(request.url, form, message), {
-      status: 303,
-    });
-  if (!Number.isInteger(id)) return redirect("Invalid input");
+  // Background ("quick") calls from client buttons get JSON instead of a
+  // redirect: success needs no page reload, and problems surface as a
+  // pop-up in the browser.
+  const quick = request.headers.get("x-quick") === "1";
+  const redirect = (message: string, ok = true) =>
+    quick
+      ? NextResponse.json({ ok, message }, { status: ok ? 200 : 409 })
+      : NextResponse.redirect(showcaseRedirectUrl(request.url, form, message), {
+          status: 303,
+        });
+  if (!Number.isInteger(id)) return redirect("Invalid input", false);
 
   // Moves are the hottest button in the builder: handled first, with no
   // preliminary lookups (the single-statement swap enforces everything).
@@ -53,14 +59,14 @@ export async function POST(request: NextRequest) {
     .from(feedItems)
     .where(eq(feedItems.id, id))
     .limit(1);
-  if (!item) return redirect("Story not found");
+  if (!item) return redirect("Story not found", false);
 
   if (action === "update") {
     const val = (name: string) => String(form.get(name) ?? "").trim() || null;
     const aiHeading = String(form.get("aiHeading") ?? "").trim();
     const aiSummary = String(form.get("aiSummary") ?? "").trim();
     if (!aiHeading || !aiSummary)
-      return redirect("Heading and summary can't be empty");
+      return redirect("Heading and summary can't be empty", false);
     // Social Theatre cards submit a reduced form (no show fields) — only
     // touch the fields that were actually present, so hidden show details
     // survive a save.
@@ -89,7 +95,7 @@ export async function POST(request: NextRequest) {
         "Time words rewritten to absolute dates. Check the copy reads well",
       );
     } catch (err) {
-      return redirect(`Could not rewrite the copy: ${err}`);
+      return redirect(`Could not rewrite the copy: ${err}`, false);
     }
   }
 
@@ -142,9 +148,9 @@ export async function POST(request: NextRequest) {
   if (!Number.isInteger(editionId) || editionId <= 0)
     return redirect("Invalid input");
   const edition = await getEdition(editionId);
-  if (!edition) return redirect("That Showcase no longer exists");
+  if (!edition) return redirect("That Showcase no longer exists", false);
   if (edition.status === "sent" || edition.status === "sending")
-    return redirect("A sent Showcase can't be changed");
+    return redirect("A sent Showcase can't be changed", false);
 
   if (action === "add") {
     const asSocial = String(form.get("social") ?? "") === "1";
@@ -163,6 +169,7 @@ export async function POST(request: NextRequest) {
       added
         ? `Added "${item.aiHeading.slice(0, 50)}" to ${asSocial ? "Social Theatre" : "the news stories"}`
         : "That story is already in this Showcase",
+      added,
     );
   }
 
@@ -191,6 +198,7 @@ export async function POST(request: NextRequest) {
     if (!ok)
       return redirect(
         "This Showcase already has 2 profiles. Remove one first",
+        false,
       );
     return redirect(
       action === "feature" ? "Marked as a profile" : "No longer a profile",
@@ -199,7 +207,7 @@ export async function POST(request: NextRequest) {
 
   if (action === "add-show") {
     const showId = await addShowFromItem(id);
-    if (showId === null) return redirect("Story not found");
+    if (showId === null) return redirect("Story not found", false);
     await addShowToEdition(editionId, showId);
     return redirect(
       `"${item.showTitle ?? item.aiHeading}" is in Shows in the Spotlight and linked to this Showcase`,
