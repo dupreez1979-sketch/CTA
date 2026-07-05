@@ -1258,13 +1258,8 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       </p>
 
       {/* Filters */}
-      <details
-        className="tool-fold"
-        open={hasFilters || status !== "pending" || undefined}
-      >
-        <summary>
-          Filters{hasFilters || status !== "pending" ? " (on)" : ""}
-        </summary>
+      <details className="tool-fold">
+        <summary>Filters</summary>
       <form method="get" action="/admin" className="filter-bar">
         <input type="hidden" name="tab" value="review" />
         <div className="filter-field">
@@ -3118,8 +3113,8 @@ function StoryPoolTable({
 
   return (
     <>
-      <details className="tool-fold" open={isFiltered ? true : undefined}>
-        <summary>Filters{isFiltered ? " (on)" : ""}</summary>
+      <details className="tool-fold">
+        <summary>Filters</summary>
       <form method="get" action={`/admin#${anchor}`} className="filter-bar">
         <input type="hidden" name="tab" value="review" />
         {params.ps !== 10 && (
