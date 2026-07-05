@@ -1,7 +1,7 @@
 import { inArray } from "drizzle-orm";
 import { db, feedItems, type Feed } from "./db";
 import { fetchFeed, type NormalisedItem } from "./feed";
-import { assessCompanyMatch, generateCopy } from "./ai";
+import { assessCompanyMatch, generateCopy, type MatchAssessment } from "./ai";
 import { rehostImage } from "./images";
 import { loadCompanies } from "./company-store";
 import {
@@ -35,7 +35,9 @@ export interface IngestSummary {
   remaining: number;
   /** How many of the added items went to the review queue. */
   queued: number;
-  feeds: Array<{ name: string; added: number; error?: string }>;
+  /** How many individual stories failed to process across all feeds. */
+  failed: number;
+  feeds: Array<{ name: string; added: number; failed?: number; error?: string }>;
 }
 
 export async function ingestFeed(): Promise<IngestSummary> {
@@ -48,6 +50,7 @@ export async function ingestFeed(): Promise<IngestSummary> {
     added: 0,
     remaining: 0,
     queued: 0,
+    failed: 0,
     feeds: [],
   };
   for (const feed of sources) {
@@ -56,8 +59,13 @@ export async function ingestFeed(): Promise<IngestSummary> {
       summary.seen += r.seen;
       summary.added += r.added;
       summary.remaining += r.remaining;
+      summary.failed += r.failed;
       if (feed.mode === "review") summary.queued += r.added;
-      summary.feeds.push({ name: feed.name, added: r.added });
+      summary.feeds.push({
+        name: feed.name,
+        added: r.added,
+        ...(r.failed > 0 ? { failed: r.failed, error: r.firstError } : {}),
+      });
     } catch (err) {
       console.error(`Feed "${feed.name}" failed:`, err);
       summary.feeds.push({
@@ -73,10 +81,16 @@ export async function ingestFeed(): Promise<IngestSummary> {
 async function ingestOneFeed(
   feed: Feed,
   companies: Company[],
-): Promise<{ seen: number; added: number; remaining: number }> {
+): Promise<{
+  seen: number;
+  added: number;
+  remaining: number;
+  failed: number;
+  firstError?: string;
+}> {
   const nameByKey = new Map(companies.map((c) => [c.key, c.name]));
   const items = await fetchFeed(feed.url, companies);
-  if (items.length === 0) return { seen: 0, added: 0, remaining: 0 };
+  if (items.length === 0) return { seen: 0, added: 0, remaining: 0, failed: 0 };
 
   const existing = await db()
     .select({ guid: feedItems.guid })
@@ -92,6 +106,8 @@ async function ingestOneFeed(
   const batch = fresh.slice(0, MAX_PER_RUN);
 
   let added = 0;
+  let failed = 0;
+  let firstError: string | undefined;
   for (let i = 0; i < batch.length; i += CHUNK) {
     const results = await Promise.allSettled(
       batch
@@ -105,10 +121,21 @@ async function ingestOneFeed(
     for (let j = 0; j < results.length; j++) {
       const r = results[j];
       if (r.status === "fulfilled") added++;
-      else console.error(`Failed to ingest ${batch[i + j].guid}:`, r.reason);
+      else {
+        failed++;
+        firstError ??=
+          r.reason instanceof Error ? r.reason.message : String(r.reason);
+        console.error(`Failed to ingest ${batch[i + j].guid}:`, r.reason);
+      }
     }
   }
-  return { seen: items.length, added, remaining: fresh.length - batch.length };
+  return {
+    seen: items.length,
+    added,
+    remaining: fresh.length - batch.length,
+    failed,
+    firstError,
+  };
 }
 
 /** Trusted automatic feed: the item enters the story stream immediately. */
@@ -155,11 +182,25 @@ async function ingestReviewItem(
   companies: Company[],
   nameByKey: Map<string, string>,
 ): Promise<void> {
-  const { markers } = matchCompanyDetailed(
+  const { key: markerKey, markers } = matchCompanyDetailed(
     { creator: item.creator ?? undefined, title: item.title, link: item.link },
     companies,
   );
-  const match = await assessCompanyMatch(item, companies);
+  // If the AI assessment fails, still queue the story: the review queue
+  // exists for human judgment, so fall back to the name matcher at low
+  // confidence rather than dropping the article.
+  let match: MatchAssessment;
+  try {
+    match = await assessCompanyMatch(item, companies);
+  } catch (err) {
+    console.error(`AI match assessment failed for ${item.guid}:`, err);
+    match = {
+      reason:
+        "Automatic assessment was unavailable for this story, matched by name only.",
+      companyKey: markerKey === FALLBACK_COMPANY_KEY ? null : markerKey,
+      confidence: "low",
+    };
+  }
   const suggestedKey =
     match.companyKey && nameByKey.has(match.companyKey)
       ? match.companyKey

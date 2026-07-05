@@ -144,10 +144,10 @@ export async function assessCompanyMatch(
           "One or two short sentences: which company (if any) the article is genuinely about, and the evidence. Watch for same-named companies overseas: the Alliance's companies are Australian, so a UK or US company sharing a name is NOT a match.",
       },
       companyKey: {
-        type: ["string", "null"],
-        enum: [...keys, null],
+        type: "string",
+        enum: [...keys, "none"],
         description:
-          "The key of the Alliance company this article is genuinely about, or null when it is about none of them (including when it is about an unrelated company with a similar name).",
+          'The key of the Alliance company this article is genuinely about, or the literal string "none" when it is about none of them (including when it is about an unrelated company with a similar name).',
       },
       confidence: {
         type: "string",
@@ -177,7 +177,13 @@ export async function assessCompanyMatch(
   await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
   const text = response.content.find((b) => b.type === "text");
   if (!text) throw new Error("No text block in AI match response");
-  return JSON.parse(text.text) as MatchAssessment;
+  const parsed = JSON.parse(text.text) as Omit<MatchAssessment, "companyKey"> & {
+    companyKey: string;
+  };
+  return {
+    ...parsed,
+    companyKey: parsed.companyKey === "none" ? null : parsed.companyKey,
+  };
 }
 
 const FEATURED_SCHEMA = {
