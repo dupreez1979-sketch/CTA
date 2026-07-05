@@ -29,7 +29,7 @@ export default function AdminNav({
         className="admin-nav-logo"
         priority
       />
-      <h1 className="admin-app-name">Newsletter Admin</h1>
+      <p className="admin-app-name">Newsletter Admin</p>
       <button
         type="button"
         className="admin-menu-button"

@@ -166,6 +166,11 @@ export default async function AdminPage({
     <main className="admin-main">
       <AdminNav tabs={TABS} active={tab} />
 
+      {/* Page title, matching the selected menu item. */}
+      <h1 className="admin-page-title">
+        {TABS.find((t) => t.id === tab)?.label}
+      </h1>
+
       {message && (
         <div
           className="admin-card"

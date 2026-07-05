@@ -358,6 +358,15 @@ body {
   margin-left: auto;
 }
 
+/* Page title under the nav, matching the selected menu item. */
+.admin-page-title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: 42px;
+  line-height: 0.9;
+  margin: 0 0 26px;
+}
+
 .admin-nav-link {
   font-family: var(--font-body);
   font-weight: 500;
@@ -568,6 +577,11 @@ body {
   .admin-app-name {
     font-size: 18px;
     padding-left: 12px;
+  }
+
+  .admin-page-title {
+    font-size: 32px;
+    margin-bottom: 20px;
   }
 
   .admin-card {
