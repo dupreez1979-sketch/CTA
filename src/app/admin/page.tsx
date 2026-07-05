@@ -2729,6 +2729,7 @@ async function SettingsTab() {
               <th style={th}>Company</th>
               <th style={th}>Match words</th>
               <th style={th}>Shows page (for The Showcase)</th>
+              <th style={th}>Second shows page (optional)</th>
               <th style={th}></th>
             </tr>
           </thead>
@@ -2762,6 +2763,16 @@ async function SettingsTab() {
                     type="url"
                     defaultValue={c.showsPageUrl ?? ""}
                     placeholder="https://company.com.au/shows"
+                    style={{ ...smallInput, width: "100%", minWidth: 200 }}
+                  />
+                </td>
+                <td style={td}>
+                  <input
+                    form={`co-${c.id}`}
+                    name="showsPageUrl2"
+                    type="url"
+                    defaultValue={c.showsPageUrl2 ?? ""}
+                    placeholder="e.g. installations page (optional)"
                     style={{ ...smallInput, width: "100%", minWidth: 200 }}
                   />
                 </td>
@@ -2825,13 +2836,24 @@ async function SettingsTab() {
             style={{ ...inputStyle, width: "100%" }}
           />
         </div>
+        <div style={{ minWidth: 200, flex: "1 1 200px" }}>
+          <label style={fieldLabel}>Second shows page (optional)</label>
+          <input
+            name="showsPageUrl2"
+            type="url"
+            placeholder="https://…"
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
         <button type="submit" style={buttonStyle}>
           Add company
         </button>
       </form>
       <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 0" }}>
         The shows page URL is where The Showcase looks up official show
-        pages, copy and images for that company.
+        pages, copy and images for that company. Add a second page if a
+        company lists some work (like installations or activations)
+        separately; research looks through both.
       </p>
     </section>
 
@@ -4159,7 +4181,7 @@ async function EditionBuilder({
   const companyName = (key: string) =>
     nameByKey.get(key) ?? "Around the Alliance";
   const showsPageByKey = new Map(
-    companyRows.map((c) => [c.key, c.showsPageUrl]),
+    companyRows.map((c) => [c.key, c.showsPageUrl ?? c.showsPageUrl2]),
   );
   const newsEntries = entries.filter((e) => !e.social);
   const socialEntries = entries.filter((e) => e.social);

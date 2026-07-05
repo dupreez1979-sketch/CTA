@@ -275,21 +275,31 @@ async function researchFromShowUrl(
 async function researchItemInner(
   showTitle: string | null,
   guid: string,
-  showsPageUrl: string | null,
+  showsPageUrls: string[],
   directUrl: string | null,
 ): Promise<ShowResearchResult> {
   // A pasted show page URL is the manual override: scrape it directly and
-  // skip the discovery step on the company's shows page.
+  // skip the discovery step on the company's shows page(s).
   if (directUrl) return researchFromShowUrl(directUrl, guid);
 
-  if (!showTitle || !showsPageUrl) return EMPTY_RESEARCH;
+  if (!showTitle || showsPageUrls.length === 0) return EMPTY_RESEARCH;
 
-  const showsPageHtml = await fetchHtml(showsPageUrl);
-  if (!showsPageHtml) return EMPTY_RESEARCH;
+  // A company may list its main season on one page and one-off things
+  // (installations, activations) on a second. Gather candidate links from
+  // every shows page and search across all of them, deduped by URL.
+  const byUrl = new Map<string, PageLink>();
+  for (const pageUrl of showsPageUrls) {
+    const html = await fetchHtml(pageUrl);
+    if (!html) continue;
+    for (const link of extractLinks(html, pageUrl)) {
+      if (!byUrl.has(link.url)) byUrl.set(link.url, link);
+    }
+  }
+  const links = [...byUrl.values()];
+  if (links.length === 0) return EMPTY_RESEARCH;
 
-  const links = extractLinks(showsPageHtml, showsPageUrl);
   let showUrl = matchLinkByTitle(links, showTitle);
-  if (!showUrl && links.length > 0) {
+  if (!showUrl) {
     const idx = await pickShowUrl(showTitle, links).catch(() => null);
     if (idx !== null) showUrl = links[idx].url;
   }
@@ -301,23 +311,28 @@ async function researchItemInner(
 /**
  * Research one Showcase draft item. With `directUrl` (a show page URL the
  * admin pasted) it scrapes that page directly; otherwise it discovers the
- * show on the company's shows page using the title. Never throws; always
- * returns a (possibly partial or empty) result within a hard deadline so
- * one slow site can't eat the function's time budget.
+ * show across the company's shows page(s) using the title. Accepts one URL
+ * or several (a company can have a main shows page plus a second for
+ * installations/activations). Never throws; always returns a (possibly
+ * partial or empty) result within a hard deadline so one slow site can't
+ * eat the function's time budget.
  */
 export async function researchItem(
   showTitle: string | null,
   guid: string,
-  showsPageUrl: string | null,
+  showsPageUrl: string | null | (string | null)[],
   directUrl: string | null = null,
 ): Promise<ShowResearchResult> {
+  const showsPageUrls = (
+    Array.isArray(showsPageUrl) ? showsPageUrl : [showsPageUrl]
+  ).filter((u): u is string => typeof u === "string" && u.trim().length > 0);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<ShowResearchResult>((resolve) => {
     timer = setTimeout(() => resolve(EMPTY_RESEARCH), ITEM_DEADLINE_MS);
   });
   try {
     return await Promise.race([
-      researchItemInner(showTitle, guid, showsPageUrl, directUrl),
+      researchItemInner(showTitle, guid, showsPageUrls, directUrl),
       deadline,
     ]);
   } catch (err) {

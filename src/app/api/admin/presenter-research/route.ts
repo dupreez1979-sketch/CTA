@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     .limit(1);
   // Only the shows-page discovery path needs the company's shows page; a
   // pasted URL bypasses it.
-  if (!directUrl && !company?.showsPageUrl)
+  if (!directUrl && !company?.showsPageUrl && !company?.showsPageUrl2)
     return redirect(
       `${prefix}This company has no shows page URL yet. Add one on the Settings tab, or paste the show's page URL here, then research again`,
     );
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   const result = await researchItem(
     showTitle,
     item.guid,
-    company?.showsPageUrl ?? null,
+    [company?.showsPageUrl ?? null, company?.showsPageUrl2 ?? null],
     directUrl,
   );
   await db()

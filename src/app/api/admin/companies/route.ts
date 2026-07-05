@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     const name = String(form.get("name") ?? "").trim();
     const match = String(form.get("match") ?? "").trim();
     const showsPageUrl = String(form.get("showsPageUrl") ?? "").trim();
+    const showsPageUrl2 = String(form.get("showsPageUrl2") ?? "").trim();
     if (!name) return redirect("Please enter a company name");
     // Ensure the table is seeded before the first manual add
     await loadCompanies();
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
         name,
         match: match || name.toLowerCase(),
         showsPageUrl: showsPageUrl || null,
+        showsPageUrl2: showsPageUrl2 || null,
       })
       .onConflictDoNothing()
       .returning({ id: companies.id });
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
     const name = String(form.get("name") ?? "").trim();
     const match = String(form.get("match") ?? "").trim();
     const showsPageUrl = String(form.get("showsPageUrl") ?? "").trim();
+    const showsPageUrl2 = String(form.get("showsPageUrl2") ?? "").trim();
     if (!Number.isInteger(id) || !name) return redirect("Invalid input");
     await db()
       .update(companies)
@@ -58,6 +61,7 @@ export async function POST(request: NextRequest) {
         name,
         match: match || name.toLowerCase(),
         showsPageUrl: showsPageUrl || null,
+        showsPageUrl2: showsPageUrl2 || null,
       })
       .where(eq(companies.id, id));
     return redirect(`Updated ${name}`);

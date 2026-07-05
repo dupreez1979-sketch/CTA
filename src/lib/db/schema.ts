@@ -54,6 +54,10 @@ export const companies = pgTable(
     // The company's "our shows" page — the entry point for The Showcase's
     // automatic show research.
     showsPageUrl: text("shows_page_url"),
+    // An optional second shows page: some companies list one-off things
+    // (installations, activations) separately from their main season. Show
+    // research looks through both pages.
+    showsPageUrl2: text("shows_page_url_2"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

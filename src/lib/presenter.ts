@@ -629,8 +629,8 @@ async function researchPendingStories(): Promise<number> {
   if (pending.length === 0) return 0;
 
   const companyRows = await db().select().from(companies);
-  const showsPageByKey = new Map(
-    companyRows.map((c) => [c.key, c.showsPageUrl]),
+  const showsPagesByKey = new Map(
+    companyRows.map((c) => [c.key, [c.showsPageUrl, c.showsPageUrl2]]),
   );
 
   await Promise.allSettled(
@@ -640,7 +640,7 @@ async function researchPendingStories(): Promise<number> {
       const result = await researchItem(
         item.showTitle,
         item.guid,
-        showsPageByKey.get(item.companyKey) ?? null,
+        showsPagesByKey.get(item.companyKey) ?? null,
       );
       await db()
         .update(feedItems)

@@ -127,6 +127,13 @@
       "when": 1783200501007,
       "tag": "0017_activity-log",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783200561007,
+      "tag": "0018_company-second-shows-page",
+      "breakpoints": true
     }
   ]
 }
