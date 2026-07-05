@@ -82,32 +82,30 @@ export default function RatingsForm({
 
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label style={labelStyle}>
-          Show{" "}
-          <select
-            value={showVal}
-            onChange={(e) => setShowVal(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="high">high</option>
-            <option value="medium">medium</option>
-            <option value="low">low</option>
-          </select>
-        </label>
-        <label style={labelStyle}>
-          Social{" "}
-          <select
-            value={socialVal}
-            onChange={(e) => setSocialVal(e.target.value)}
-            style={{ ...selectStyle, background: "var(--cta-mint)" }}
-          >
-            <option value="high">high</option>
-            <option value="medium">medium</option>
-            <option value="low">low</option>
-          </select>
-        </label>
-      </div>
+      <label style={labelStyle}>
+        Show{" "}
+        <select
+          value={showVal}
+          onChange={(e) => setShowVal(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="high">high</option>
+          <option value="medium">medium</option>
+          <option value="low">low</option>
+        </select>
+      </label>
+      <label style={labelStyle}>
+        Social{" "}
+        <select
+          value={socialVal}
+          onChange={(e) => setSocialVal(e.target.value)}
+          style={{ ...selectStyle, background: "var(--cta-mint)" }}
+        >
+          <option value="high">high</option>
+          <option value="medium">medium</option>
+          <option value="low">low</option>
+        </select>
+      </label>
       <button
         type="button"
         onClick={save}

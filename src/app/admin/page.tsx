@@ -3193,7 +3193,7 @@ function StoryPoolTable({
             /* Bulk add: the row tick boxes attach to this form via the
                form attribute, so it doesn't wrap the table. */
             <details className="tool-fold">
-              <summary>Add to Showcase</summary>
+              <summary>Actions</summary>
               <form
                 id="pool-bulk"
                 action="/api/admin/presenter-item"
@@ -3284,7 +3284,7 @@ function StoryPoolTable({
                       {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <RatingsForm
                           itemId={p.id}
                           show={p.presenterRelevance}

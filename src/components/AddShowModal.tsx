@@ -86,6 +86,14 @@ export default function AddShowModal({
                 </option>
               ))}
             </select>
+            <label style={label}>Blurb (optional)</label>
+            <textarea
+              name="blurb"
+              form={formId}
+              rows={2}
+              placeholder="One or two lines for the Spotlight card"
+              style={{ ...input, resize: "vertical" }}
+            />
             <label style={label}>Show page URL (optional)</label>
             <input name="url" type="url" form={formId} style={input} />
             <label style={label}>Image URL (optional)</label>
