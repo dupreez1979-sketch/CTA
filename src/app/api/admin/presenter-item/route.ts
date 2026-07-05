@@ -20,6 +20,7 @@ import {
   setEditionItemFeatured,
   setEditionItemSocial,
 } from "@/lib/presenter";
+import { ensureNewsletterSchema } from "@/lib/db-errors";
 import { reassessRatings, rewriteTimeReferences } from "@/lib/ai";
 import { companyNameFrom } from "@/lib/companies";
 import { companyNameMap } from "@/lib/company-store";
@@ -60,6 +61,9 @@ export async function POST(request: NextRequest) {
   // rows once that cadence has gone out).
   if (action === "force-newsletter") {
     if (!Number.isInteger(id) || id <= 0) return backToPool("Invalid input");
+    // The newsletter_inclusions table / "ignored" column may not exist yet
+    // in this environment; create them on demand (see db-errors).
+    await ensureNewsletterSchema();
     const [story] = await db()
       .select()
       .from(feedItems)
@@ -87,6 +91,7 @@ export async function POST(request: NextRequest) {
   // the feed's de-duplication stops the article ever coming back.
   if (action === "ignore") {
     if (!Number.isInteger(id) || id <= 0) return backToPool("Invalid input");
+    await ensureNewsletterSchema();
     const updated = await db()
       .update(feedItems)
       .set({ ignored: true })

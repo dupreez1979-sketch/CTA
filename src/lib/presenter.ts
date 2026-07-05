@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
@@ -16,6 +16,7 @@ import {
   type Show,
   type ShowcaseEdition,
 } from "./db";
+import { ensureNewsletterSchema, isMissingSchema } from "./db-errors";
 import { getSetting, setSetting } from "./settings";
 import { companyNameMap } from "./company-store";
 import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
@@ -1241,17 +1242,32 @@ export async function queryStoryPool(
   const grouped = p.group === "company";
   const limit = grouped ? STORY_POOL_GROUP_LIMIT + 1 : p.ps + 1;
   const offset = grouped ? 0 : (p.pg - 1) * p.ps;
-  const rows = await db()
-    .select()
-    .from(feedItems)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(
-      p.dir === "asc" ? asc(orderCol) : desc(orderCol),
-      desc(ourDate),
-    )
-    .limit(limit)
-    .offset(offset);
   const cap = grouped ? STORY_POOL_GROUP_LIMIT : p.ps;
+  // Self-heal the 0016 schema (see db-errors) so the "ignored" filter works
+  // even if the runtime database is behind the migrations.
+  await ensureNewsletterSchema();
+  const runQuery = (where: SQL | undefined) =>
+    db()
+      .select()
+      .from(feedItems)
+      .where(where)
+      .orderBy(p.dir === "asc" ? asc(orderCol) : desc(orderCol), desc(ourDate))
+      .limit(limit)
+      .offset(offset);
+  let rows: FeedItem[];
+  try {
+    rows = await runQuery(conditions.length > 0 ? and(...conditions) : undefined);
+  } catch (err) {
+    if (!isMissingSchema(err)) throw err;
+    // The "ignored" column is missing: drop that one filter and retry so the
+    // pool still lists everything else instead of erroring the whole tab.
+    console.error(
+      "queryStoryPool: 'ignored' column missing (migration 0016 not applied); listing without it:",
+      err,
+    );
+    const kept = conditions.filter((c) => c !== conditions[1]);
+    rows = await runQuery(kept.length > 0 ? and(...kept) : undefined);
+  }
   return {
     rows: rows.slice(0, cap),
     hasMore: rows.length > cap,

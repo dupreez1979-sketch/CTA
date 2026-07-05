@@ -12,6 +12,7 @@ import {
   type FeedItem,
 } from "./db";
 import type { Cadence } from "./db/schema";
+import { ensureNewsletterSchema, isMissingSchema } from "./db-errors";
 import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
 import { companyNameMap } from "./company-store";
 import { pickFeatured } from "./ai";
@@ -64,21 +65,6 @@ export interface AssembledIssue {
 }
 
 /**
- * True when a database error is "this column/table does not exist" — the
- * signature of a migration that has not been applied to this environment
- * yet. Postgres codes: 42703 = undefined_column, 42P01 = undefined_table.
- */
-function isMissingSchema(err: unknown): boolean {
-  const code = (err as { code?: string })?.code;
-  if (code === "42703" || code === "42P01") return true;
-  const msg = err instanceof Error ? err.message.toLowerCase() : "";
-  return (
-    /column .*ignored.* does not exist/.test(msg) ||
-    /relation .*newsletter_inclusions.* does not exist/.test(msg)
-  );
-}
-
-/**
  * Select the feed items for a cadence window. Uses the full logic (hide
  * "ignored" stories, force in stories explicitly pushed to this cadence via
  * newsletter_inclusions). If the newsletter-inclusions schema (migration
@@ -99,6 +85,9 @@ async function selectWindowItems(window: IssueWindow): Promise<FeedItem[]> {
     eq(feedItems.source, "feed"),
     eq(feedItems.reviewStatus, "auto"),
   );
+  // Make sure the 0016 schema exists (self-heals a runtime DB that is behind
+  // the migrations); if that isn't possible the catch below still covers us.
+  await ensureNewsletterSchema();
   try {
     // Stories explicitly pushed into this cadence via the pool's Regular "+"
     // are included regardless of their publishing window.
