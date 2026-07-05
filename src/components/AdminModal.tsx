@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Branded replacement for the browser's confirm/alert popups: dimmed
@@ -34,7 +35,10 @@ export default function AdminModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  // Render into <body> via a portal: buttons live inside scrollable table
+  // wrappers, and iOS Safari clips position:fixed elements inside those,
+  // so an in-place popup would be trapped within the card.
+  if (!open || typeof document === "undefined") return null;
 
   const button: React.CSSProperties = {
     fontFamily: "var(--font-body)",
@@ -48,7 +52,7 @@ export default function AdminModal({
     boxShadow: "3px 3px 0 var(--cta-ink)",
   };
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{
@@ -134,6 +138,7 @@ export default function AdminModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
