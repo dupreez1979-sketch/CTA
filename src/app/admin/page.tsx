@@ -298,6 +298,96 @@ function StatCard({
   );
 }
 
+/**
+ * "Next editions" tiles: when each cadence newsletter next goes out and
+ * to how many subscribers, plus The Showcase Edition. Shown on Overview
+ * and on Regular Editions.
+ */
+function NextEditionsCard({
+  countByCadence,
+  showcaseCount,
+}: {
+  countByCadence: Record<string, number>;
+  showcaseCount: number;
+}) {
+  return (
+    <section className="admin-card">
+      <h2 style={h2}>
+        Next editions
+        <HelpTip title="Next editions">
+          Newsletters go out with the morning pipeline run: 7:00 am Sydney
+          time during winter (AEST) and 8:00 am during daylight saving
+          (AEDT). A quiet window is skipped, never sent empty.
+        </HelpTip>
+      </h2>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        {CADENCES.map((c) => {
+          const next = nextSendAt(
+            c,
+            new Date(),
+            process.env.FORTNIGHT_ANCHOR ?? "2026-07-06",
+          );
+          return (
+            <div key={c} style={{ ...tile, flex: "1 1 200px" }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-display)",
+                  textTransform: "uppercase",
+                  fontSize: 22,
+                  lineHeight: 1,
+                  marginBottom: 4,
+                }}
+              >
+                {c}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  marginBottom: 8,
+                }}
+              >
+                {SCHEDULE_DESCRIPTION[c]} ·{" "}
+                {countByCadence[c] ?? 0} subscriber
+                {(countByCadence[c] ?? 0) === 1 ? "" : "s"}
+              </div>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                Next: {formatSydneyDateTime(next)}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ ...tile, flex: "1 1 200px" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              textTransform: "uppercase",
+              fontSize: 22,
+              lineHeight: 1,
+              marginBottom: 4,
+            }}
+          >
+            The Showcase Edition
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              marginBottom: 8,
+            }}
+          >
+            Sent when there is show news · {showcaseCount} subscriber
+            {showcaseCount === 1 ? "" : "s"}
+          </div>
+          <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+            Built and sent from The Showcase tab
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 async function OverviewTab({
   sp,
 }: {
@@ -479,80 +569,10 @@ async function OverviewTab({
         />
       </section>
 
-      <section className="admin-card">
-        <h2 style={h2}>
-          Next editions
-          <HelpTip title="Next editions">
-            Newsletters go out with the morning pipeline run: 7:00 am Sydney
-            time during winter (AEST) and 8:00 am during daylight saving
-            (AEDT). A quiet window is skipped, never sent empty.
-          </HelpTip>
-        </h2>
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          {CADENCES.map((c) => {
-            const next = nextSendAt(
-              c,
-              new Date(),
-              process.env.FORTNIGHT_ANCHOR ?? "2026-07-06",
-            );
-            return (
-              <div key={c} style={{ ...tile, flex: "1 1 200px" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    textTransform: "uppercase",
-                    fontSize: 22,
-                    lineHeight: 1,
-                    marginBottom: 4,
-                  }}
-                >
-                  {c}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    marginBottom: 8,
-                  }}
-                >
-                  {SCHEDULE_DESCRIPTION[c]} ·{" "}
-                  {countByCadence[c] ?? 0} subscriber
-                  {(countByCadence[c] ?? 0) === 1 ? "" : "s"}
-                </div>
-                <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-                  Next: {formatSydneyDateTime(next)}
-                </div>
-              </div>
-            );
-          })}
-          <div style={{ ...tile, flex: "1 1 200px" }}>
-            <div
-              style={{
-                fontFamily: "var(--font-display)",
-                textTransform: "uppercase",
-                fontSize: 22,
-                lineHeight: 1,
-                marginBottom: 4,
-              }}
-            >
-              The Showcase Edition
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--text-muted)",
-                marginBottom: 8,
-              }}
-            >
-              Sent when there is show news · {showcaseCount} subscriber
-              {showcaseCount === 1 ? "" : "s"}
-            </div>
-            <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-              Built and sent from The Showcase tab
-            </div>
-          </div>
-        </div>
-      </section>
+      <NextEditionsCard
+        countByCadence={countByCadence}
+        showcaseCount={showcaseCount}
+      />
 
       <section className="admin-card">
         <h2 style={h2}>
@@ -790,20 +810,28 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   }
   // What exactly would "Send now" dispatch? Show the window and audience
   // next to the button, so the click is never a mystery.
-  const cadenceCounts = await db()
-    .select({
-      cadence: subscribers.cadence,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(subscribers)
-    .where(eq(subscribers.status, "active"))
-    .groupBy(subscribers.cadence);
+  const [cadenceCounts, showcaseCount] = await Promise.all([
+    db()
+      .select({
+        cadence: subscribers.cadence,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(subscribers)
+      .where(eq(subscribers.status, "active"))
+      .groupBy(subscribers.cadence),
+    getShowcaseSubscriberCount(),
+  ]);
   const subsByCadence = Object.fromEntries(
     cadenceCounts.map((c) => [c.cadence, c.count]),
   );
   const now = new Date();
   return (
     <>
+      <NextEditionsCard
+        countByCadence={subsByCadence}
+        showcaseCount={showcaseCount}
+      />
+
       <section className="admin-card">
         <h2 style={h2}>
           Preview the next newsletter
