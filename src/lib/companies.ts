@@ -48,17 +48,36 @@ export function matchCompany(
   fields: { creator?: string; title?: string; link?: string },
   companies: Company[],
 ): string {
+  return matchCompanyDetailed(fields, companies).key;
+}
+
+/**
+ * As matchCompany, but also reports every registry fragment that hit the
+ * item (across all companies) — shown as "matched markers" in the review
+ * queue so the reviewer can see what triggered the match.
+ */
+export function matchCompanyDetailed(
+  fields: { creator?: string; title?: string; link?: string },
+  companies: Company[],
+): { key: string; markers: string[] } {
   const haystacks = [fields.creator, fields.title, fields.link]
     .filter(Boolean)
     .map((s) => (s as string).toLowerCase());
   // Creator (the Facebook page name) is the most reliable signal, then
   // title, then link — haystacks are already in that order.
+  let key: string | null = null;
+  const markers: string[] = [];
   for (const hay of haystacks) {
     for (const c of companies) {
-      if (c.match.some((frag) => frag && hay.includes(frag))) return c.key;
+      for (const frag of c.match) {
+        if (frag && hay.includes(frag)) {
+          key = key ?? c.key;
+          if (!markers.includes(frag)) markers.push(frag);
+        }
+      }
     }
   }
-  return FALLBACK_COMPANY_KEY;
+  return { key: key ?? FALLBACK_COMPANY_KEY, markers };
 }
 
 /** Display name for a company key, given a key→name map. */

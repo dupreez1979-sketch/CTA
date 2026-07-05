@@ -5,8 +5,10 @@ import {
   FALLBACK_COMPANY_NAME,
   companyNameFrom,
   matchCompany,
+  matchCompanyDetailed,
   sectionStyle,
 } from "@/lib/companies";
+import { seedFeeds } from "@/lib/feed-store";
 
 const REGISTRY = DEFAULT_COMPANIES;
 
@@ -36,6 +38,39 @@ describe("matchCompany", () => {
     const key = matchCompany({ creator: "Some Unknown Page", title: "News" }, REGISTRY);
     expect(key).toBe(FALLBACK_COMPANY_KEY);
     expect(companyNameFrom(new Map(), key)).toBe(FALLBACK_COMPANY_NAME);
+  });
+});
+
+describe("matchCompanyDetailed", () => {
+  it("returns the same key as matchCompany plus the fragments that hit", () => {
+    const detailed = matchCompanyDetailed(
+      { title: "Patch Theatre lights up Adelaide with Windmill" },
+      REGISTRY,
+    );
+    expect(detailed.key).toBe(
+      matchCompany({ title: "Patch Theatre lights up Adelaide with Windmill" }, REGISTRY),
+    );
+    expect(detailed.markers).toContain("patch theatre");
+    expect(detailed.markers).toContain("windmill");
+  });
+
+  it("reports no markers for unmatched items", () => {
+    const detailed = matchCompanyDetailed(
+      { creator: "Some Unknown Page", title: "News" },
+      REGISTRY,
+    );
+    expect(detailed.key).toBe(FALLBACK_COMPANY_KEY);
+    expect(detailed.markers).toEqual([]);
+  });
+});
+
+describe("seedFeeds", () => {
+  it("always seeds the media feed in review mode", () => {
+    const seeds = seedFeeds();
+    const media = seeds.find((s) => s.name === "Media coverage");
+    expect(media).toBeDefined();
+    expect(media?.mode).toBe("review");
+    expect(media?.url).toMatch(/^https:\/\/rss\.app\//);
   });
 });
 

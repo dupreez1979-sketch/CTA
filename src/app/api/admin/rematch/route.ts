@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, feedItems } from "@/lib/db";
 import { FALLBACK_COMPANY_KEY, matchCompany } from "@/lib/companies";
 import { loadCompanies } from "@/lib/company-store";
@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
       and(
         eq(feedItems.companyKey, FALLBACK_COMPANY_KEY),
         eq(feedItems.reviewed, false),
+        // Review-feed items get their company set in the Review queue.
+        inArray(feedItems.reviewStatus, ["auto", "approved"]),
       ),
     );
 

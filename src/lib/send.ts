@@ -1,4 +1,4 @@
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
@@ -75,6 +75,8 @@ export async function assembleIssue(
         // Stories written by hand in the Showcase builder belong to The
         // Showcase only, never to the cadence newsletter.
         eq(feedItems.source, "feed"),
+        // Manual-review feed items only count once a human approved them.
+        inArray(feedItems.reviewStatus, ["auto", "approved"]),
       ),
     )
     .orderBy(feedItems.publishedAt);

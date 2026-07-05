@@ -113,6 +113,73 @@ export async function generateCopy(
   return JSON.parse(text.text) as AiCopy;
 }
 
+export interface MatchAssessment {
+  reason: string;
+  companyKey: string | null;
+  confidence: "high" | "medium" | "low";
+}
+
+/**
+ * For articles from manual-review feeds (media/news coverage): judge
+ * whether the article is genuinely about one of the Alliance's companies.
+ * The substring matcher alone is not enough here because articles can
+ * mention a same-named company overseas (Patch Theatre in the UK is not
+ * Patch Theatre in Australia). Human review still has the final say; this
+ * only orders the queue.
+ */
+export async function assessCompanyMatch(
+  item: NormalisedItem,
+  companies: Array<{ key: string; name: string; match: string[] }>,
+): Promise<MatchAssessment> {
+  const keys = companies.map((c) => c.key);
+  const schema = {
+    type: "object",
+    properties: {
+      // reason comes first: with structured outputs the model generates
+      // properties in schema order, so it commits to a match after
+      // reasoning, not before.
+      reason: {
+        type: "string",
+        description:
+          "One or two short sentences: which company (if any) the article is genuinely about, and the evidence. Watch for same-named companies overseas: the Alliance's companies are Australian, so a UK or US company sharing a name is NOT a match.",
+      },
+      companyKey: {
+        type: ["string", "null"],
+        enum: [...keys, null],
+        description:
+          "The key of the Alliance company this article is genuinely about, or null when it is about none of them (including when it is about an unrelated company with a similar name).",
+      },
+      confidence: {
+        type: "string",
+        enum: ["high", "medium", "low"],
+        description:
+          "high: the article is clearly about that Australian company (location, show titles or context confirm it). medium: probably about it but the evidence is thin. low: a name mention that may well be a different organisation, or no real match.",
+      },
+    },
+    required: ["reason", "companyKey", "confidence"],
+    additionalProperties: false,
+  } as const;
+  const roster = companies
+    .map((c) => `- ${c.key}: ${c.name} (matches: ${c.match.join(", ")})`)
+    .join("\n");
+  const response = await client().messages.create({
+    model: MODEL,
+    max_tokens: 300,
+    system: VOICE,
+    output_config: { format: { type: "json_schema", schema } },
+    messages: [
+      {
+        role: "user",
+        content: `This news article was picked up because it may mention one of the Alliance's companies. Decide whether it is genuinely about one of them. All Alliance companies are Australian; articles about same-named companies elsewhere (for example Patch Theatre in the UK) are NOT matches.\n\nAlliance companies:\n${roster}\n\nArticle title: ${item.title || "(none)"}\nArticle source/author: ${item.creator || "(unknown)"}\nArticle link: ${item.link}\nArticle text: ${item.text.slice(0, 2000) || "(none)"}`,
+      },
+    ],
+  });
+  await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
+  const text = response.content.find((b) => b.type === "text");
+  if (!text) throw new Error("No text block in AI match response");
+  return JSON.parse(text.text) as MatchAssessment;
+}
+
 const FEATURED_SCHEMA = {
   type: "object",
   properties: {

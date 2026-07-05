@@ -18,7 +18,16 @@ export async function POST(request: NextRequest) {
       showcase && showcase.availableCount > 0
         ? `; ${showcase.availableCount} stor${showcase.availableCount === 1 ? "y is" : "ies are"} ready for the next Showcase`
         : "";
-    const message = `Fetched feed: ${result.seen} posts seen, ${result.added} new ingested${result.remaining > 0 ? `, ${result.remaining} still queued (click again)` : ""}${showcaseNote}`;
+    const failed = result.feeds.filter((f) => f.error);
+    const failedNote =
+      failed.length > 0
+        ? `; feed problem: ${failed.map((f) => f.name).join(", ")}`
+        : "";
+    const reviewNote =
+      result.queued > 0
+        ? `, ${result.queued} waiting in Review`
+        : "";
+    const message = `Refreshed ${result.feeds.length} feed${result.feeds.length === 1 ? "" : "s"}: ${result.seen} stories seen, ${result.added} new${reviewNote}${result.remaining > 0 ? `, ${result.remaining} still queued (click again)` : ""}${showcaseNote}${failedNote}`;
     return NextResponse.redirect(
       new URL(`/admin?tab=editions&message=${encodeURIComponent(message)}`, request.url),
       { status: 303 },

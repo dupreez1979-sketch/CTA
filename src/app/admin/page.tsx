@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import {
   db,
   deliveries,
@@ -15,6 +15,7 @@ import {
   type Subscriber,
 } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
+import { loadFeeds } from "@/lib/feed-store";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
 import {
@@ -42,6 +43,7 @@ import Image from "next/image";
 import { CLOUD_PATH } from "@/lib/clouds";
 import AdminNav from "@/components/AdminNav";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
+import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
@@ -53,6 +55,7 @@ const CADENCES = ["daily", "weekly", "fortnightly"] as const;
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "editions", label: "Editions" },
+  { id: "review", label: "Review" },
   { id: "presenters", label: "The Showcase" },
   { id: "subscribers", label: "Subscribers" },
   { id: "settings", label: "Settings" },
@@ -187,6 +190,7 @@ export default async function AdminPage({
 
       {tab === "overview" && <OverviewTab sp={sp} />}
       {tab === "editions" && <EditionsTab sp={sp} />}
+      {tab === "review" && <ReviewTab sp={sp} />}
       {tab === "subscribers" && <SubscribersTab sp={sp} />}
       {tab === "settings" && <SettingsTab />}
       {tab === "presenters" && <ShowcaseTab sp={sp} />}
@@ -306,6 +310,9 @@ async function OverviewTab({
   const dayAgo = new Date(Date.now() - 864e5);
   const weekAgo = new Date(Date.now() - 7 * 864e5);
   const fortnightAgo = new Date(Date.now() - 14 * 864e5);
+  // Stories that count: from the feed pipeline, and (for manual-review
+  // feeds) approved by a human.
+  const usable = inArray(feedItems.reviewStatus, ["auto", "approved"]);
   // Companies that had at least one feed story since the cutoff.
   const companiesPostingSince = (cutoff: Date) =>
     db()
@@ -313,14 +320,22 @@ async function OverviewTab({
       .from(companies)
       .innerJoin(feedItems, eq(feedItems.companyKey, companies.key))
       .where(
-        and(eq(feedItems.source, "feed"), gte(feedItems.publishedAt, cutoff)),
+        and(
+          eq(feedItems.source, "feed"),
+          usable,
+          gte(feedItems.publishedAt, cutoff),
+        ),
       );
   const storiesSince = (cutoff: Date) =>
     db()
       .select({ count })
       .from(feedItems)
       .where(
-        and(eq(feedItems.source, "feed"), gte(feedItems.publishedAt, cutoff)),
+        and(
+          eq(feedItems.source, "feed"),
+          usable,
+          gte(feedItems.publishedAt, cutoff),
+        ),
       );
   const [
     counts,
@@ -906,6 +921,454 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   );
 }
 
+const REVIEW_PAGE = 20;
+const REVIEW_STATUSES = ["pending", "unsure", "rejected", "approved"] as const;
+type ReviewFilterStatus = (typeof REVIEW_STATUSES)[number];
+
+const CONFIDENCE_COLOURS: Record<string, string> = {
+  high: "var(--cta-emerald)",
+  medium: "var(--cta-yellow)",
+  low: "var(--cta-pink)",
+};
+
+async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
+  const status: ReviewFilterStatus = (
+    REVIEW_STATUSES as readonly string[]
+  ).includes(sp.rst ?? "")
+    ? (sp.rst as ReviewFilterStatus)
+    : "pending";
+  const conf = ["high", "medium", "low"].includes(sp.rcf ?? "")
+    ? (sp.rcf as "high" | "medium" | "low")
+    : "all";
+  const co = sp.rco ?? "";
+  const q = (sp.rq ?? "").trim();
+  const pgRaw = Number(sp.rpg);
+  const pg = Number.isInteger(pgRaw) && pgRaw > 0 ? pgRaw : 1;
+
+  const conditions = [eq(feedItems.reviewStatus, status)];
+  if (conf !== "all") conditions.push(eq(feedItems.aiMatchConfidence, conf));
+  if (co) conditions.push(eq(feedItems.suggestedCompanyKey, co));
+  if (q) {
+    const like = `%${q}%`;
+    conditions.push(
+      sql`(${feedItems.rawTitle} ilike ${like} or ${feedItems.aiHeading} ilike ${like} or ${feedItems.creator} ilike ${like} or ${feedItems.postUrl} ilike ${like})`,
+    );
+  }
+
+  const [companyList, rows, statusCounts] = await Promise.all([
+    loadCompanies(),
+    db()
+      .select()
+      .from(feedItems)
+      .where(and(...conditions))
+      .orderBy(desc(feedItems.publishedAt))
+      .limit(REVIEW_PAGE + 1)
+      .offset((pg - 1) * REVIEW_PAGE),
+    db()
+      .select({
+        status: feedItems.reviewStatus,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(feedItems)
+      .where(inArray(feedItems.reviewStatus, [...REVIEW_STATUSES]))
+      .groupBy(feedItems.reviewStatus),
+  ]);
+  const hasMore = rows.length > REVIEW_PAGE;
+  const pageRows = rows.slice(0, REVIEW_PAGE);
+  const countBy = Object.fromEntries(statusCounts.map((c) => [c.status, c.count]));
+  const highIdsOnPage = pageRows
+    .filter((r) => r.aiMatchConfidence === "high")
+    .map((r) => r.id);
+
+  // The current filters, carried through pager links and action redirects.
+  const filterParams = (overrides: Record<string, string> = {}) => {
+    const params = new URLSearchParams({ tab: "review" });
+    if (status !== "pending") params.set("rst", status);
+    if (conf !== "all") params.set("rcf", conf);
+    if (co) params.set("rco", co);
+    if (q) params.set("rq", q);
+    if (pg > 1) params.set("rpg", String(pg));
+    for (const [k, v] of Object.entries(overrides)) {
+      if (v) params.set(k, v);
+      else params.delete(k);
+    }
+    return params;
+  };
+  const filterHidden = (
+    <>
+      <input type="hidden" name="rst" value={status} />
+      {conf !== "all" && <input type="hidden" name="rcf" value={conf} />}
+      {co && <input type="hidden" name="rco" value={co} />}
+      {q && <input type="hidden" name="rq" value={q} />}
+      {pg > 1 && <input type="hidden" name="rpg" value={String(pg)} />}
+    </>
+  );
+  const hasFilters = conf !== "all" || co !== "" || q !== "";
+
+  const companyOptions = [
+    ...companyList,
+    { key: "around-the-alliance", name: "Around the Alliance (no match)" },
+  ];
+  const sourceOf = (it: FeedItem) => {
+    let host = "";
+    try {
+      host = new URL(it.postUrl).hostname.replace(/^www\./, "");
+    } catch {
+      host = "";
+    }
+    return it.creator && host && it.creator !== host
+      ? `${it.creator} · ${host}`
+      : it.creator || host || "unknown source";
+  };
+
+  const STATUS_LABEL: Record<ReviewFilterStatus, string> = {
+    pending: "Pending",
+    unsure: "Unsure",
+    rejected: "Rejected",
+    approved: "Approved",
+  };
+
+  return (
+    <section className="admin-card">
+      <h2 style={h2}>Review queue</h2>
+      <p style={muted}>
+        Stories from manual review feeds wait here until you decide.
+        Approved stories join the newsletters and The Showcase; rejected
+        stories are kept out for good (and never resurface, even if the
+        feed repeats them). The AI match is only a guide: check the article
+        before approving, and change the company if it guessed wrong.
+        Everything is reversible from the status filter.
+      </p>
+      <p style={{ ...muted, marginBottom: 16 }}>
+        Waiting: <strong>{countBy.pending ?? 0} pending</strong>
+        {" · "}
+        {countBy.unsure ?? 0} unsure {" · "}
+        {countBy.rejected ?? 0} rejected {" · "}
+        {countBy.approved ?? 0} approved
+      </p>
+
+      {/* Filters */}
+      <form
+        method="get"
+        action="/admin"
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "flex-end",
+          marginBottom: 16,
+        }}
+      >
+        <input type="hidden" name="tab" value="review" />
+        <div>
+          <label style={fieldLabel}>Status</label>
+          <select name="rst" defaultValue={status} style={smallInput}>
+            {REVIEW_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={fieldLabel}>Confidence</label>
+          <select name="rcf" defaultValue={conf} style={smallInput}>
+            <option value="all">All</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label style={fieldLabel}>Suggested company</label>
+          <select name="rco" defaultValue={co} style={smallInput}>
+            <option value="">All companies</option>
+            {companyOptions.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ minWidth: 180, flex: "1 1 180px" }}>
+          <label style={fieldLabel}>Search</label>
+          <input
+            name="rq"
+            defaultValue={q}
+            placeholder="Title, source or keyword"
+            style={{ ...smallInput, width: "100%" }}
+          />
+        </div>
+        <button type="submit" style={{ ...smallButton }}>
+          Apply
+        </button>
+        {hasFilters && (
+          <Link
+            prefetch={false}
+            href={`/admin?tab=review${status !== "pending" ? `&rst=${status}` : ""}`}
+            style={{ fontSize: 13, fontWeight: 600, color: "var(--cta-ink)" }}
+          >
+            Clear
+          </Link>
+        )}
+      </form>
+
+      {pageRows.length === 0 ? (
+        <p style={{ ...muted, marginBottom: 0 }}>
+          {status === "pending" && !hasFilters
+            ? "Nothing waiting for review. Stories from manual review feeds land here after the next refresh."
+            : "No stories match these filters."}
+        </p>
+      ) : (
+        <>
+          {/* Bulk actions. The row checkboxes attach to this form via the
+              form attribute, so it doesn't wrap the table. */}
+          <form
+            id="review-bulk"
+            action="/api/admin/review"
+            method="post"
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            {filterHidden}
+            <SelectAllCheckbox formId="review-bulk" />
+            <button
+              type="submit"
+              name="op"
+              value="approve"
+              style={smallButton}
+            >
+              Approve selected
+            </button>
+            <button
+              type="submit"
+              name="op"
+              value="unsure"
+              style={{ ...smallButton, background: "var(--cta-white)" }}
+            >
+              Mark unsure
+            </button>
+            <button type="submit" name="op" value="reject" style={dangerButton}>
+              Reject selected
+            </button>
+          </form>
+          {highIdsOnPage.length > 0 && status === "pending" && (
+            <form
+              action="/api/admin/review"
+              method="post"
+              style={{ marginBottom: 12 }}
+            >
+              {filterHidden}
+              {highIdsOnPage.map((id) => (
+                <input key={id} type="hidden" name="ids" value={id} />
+              ))}
+              <button
+                type="submit"
+                name="op"
+                value="approve"
+                style={smallButton}
+              >
+                Approve all {highIdsOnPage.length} high-confidence stories on
+                this page
+              </button>
+            </form>
+          )}
+
+          <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}></th>
+                  <th style={th}>Published</th>
+                  <th style={th}>Story</th>
+                  <th style={th}>Source</th>
+                  <th style={th}>Suggested match</th>
+                  <th style={th}>Decide</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((it) => (
+                  <tr key={it.id}>
+                    <td style={td}>
+                      <input
+                        type="checkbox"
+                        name="ids"
+                        value={it.id}
+                        form="review-bulk"
+                        style={{ width: 18, height: 18 }}
+                      />
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {it.publishedAt.toISOString().slice(0, 10)}
+                    </td>
+                    <td style={{ ...td, minWidth: 280, maxWidth: 460 }}>
+                      <form
+                        id={`rv-${it.id}`}
+                        action="/api/admin/review"
+                        method="post"
+                        style={{ display: "none" }}
+                      >
+                        {filterHidden}
+                        <input type="hidden" name="ids" value={it.id} />
+                      </form>
+                      <a
+                        href={it.postUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 13.5,
+                          color: "var(--cta-ink)",
+                        }}
+                      >
+                        {it.rawTitle || it.aiHeading} ↗
+                      </a>
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "var(--text-body)",
+                          marginTop: 4,
+                        }}
+                      >
+                        {it.aiSummary}
+                      </div>
+                      {(it.aiMatchReason || it.matchedMarkers) && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "var(--text-muted)",
+                            marginTop: 4,
+                          }}
+                        >
+                          {it.aiMatchReason}
+                          {it.matchedMarkers
+                            ? ` (matched: ${it.matchedMarkers})`
+                            : ""}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ ...td, maxWidth: 160 }}>{sourceOf(it)}</td>
+                    <td style={td}>
+                      {it.aiMatchConfidence && (
+                        <span
+                          style={{
+                            ...badge(
+                              CONFIDENCE_COLOURS[it.aiMatchConfidence] ??
+                                "var(--cta-white)",
+                            ),
+                            marginBottom: 6,
+                          }}
+                        >
+                          {it.aiMatchConfidence}
+                        </span>
+                      )}
+                      <div style={{ marginTop: 6 }}>
+                        <select
+                          form={`rv-${it.id}`}
+                          name="company"
+                          defaultValue={it.companyKey}
+                          style={{ ...smallInput, maxWidth: 190 }}
+                        >
+                          {companyOptions.map((c) => (
+                            <option key={c.key} value={c.key}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {status !== "approved" && (
+                        <button
+                          form={`rv-${it.id}`}
+                          type="submit"
+                          name="op"
+                          value="approve"
+                          style={{ ...smallButton, marginRight: 6 }}
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {status !== "unsure" && (
+                        <button
+                          form={`rv-${it.id}`}
+                          type="submit"
+                          name="op"
+                          value="unsure"
+                          style={{
+                            ...smallButton,
+                            background: "var(--cta-white)",
+                            marginRight: 6,
+                          }}
+                        >
+                          Unsure
+                        </button>
+                      )}
+                      {status !== "rejected" && (
+                        <button
+                          form={`rv-${it.id}`}
+                          type="submit"
+                          name="op"
+                          value="reject"
+                          style={dangerButton}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {(pg > 1 || hasMore) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                marginTop: 14,
+              }}
+            >
+              {pg > 1 && (
+                <Link
+                  prefetch={false}
+                  href={`/admin?${filterParams({ rpg: pg - 1 > 1 ? String(pg - 1) : "" })}`}
+                  style={smallButton}
+                >
+                  ← Previous
+                </Link>
+              )}
+              <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                Page {pg}
+              </span>
+              {hasMore && (
+                <Link
+                  prefetch={false}
+                  href={`/admin?${filterParams({ rpg: String(pg + 1) })}`}
+                  style={smallButton}
+                >
+                  Next →
+                </Link>
+              )}
+            </div>
+          )}
+        </>
+      )}
+      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "14px 0 0" }}>
+        Feeds are managed under Settings. Approved stories keep a record of
+        the feed they came from and when they were approved.
+      </p>
+    </section>
+  );
+}
+
 async function SubscribersTab({
   sp,
 }: {
@@ -1304,7 +1767,7 @@ async function SubscribersTab({
 async function SettingsTab() {
   // Seeds the table on first load, then read the raw rows for editing
   await loadCompanies();
-  const [companyRows, unfiled, notifyEmails] = await Promise.all([
+  const [companyRows, unfiled, notifyEmails, feedRows] = await Promise.all([
     db().select().from(companies).orderBy(asc(companies.name)),
     db()
       .select()
@@ -1313,11 +1776,14 @@ async function SettingsTab() {
         and(
           eq(feedItems.companyKey, "around-the-alliance"),
           eq(feedItems.reviewed, false),
+          // Review-feed items are triaged in the Review queue, not here.
+          inArray(feedItems.reviewStatus, ["auto", "approved"]),
         ),
       )
       .orderBy(desc(feedItems.publishedAt))
       .limit(15),
     getNotifyEmails(),
+    loadFeeds(),
   ]);
 
   return (
@@ -1434,6 +1900,151 @@ async function SettingsTab() {
         </div>
         <button type="submit" style={buttonStyle}>
           Save
+        </button>
+      </form>
+    </section>
+
+    <section className="admin-card">
+      <h2 style={h2}>RSS feeds</h2>
+      <p style={muted}>
+        Where stories come from. <strong>Automatic</strong> feeds are
+        trusted (the companies&#39; own social posts): their stories join
+        the stream straight away. <strong>Manual review</strong> feeds
+        (media and news coverage) park every story on the Review page
+        until you approve it, because articles can mention the wrong
+        company. Unticking Active pauses a feed without deleting it.
+      </p>
+      <div className="table-scroll">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={th}>Name</th>
+              <th style={th}>Feed URL</th>
+              <th style={th}>Type</th>
+              <th style={th}>Notes</th>
+              <th style={th}>Active</th>
+              <th style={th}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {feedRows.map((f) => (
+              <tr key={f.id}>
+                <td style={{ ...td, whiteSpace: "nowrap" }}>
+                  <form action="/api/admin/feeds" method="post" id={`feed-${f.id}`}>
+                    <input type="hidden" name="action" value="update" />
+                    <input type="hidden" name="id" value={f.id} />
+                    <input
+                      name="name"
+                      defaultValue={f.name}
+                      required
+                      style={{ ...smallInput, width: 170 }}
+                    />
+                  </form>
+                </td>
+                <td style={td}>
+                  <input
+                    form={`feed-${f.id}`}
+                    name="url"
+                    type="url"
+                    required
+                    defaultValue={f.url}
+                    style={{ ...smallInput, width: "100%", minWidth: 230 }}
+                  />
+                </td>
+                <td style={td}>
+                  <select
+                    form={`feed-${f.id}`}
+                    name="mode"
+                    defaultValue={f.mode}
+                    style={smallInput}
+                  >
+                    <option value="automatic">Automatic</option>
+                    <option value="review">Manual review</option>
+                  </select>
+                </td>
+                <td style={td}>
+                  <input
+                    form={`feed-${f.id}`}
+                    name="notes"
+                    defaultValue={f.notes ?? ""}
+                    style={{ ...smallInput, width: "100%", minWidth: 160 }}
+                  />
+                </td>
+                <td style={{ ...td, textAlign: "center" }}>
+                  <input
+                    form={`feed-${f.id}`}
+                    type="checkbox"
+                    name="active"
+                    defaultChecked={f.active}
+                    style={{ width: 18, height: 18 }}
+                  />
+                </td>
+                <td style={{ ...td, whiteSpace: "nowrap" }}>
+                  <button
+                    form={`feed-${f.id}`}
+                    type="submit"
+                    style={{ ...smallButton, marginRight: 6 }}
+                  >
+                    Save
+                  </button>
+                  <form action="/api/admin/feeds" method="post" style={{ display: "inline" }}>
+                    <input type="hidden" name="action" value="delete" />
+                    <input type="hidden" name="id" value={f.id} />
+                    <ConfirmSubmit
+                      message={`Delete the "${f.name}" feed? Stories already ingested from it stay; no new ones will arrive. To pause it instead, untick Active.`}
+                      danger
+                      style={dangerButton}
+                    >
+                      Delete
+                    </ConfirmSubmit>
+                  </form>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <form
+        action="/api/admin/feeds"
+        method="post"
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "flex-end",
+          marginTop: 18,
+          paddingTop: 16,
+          borderTop: "2px dashed rgba(30,30,29,0.25)",
+        }}
+      >
+        <input type="hidden" name="action" value="add" />
+        <div style={{ minWidth: 170, flex: "1 1 170px" }}>
+          <label style={fieldLabel}>Feed name</label>
+          <input name="name" required style={{ ...inputStyle, width: "100%" }} />
+        </div>
+        <div style={{ minWidth: 240, flex: "2 1 240px" }}>
+          <label style={fieldLabel}>Feed URL</label>
+          <input
+            name="url"
+            type="url"
+            required
+            placeholder="https://rss.app/feeds/…"
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
+        <div style={{ minWidth: 150 }}>
+          <label style={fieldLabel}>Type</label>
+          <select name="mode" defaultValue="review" style={{ ...inputStyle }}>
+            <option value="automatic">Automatic</option>
+            <option value="review">Manual review</option>
+          </select>
+        </div>
+        <div style={{ minWidth: 180, flex: "1 1 180px" }}>
+          <label style={fieldLabel}>Notes (optional)</label>
+          <input name="notes" style={{ ...inputStyle, width: "100%" }} />
+        </div>
+        <button type="submit" style={buttonStyle}>
+          Add feed
         </button>
       </form>
     </section>

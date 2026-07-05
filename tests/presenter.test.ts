@@ -41,6 +41,16 @@ function item(overrides: Partial<FeedItem>): FeedItem {
     showImageUrl: null,
     presenterResearchedAt: null,
     presenterNotifiedAt: null,
+    // Manual-review pipeline columns (defaults for trusted feed rows)
+    feedId: null,
+    reviewStatus: "auto",
+    suggestedCompanyKey: null,
+    aiMatchConfidence: null,
+    aiMatchReason: null,
+    matchedMarkers: null,
+    rawText: null,
+    reviewedAt: null,
+    reviewedBy: null,
     // Deprecated columns still present on the row type
     presenterRelevant: false,
     presenterStatus: null,

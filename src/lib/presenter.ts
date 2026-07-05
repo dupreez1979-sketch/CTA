@@ -73,6 +73,15 @@ function highOrSocialHigh() {
   return sql`(${feedItems.presenterRelevance} = 'high' or ${feedItems.socialRelevance} = 'high')`;
 }
 
+/**
+ * SQL fragment: the story may be used in newsletters and Showcase
+ * editions. Items from manual-review feeds only qualify once a human has
+ * approved them; trusted automatic feeds pass immediately ("auto").
+ */
+function usableStory() {
+  return sql`${feedItems.reviewStatus} in ('auto', 'approved')`;
+}
+
 /** SQL fragment: the feed item is not part of any SENT edition. */
 function notInSentEdition() {
   return sql`not exists (
@@ -216,13 +225,25 @@ export async function createEditionFromPool(): Promise<{
     db()
       .select({ id: feedItems.id })
       .from(feedItems)
-      .where(and(eq(feedItems.presenterRelevance, "high"), notInSentEdition()))
+      .where(
+        and(
+          eq(feedItems.presenterRelevance, "high"),
+          notInSentEdition(),
+          usableStory(),
+        ),
+      )
       .orderBy(desc(feedItems.publishedAt))
       .limit(PREFILL_MAX),
     db()
       .select({ id: feedItems.id })
       .from(feedItems)
-      .where(and(eq(feedItems.socialRelevance, "high"), notInSentEdition()))
+      .where(
+        and(
+          eq(feedItems.socialRelevance, "high"),
+          notInSentEdition(),
+          usableStory(),
+        ),
+      )
       .orderBy(desc(feedItems.publishedAt))
       .limit(SOCIAL_PREFILL_MAX),
   ]);
@@ -577,7 +598,7 @@ export async function runPresenterPipeline(): Promise<PresenterPipelineResult> {
   const available = await db()
     .select({ id: feedItems.id })
     .from(feedItems)
-    .where(and(highOrSocialHigh(), notInSentEdition()));
+    .where(and(highOrSocialHigh(), notInSentEdition(), usableStory()));
   return { researched, notified, availableCount: available.length };
 }
 
@@ -589,6 +610,7 @@ async function researchPendingStories(): Promise<number> {
       and(
         eq(feedItems.presenterRelevance, "high"),
         isNull(feedItems.presenterResearchedAt),
+        usableStory(),
       ),
     )
     .orderBy(asc(feedItems.publishedAt))
@@ -628,7 +650,13 @@ async function notifyNewStories(): Promise<number> {
   const fresh = await db()
     .select()
     .from(feedItems)
-    .where(and(highOrSocialHigh(), isNull(feedItems.presenterNotifiedAt)))
+    .where(
+      and(
+        highOrSocialHigh(),
+        isNull(feedItems.presenterNotifiedAt),
+        usableStory(),
+      ),
+    )
     .orderBy(desc(feedItems.publishedAt));
   if (fresh.length === 0) return 0;
 
@@ -638,7 +666,7 @@ async function notifyNewStories(): Promise<number> {
     db()
       .select({ id: feedItems.id })
       .from(feedItems)
-      .where(and(highOrSocialHigh(), notInSentEdition())),
+      .where(and(highOrSocialHigh(), notInSentEdition(), usableStory())),
   ]);
 
   const baseUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
@@ -1127,7 +1155,8 @@ export async function queryStoryPool(
   p: ShowcaseListParams,
   opts: { excludeEditionId?: number } = {},
 ): Promise<StoryPoolPage> {
-  const conditions = [];
+  // Pending/rejected review-feed items live in the Review queue, not here.
+  const conditions = [usableStory()];
   if (p.rel === "highs") {
     conditions.push(highOrSocialHigh());
   } else if (p.rel.startsWith("s-")) {

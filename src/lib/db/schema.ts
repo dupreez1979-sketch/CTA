@@ -61,6 +61,31 @@ export const companies = pgTable(
   (t) => [uniqueIndex("companies_key_idx").on(t.key)],
 );
 
+/**
+ * RSS feed registry. "automatic" feeds are trusted (company-controlled
+ * social posts): their items flow straight into the story stream.
+ * "review" feeds (media/news coverage) park items in the review queue
+ * until a human approves them; articles can mention the wrong company
+ * (Patch Theatre UK is not Patch Theatre Australia).
+ */
+export const feeds = pgTable(
+  "feeds",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    mode: text("mode", { enum: ["automatic", "review"] })
+      .notNull()
+      .default("automatic"),
+    notes: text("notes"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("feeds_url_idx").on(t.url)],
+);
+
 export const feedItems = pgTable(
   "feed_items",
   {
@@ -80,6 +105,30 @@ export const feedItems = pgTable(
     // Admin pressed "Ignore" in the unfiled-posts panel: hides the item
     // from triage. Does not affect whether it appears in issues.
     reviewed: boolean("reviewed").notNull().default(false),
+    // ---- Manual review (media/news feeds) ----
+    // Which feeds-table row the item came from (null for legacy rows).
+    feedId: integer("feed_id"),
+    // "auto" = from a trusted automatic feed, usable immediately. Items
+    // from review feeds start "pending" and only "approved" ones join the
+    // story stream. Rejected rows are kept so the guid dedup stops the
+    // same article resurfacing.
+    reviewStatus: text("review_status", {
+      enum: ["auto", "pending", "approved", "rejected", "unsure"],
+    })
+      .notNull()
+      .default("auto"),
+    // What ingest suggested (companyKey holds the final call after review).
+    suggestedCompanyKey: text("suggested_company_key"),
+    aiMatchConfidence: text("ai_match_confidence", {
+      enum: ["high", "medium", "low"],
+    }),
+    aiMatchReason: text("ai_match_reason"),
+    // Comma-separated registry match fragments that hit the article.
+    matchedMarkers: text("matched_markers"),
+    // Article text kept for the review queue display (trimmed).
+    rawText: text("raw_text"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: text("reviewed_by"),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
     aiHeading: text("ai_heading").notNull(),
     aiSummary: text("ai_summary").notNull(),
@@ -132,7 +181,10 @@ export const feedItems = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("feed_items_guid_idx").on(t.guid)],
+  (t) => [
+    uniqueIndex("feed_items_guid_idx").on(t.guid),
+    index("feed_items_review_idx").on(t.reviewStatus, t.publishedAt),
+  ],
 );
 
 /** Curated show registry powering The Showcase's "Shows in the Spotlight" list. */
@@ -302,6 +354,9 @@ export const settings = pgTable("settings", {
 export type Subscriber = typeof subscribers.$inferSelect;
 export type Delivery = typeof deliveries.$inferSelect;
 export type FeedItem = typeof feedItems.$inferSelect;
+export type Feed = typeof feeds.$inferSelect;
+export type ReviewStatus = FeedItem["reviewStatus"];
+export type MatchConfidence = "high" | "medium" | "low";
 export type Issue = typeof issues.$inferSelect;
 export type Show = typeof shows.$inferSelect;
 export type ShowcaseEdition = typeof showcaseEditions.$inferSelect;
