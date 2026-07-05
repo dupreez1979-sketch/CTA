@@ -40,6 +40,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { CLOUD_PATH } from "@/lib/clouds";
+import AdminNav from "@/components/AdminNav";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
@@ -163,63 +164,7 @@ export default async function AdminPage({
   return (
     <>
     <main className="admin-main">
-      {/* Top navigation, styled like the Alliance website: logo on the
-          left, the app's name so it isn't confused with the website, then
-          plain text links with the active page underlined. */}
-      <header className="admin-nav">
-        <Image
-          src="/logo-full.png"
-          alt="The Children's Theatre Alliance"
-          width={139}
-          height={44}
-          className="admin-nav-logo"
-          priority
-        />
-        <h1 className="admin-app-name">Newsletter Admin</h1>
-        {/* On narrow screens the links collapse behind a burger, like the
-            website: the hidden checkbox drives a full-screen mint overlay,
-            no JavaScript involved. */}
-        <input
-          type="checkbox"
-          id="admin-menu"
-          className="admin-menu-toggle"
-          aria-label="Open the menu"
-        />
-        <label
-          htmlFor="admin-menu"
-          className="admin-menu-button"
-          aria-hidden="true"
-        >
-          <span />
-          <span />
-          <span />
-        </label>
-        <nav className="admin-nav-links">
-          <label
-            htmlFor="admin-menu"
-            className="admin-menu-close"
-            aria-hidden="true"
-          >
-            ✕
-          </label>
-          {TABS.map((t) => (
-            <Link
-              prefetch={false}
-              key={t.id}
-              href={`/admin?tab=${t.id}`}
-              className="admin-nav-link"
-              aria-current={tab === t.id}
-            >
-              {t.label}
-            </Link>
-          ))}
-          <form action="/api/admin-logout" method="post">
-            <button type="submit" className="admin-nav-link">
-              Log out
-            </button>
-          </form>
-        </nav>
-      </header>
+      <AdminNav tabs={TABS} active={tab} />
 
       {message && (
         <div

@@ -382,21 +382,16 @@ body {
 }
 
 /* Burger menu: on narrow screens the links live in a full-screen mint
-   overlay, like the website's mobile navigation. A hidden checkbox
-   toggles it, so it works without JavaScript. */
-.admin-menu-toggle {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
+   overlay, like the website's mobile navigation. AdminNav (client
+   component) toggles it and closes it when an item is selected. */
 .admin-menu-button {
   display: none;
   margin-left: auto;
   flex-direction: column;
   gap: 6px;
   padding: 8px 2px;
+  background: none;
+  border: 0;
   cursor: pointer;
 }
 
@@ -431,12 +426,12 @@ body {
     overflow-y: auto;
   }
 
-  .admin-menu-toggle:checked ~ .admin-nav-links {
+  .admin-nav-links.admin-nav-links-open {
     display: flex;
   }
 
   /* The page behind the open menu shouldn't scroll. */
-  body:has(.admin-menu-toggle:checked) {
+  body:has(.admin-nav-links-open) {
     overflow: hidden;
   }
 
@@ -448,6 +443,8 @@ body {
     font-size: 30px;
     line-height: 1;
     color: var(--cta-ink);
+    background: none;
+    border: 0;
     cursor: pointer;
     padding: 6px;
   }
