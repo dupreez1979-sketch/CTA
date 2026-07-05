@@ -29,6 +29,7 @@ import {
   hasRelativeTime,
   parseShowcaseListParams,
   queryStoryPool,
+  STORY_POOL_PAGE_SIZES,
   type ShowcaseListParams,
   type StoryPoolPage,
 } from "@/lib/presenter";
@@ -1211,15 +1212,13 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         <HelpTip title="Story pool">
           Every story that has come in, rated by the AI twice: once for show
           relevance and once for Social Theatre (theatre in health, access
-          and community settings, not education or fundraising). Stories
-          rated <strong>High</strong> on either scale are what this list
-          shows by default; switch the rating filter to see medium and low
-          rated stories. Social feed stories rated High are offered to each
-          New Showcase automatically; stories approved from the review queue
-          below join this pool too, but are only ever added to a Showcase by
-          hand. Tick stories to add them to a draft Showcase in one go, or
-          change a rating to promote a missed story or keep one out for
-          good.
+          and community settings, not education or fundraising). Use the
+          rating filter to narrow to stories rated high on either scale.
+          Social feed stories rated High are offered to each New Showcase
+          automatically; stories approved from the review queue below join
+          this pool too, but are only ever added to a Showcase by hand. Tick
+          stories to add them to a draft Showcase in one go, or change a
+          rating to promote a missed story or keep one out for good.
         </HelpTip>
       </h2>
       <StoryPoolTable
@@ -1436,20 +1435,12 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                           fontWeight: 700,
                           fontSize: 13.5,
                           color: "var(--cta-ink)",
+                          textDecoration: "none",
                         }}
                       >
                         {it.rawTitle || it.aiHeading} ↗
                       </a>
-                      <div
-                        style={{
-                          fontSize: 12.5,
-                          color: "var(--text-body)",
-                          marginTop: 4,
-                        }}
-                      >
-                        {it.aiSummary}
-                      </div>
-                      {(it.aiMatchReason || it.matchedMarkers) && (
+                      {it.aiMatchReason && (
                         <div
                           style={{
                             fontSize: 12,
@@ -1458,9 +1449,6 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                           }}
                         >
                           {it.aiMatchReason}
-                          {it.matchedMarkers
-                            ? ` (matched: ${it.matchedMarkers})`
-                            : ""}
                         </div>
                       )}
                     </td>
@@ -3091,12 +3079,13 @@ function StoryPoolTable({
     // override sets pg itself.
     const merged = { ...params, pg: 1, ...over };
     const q = new URLSearchParams({ tab: "review" });
-    if (merged.rel !== "highs") q.set("rel", merged.rel);
+    if (merged.rel !== "all") q.set("rel", merged.rel);
     if (merged.co) q.set("co", merged.co);
     if (merged.q) q.set("q", merged.q);
     if (merged.sort !== "date") q.set("sort", merged.sort);
     if (merged.dir !== "desc") q.set("dir", merged.dir);
     if (merged.pg > 1) q.set("pg", String(merged.pg));
+    if (merged.ps !== 10) q.set("ps", String(merged.ps));
     return `/admin?${q.toString()}`;
   };
   const sortLink = (key: ShowcaseListParams["sort"], label: string) => (
@@ -3121,7 +3110,7 @@ function StoryPoolTable({
     </Link>
   );
   const isFiltered =
-    params.rel !== "highs" ||
+    params.rel !== "all" ||
     params.co ||
     params.q ||
     params.sort !== "date" ||
@@ -3133,17 +3122,16 @@ function StoryPoolTable({
         <summary>Filters{isFiltered ? " (on)" : ""}</summary>
       <form method="get" action={`/admin#${anchor}`} className="filter-bar">
         <input type="hidden" name="tab" value="review" />
+        {params.ps !== 10 && (
+          <input type="hidden" name="ps" value={params.ps} />
+        )}
         <div className="filter-field">
           <label style={fieldLabel}>Rating</label>
           <AutoSubmitSelect name="rel" defaultValue={params.rel} style={smallInput}>
-            <option value="highs">High: show or social</option>
-            <option value="high">Show: high</option>
-            <option value="medium">Show: medium</option>
-            <option value="low">Show: low</option>
-            <option value="s-high">Social Theatre: high</option>
-            <option value="s-medium">Social Theatre: medium</option>
-            <option value="s-low">Social Theatre: low</option>
             <option value="all">All ratings</option>
+            <option value="high">High for shows</option>
+            <option value="s-high">High for Social Theatre</option>
+            <option value="other">Rated lower</option>
           </AutoSubmitSelect>
         </div>
         <div className="filter-field">
@@ -3316,42 +3304,63 @@ function StoryPoolTable({
               </tbody>
             </table>
           </div>
-          {(hasMore || params.pg > 1) && (
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                alignItems: "center",
-                marginTop: 10,
-                fontSize: 12.5,
-                fontWeight: 600,
-              }}
-            >
-              {params.pg > 1 && (
-                <Link
-            prefetch={false}
-                  href={href({ pg: params.pg - 1 })}
-                  scroll={false}
-                  style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
-                >
-                  ← Previous
-                </Link>
-              )}
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+              marginTop: 10,
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
+          >
+            {params.pg > 1 && (
+              <Link
+                prefetch={false}
+                href={href({ pg: params.pg - 1 })}
+                scroll={false}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+              >
+                ← Previous
+              </Link>
+            )}
+            {(hasMore || params.pg > 1) && (
               <span style={{ color: "var(--text-muted)" }}>
                 Page {params.pg}
               </span>
-              {hasMore && (
-                <Link
-            prefetch={false}
-                  href={href({ pg: params.pg + 1 })}
-                  scroll={false}
-                  style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
-                >
-                  Next →
-                </Link>
-              )}
-            </div>
-          )}
+            )}
+            {hasMore && (
+              <Link
+                prefetch={false}
+                href={href({ pg: params.pg + 1 })}
+                scroll={false}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+              >
+                Next →
+              </Link>
+            )}
+            <span style={{ color: "var(--text-muted)", marginLeft: "auto" }}>
+              View{" "}
+              {STORY_POOL_PAGE_SIZES.map((size, i) => (
+                <span key={size}>
+                  {i > 0 && " · "}
+                  {params.ps === size ? (
+                    <strong>{size}</strong>
+                  ) : (
+                    <Link
+                      prefetch={false}
+                      href={href({ ps: size })}
+                      scroll={false}
+                      style={{ color: "var(--cta-ink)" }}
+                    >
+                      {size}
+                    </Link>
+                  )}
+                </span>
+              ))}
+            </span>
+          </div>
         </>
       )}
     </>

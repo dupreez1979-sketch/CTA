@@ -141,7 +141,7 @@ export async function assessCompanyMatch(
       reason: {
         type: "string",
         description:
-          "One or two short sentences: which company (if any) the article is genuinely about, and the evidence. Watch for same-named companies overseas: the Alliance's companies are Australian, so a UK or US company sharing a name is NOT a match.",
+          "ONE short plain sentence saying why this article might matter to the Alliance (or why it does not), naming the company involved. No preamble, no summary of the article. Watch for same-named companies overseas: the Alliance's companies are Australian, so a UK or US company sharing a name is NOT a match.",
       },
       companyKey: {
         type: "string",

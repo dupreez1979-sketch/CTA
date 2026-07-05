@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, feedItems, type Feed } from "./db";
 import { fetchFeed, type NormalisedItem } from "./feed";
 import { assessCompanyMatch, generateCopy, type MatchAssessment } from "./ai";
@@ -45,6 +45,16 @@ export async function ingestFeed(): Promise<IngestSummary> {
     loadCompanies(),
     activeFeeds(),
   ]);
+  // Stories from before the feeds registry carry no feed link. They all
+  // came from the automatic (social) feed, so file them under it once;
+  // the admin's origin badges then cover the whole history.
+  const automatic = sources.find((f) => f.mode === "automatic");
+  if (automatic) {
+    await db()
+      .update(feedItems)
+      .set({ feedId: automatic.id })
+      .where(and(isNull(feedItems.feedId), eq(feedItems.source, "feed")));
+  }
   const summary: IngestSummary = {
     seen: 0,
     added: 0,

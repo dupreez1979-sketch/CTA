@@ -284,14 +284,15 @@ describe("swapPositions", () => {
 });
 
 describe("parseShowcaseListParams", () => {
-  it("defaults to newest-first, both high categories, page 1", () => {
+  it("defaults to newest-first, all ratings, page 1, 10 per page", () => {
     expect(parseShowcaseListParams({})).toEqual({
       sort: "date",
       dir: "desc",
-      rel: "highs",
+      rel: "all",
       co: "",
       q: "",
       pg: 1,
+      ps: 10,
     });
   });
 
@@ -300,18 +301,20 @@ describe("parseShowcaseListParams", () => {
       parseShowcaseListParams({
         sort: "relevance",
         dir: "asc",
-        rel: "all",
+        rel: "high",
         co: "terrapin",
         q: " tour ",
         pg: "3",
+        ps: "50",
       }),
     ).toEqual({
       sort: "relevance",
       dir: "asc",
-      rel: "all",
+      rel: "high",
       co: "terrapin",
       q: "tour",
       pg: 3,
+      ps: 50,
     });
     expect(
       parseShowcaseListParams({
@@ -319,12 +322,24 @@ describe("parseShowcaseListParams", () => {
         dir: "sideways",
         rel: "nah",
         pg: "-2",
+        ps: "33",
       }),
-    ).toEqual({ sort: "date", dir: "desc", rel: "highs", co: "", q: "", pg: 1 });
+    ).toEqual({
+      sort: "date",
+      dir: "desc",
+      rel: "all",
+      co: "",
+      q: "",
+      pg: 1,
+      ps: 10,
+    });
     expect(parseShowcaseListParams({ pg: "abc" }).pg).toBe(1);
     expect(parseShowcaseListParams({ rel: "s-high" }).rel).toBe("s-high");
-    expect(parseShowcaseListParams({ rel: "s-bogus" }).rel).toBe("highs");
-    expect(parseShowcaseListParams({ rel: "high" }).rel).toBe("high");
+    expect(parseShowcaseListParams({ rel: "s-bogus" }).rel).toBe("all");
+    expect(parseShowcaseListParams({ rel: "other" }).rel).toBe("other");
+    // Old bookmarked links with the retired combined value fall back.
+    expect(parseShowcaseListParams({ rel: "highs" }).rel).toBe("all");
+    expect(parseShowcaseListParams({ ps: "20" }).ps).toBe(20);
   });
 });
 

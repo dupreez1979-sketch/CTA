@@ -1107,25 +1107,21 @@ export async function addShowFromItem(
 
 // ---------------------------------------------------------------- list view
 
+export const STORY_POOL_PAGE_SIZES = [10, 20, 50] as const;
+export type StoryPoolPageSize = (typeof STORY_POOL_PAGE_SIZES)[number];
+
 export interface ShowcaseListParams {
   sort: "date" | "company" | "headline" | "relevance";
   dir: "asc" | "desc";
-  /** "highs" = show high OR Social Theatre high (the default: both
-   * categories a New Showcase would pick up). Plain values filter show
-   * relevance; the "s-" variants filter social relevance. */
-  rel:
-    | "highs"
-    | "high"
-    | "medium"
-    | "low"
-    | "all"
-    | "s-high"
-    | "s-medium"
-    | "s-low";
+  /** "all" (the default) shows everything; "high" = rated high for shows,
+   * "s-high" = rated high for Social Theatre, "other" = neither. */
+  rel: "all" | "high" | "s-high" | "other";
   co: string;
   q: string;
-  /** 1-based page through the full history, STORY_POOL_LIMIT per page. */
+  /** 1-based page through the full history, `ps` stories per page. */
   pg: number;
+  /** Stories per page. */
+  ps: StoryPoolPageSize;
 }
 
 /** Validate/default the story-pool filter, sort and paging query params. */
@@ -1133,24 +1129,17 @@ export function parseShowcaseListParams(
   sp: Record<string, string | undefined>,
 ): ShowcaseListParams {
   const sorts = ["date", "company", "headline", "relevance"] as const;
-  const rels = [
-    "highs",
-    "high",
-    "medium",
-    "low",
-    "all",
-    "s-high",
-    "s-medium",
-    "s-low",
-  ] as const;
+  const rels = ["all", "high", "s-high", "other"] as const;
   const pg = Number(sp.pg);
+  const ps = Number(sp.ps);
   return {
     sort: sorts.find((s) => s === sp.sort) ?? "date",
     dir: sp.dir === "asc" ? "asc" : "desc",
-    rel: rels.find((r) => r === sp.rel) ?? "highs",
+    rel: rels.find((r) => r === sp.rel) ?? "all",
     co: (sp.co ?? "").trim(),
     q: (sp.q ?? "").trim(),
     pg: Number.isInteger(pg) && pg > 0 ? pg : 1,
+    ps: STORY_POOL_PAGE_SIZES.find((s) => s === ps) ?? 10,
   };
 }
 
@@ -1159,8 +1148,6 @@ export const RELEVANCE_OPTIONS: PresenterRelevance[] = [
   "medium",
   "low",
 ];
-
-export const STORY_POOL_LIMIT = 30;
 
 export interface StoryPoolPage {
   rows: FeedItem[];
@@ -1180,18 +1167,13 @@ export async function queryStoryPool(
 ): Promise<StoryPoolPage> {
   // Pending/rejected review-feed items live in the Review queue, not here.
   const conditions = [usableStory()];
-  if (p.rel === "highs") {
-    conditions.push(highOrSocialHigh());
-  } else if (p.rel.startsWith("s-")) {
+  if (p.rel === "high") {
+    conditions.push(eq(feedItems.presenterRelevance, "high"));
+  } else if (p.rel === "s-high") {
+    conditions.push(eq(feedItems.socialRelevance, "high"));
+  } else if (p.rel === "other") {
     conditions.push(
-      eq(
-        feedItems.socialRelevance,
-        p.rel.slice(2) as "high" | "medium" | "low",
-      ),
-    );
-  } else if (p.rel !== "all") {
-    conditions.push(
-      eq(feedItems.presenterRelevance, p.rel as "high" | "medium" | "low"),
+      sql`not (${feedItems.presenterRelevance} = 'high' or ${feedItems.socialRelevance} = 'high')`,
     );
   }
   if (p.co) conditions.push(eq(feedItems.companyKey, p.co));
@@ -1230,11 +1212,11 @@ export async function queryStoryPool(
       p.dir === "asc" ? asc(orderCol) : desc(orderCol),
       desc(feedItems.publishedAt),
     )
-    .limit(STORY_POOL_LIMIT + 1)
-    .offset((p.pg - 1) * STORY_POOL_LIMIT);
+    .limit(p.ps + 1)
+    .offset((p.pg - 1) * p.ps);
   return {
-    rows: rows.slice(0, STORY_POOL_LIMIT),
-    hasMore: rows.length > STORY_POOL_LIMIT,
+    rows: rows.slice(0, p.ps),
+    hasMore: rows.length > p.ps,
   };
 }
 
