@@ -189,6 +189,27 @@ export function nextSendAt(
   throw new Error("Could not find a next send day within 21 days");
 }
 
+/**
+ * Compact Sydney date + time for tables, e.g. "2026-07-05 07:00 AEST".
+ * Keeps the Australian yyyy-mm-dd date style and adds the local send time
+ * with its zone abbreviation (AEST/AEDT).
+ */
+export function formatSydneyStamp(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-AU", {
+    timeZone: TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  }).formatToParts(date);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")} ${hour}:${get("minute")} ${get("timeZoneName")}`;
+}
+
 /** e.g. "Fri, 3 Jul 2026, 7:00 am AEST". */
 export function formatSydneyDateTime(date: Date): string {
   return new Intl.DateTimeFormat("en-AU", {

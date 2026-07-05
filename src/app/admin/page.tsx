@@ -38,6 +38,7 @@ import {
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
+  formatSydneyStamp,
   issueWindow,
   nextSendAt,
 } from "@/lib/cadence";
@@ -416,8 +417,12 @@ async function OverviewTab({
 }) {
   const opgRaw = Number(sp.opg);
   const opg = Number.isInteger(opgRaw) && opgRaw > 0 ? opgRaw : 1;
-  // Fetch enough of each source to fill the requested page after merging.
-  const fetchCount = opg * SENDS_PAGE + 1;
+  // Sort of the Recent sends table. Default: by window, earliest at the top.
+  const OSORTS = ["type", "window", "status", "stories", "recipients", "sent"] as const;
+  const osort = (OSORTS as readonly string[]).includes(sp.osort ?? "")
+    ? (sp.osort as (typeof OSORTS)[number])
+    : "window";
+  const odir = sp.odir === "desc" ? "desc" : sp.odir === "asc" ? "asc" : "asc";
   const count = sql<number>`count(*)::int`;
   const dayAgo = new Date(Date.now() - 864e5);
   const weekAgo = new Date(Date.now() - 7 * 864e5);
@@ -471,13 +476,12 @@ async function OverviewTab({
       .where(eq(subscribers.status, "active"))
       .groupBy(subscribers.cadence),
     getShowcaseSubscriberCount(),
-    db().select().from(issues).orderBy(desc(issues.id)).limit(fetchCount),
+    db().select().from(issues).orderBy(desc(issues.id)),
     db()
       .select()
       .from(showcaseEditions)
       .where(eq(showcaseEditions.status, "sent"))
-      .orderBy(desc(showcaseEditions.sentAt))
-      .limit(fetchCount),
+      .orderBy(desc(showcaseEditions.sentAt)),
     storiesSince(weekAgo),
     storiesSince(dayAgo),
     db().select({ count }).from(companies),
@@ -515,6 +519,7 @@ async function OverviewTab({
       recipients: i.recipientCount,
       sentAt: i.sentAt,
       stamp: (i.sentAt ?? i.windowStart).getTime(),
+      windowStamp: i.windowStart.getTime(),
       href:
         i.status === "sent" && i.recipientCount > 0
           ? `/admin?tab=editions&issue=${i.id}`
@@ -530,11 +535,53 @@ async function OverviewTab({
       recipients: e.recipientCount,
       sentAt: e.sentAt,
       stamp: (e.sentAt ?? e.createdAt).getTime(),
+      windowStamp: (e.sentAt ?? e.createdAt).getTime(),
       href: `/admin?tab=presenters&edition=${e.id}`,
     })),
-  ].sort((a, b) => b.stamp - a.stamp);
+  ];
+  allSends.sort((a, b) => {
+    let d: number;
+    switch (osort) {
+      case "type":
+        d = a.type.localeCompare(b.type);
+        break;
+      case "status":
+        d = a.status.localeCompare(b.status);
+        break;
+      case "stories":
+        d = a.items - b.items;
+        break;
+      case "recipients":
+        d = a.recipients - b.recipients;
+        break;
+      case "sent":
+        d = a.stamp - b.stamp;
+        break;
+      default:
+        d = a.windowStamp - b.windowStamp;
+    }
+    // Stable tiebreak so equal keys keep a consistent order.
+    if (d === 0) d = a.windowStamp - b.windowStamp;
+    return odir === "asc" ? d : -d;
+  });
   const pageSends = allSends.slice((opg - 1) * SENDS_PAGE, opg * SENDS_PAGE);
   const hasMoreSends = allSends.length > opg * SENDS_PAGE;
+  // Header link that sorts by a column, flipping direction if already active.
+  const oSortLink = (key: (typeof OSORTS)[number], label: string) => {
+    const nextDir = osort === key ? (odir === "asc" ? "desc" : "asc") : "asc";
+    const p = new URLSearchParams({ tab: "overview", osort: key, odir: nextDir });
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${p}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {osort === key ? (odir === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -608,12 +655,12 @@ async function OverviewTab({
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={th}>Type</th>
-                <th style={th}>Window</th>
-                <th style={th}>Status</th>
-                <th style={th}>Stories</th>
-                <th style={th}>Recipients</th>
-                <th style={th}>Sent at</th>
+                <th style={th}>{oSortLink("type", "Type")}</th>
+                <th style={th}>{oSortLink("window", "Window")}</th>
+                <th style={th}>{oSortLink("status", "Status")}</th>
+                <th style={th}>{oSortLink("stories", "Stories")}</th>
+                <th style={th}>{oSortLink("recipients", "Recipients")}</th>
+                <th style={th}>{oSortLink("sent", "Sent at")}</th>
               </tr>
             </thead>
             <tbody>
@@ -656,10 +703,8 @@ async function OverviewTab({
                       r.recipients
                     )}
                   </td>
-                  <td style={td}>
-                    {r.sentAt
-                      ? r.sentAt.toISOString().replace("T", " ").slice(0, 16)
-                      : "—"}
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {r.sentAt ? formatSydneyStamp(r.sentAt) : "—"}
                   </td>
                 </tr>
               ))}
@@ -700,7 +745,7 @@ async function OverviewTab({
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=overview&opg=${opg - 1}`}
+                href={`/admin?tab=overview&opg=${opg - 1}&osort=${osort}&odir=${odir}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 ← Previous
@@ -713,7 +758,7 @@ async function OverviewTab({
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=overview&opg=${opg + 1}`}
+                href={`/admin?tab=overview&opg=${opg + 1}&osort=${osort}&odir=${odir}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 Next →
@@ -832,6 +877,20 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   const HISTORY_PAGE = 15;
   const hpgRaw = Number(sp.hpg);
   const hpg = Number.isInteger(hpgRaw) && hpgRaw > 0 ? hpgRaw : 1;
+  // History sort. Default: most recently sent at the top.
+  const HSORTS = ["edition", "sent", "subscribers", "status"] as const;
+  const hso = (HSORTS as readonly string[]).includes(sp.hso ?? "")
+    ? (sp.hso as (typeof HSORTS)[number])
+    : "sent";
+  const hdr = sp.hdr === "asc" ? "asc" : "desc";
+  const hOrderCol =
+    hso === "edition"
+      ? issues.cadence
+      : hso === "subscribers"
+        ? issues.recipientCount
+        : hso === "status"
+          ? issues.status
+          : sql`coalesce(${issues.sentAt}, ${issues.windowEnd})`;
   const [cadenceCounts, lastSentRows, history, testRecipients] =
     await Promise.all([
       db()
@@ -853,7 +912,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
       db()
         .select()
         .from(issues)
-        .orderBy(desc(issues.id))
+        .orderBy(hdr === "asc" ? asc(hOrderCol) : desc(hOrderCol), desc(issues.id))
         .limit(HISTORY_PAGE + 1)
         .offset((hpg - 1) * HISTORY_PAGE),
       getPresenterRecipients(),
@@ -868,6 +927,31 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   const hasMoreHistory = history.length > HISTORY_PAGE;
   const now = new Date();
   const defaultTo = testRecipients.join(", ");
+  const historyParams = (over: Record<string, string> = {}) => {
+    const p = new URLSearchParams({ tab: "editions" });
+    if (hso !== "sent") p.set("hso", hso);
+    if (hdr !== "desc") p.set("hdr", hdr);
+    if (hpg > 1) p.set("hpg", String(hpg));
+    for (const [k, v] of Object.entries(over)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    return p.toString();
+  };
+  const hSortLink = (key: (typeof HSORTS)[number], label: string) => {
+    const nextDir = hso === key ? (hdr === "asc" ? "desc" : "asc") : "desc";
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${historyParams({ hso: key, hdr: nextDir, hpg: "" })}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {hso === key ? (hdr === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -987,10 +1071,10 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={th}>Edition</th>
-                  <th style={th}>Sent</th>
-                  <th style={th}>Subscribers</th>
-                  <th style={th}>Status</th>
+                  <th style={th}>{hSortLink("edition", "Edition")}</th>
+                  <th style={th}>{hSortLink("sent", "Sent")}</th>
+                  <th style={th}>{hSortLink("subscribers", "Subscribers")}</th>
+                  <th style={th}>{hSortLink("status", "Status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1000,7 +1084,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
                       {i.cadence}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {auDate(i.sentAt ?? i.windowEnd)}
+                      {formatSydneyStamp(i.sentAt ?? i.windowEnd)}
                     </td>
                     <td style={td}>
                       {i.recipientCount > 0 ? (
@@ -1040,7 +1124,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=editions&hpg=${hpg - 1}`}
+                href={`/admin?${historyParams({ hpg: String(hpg - 1) })}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 ← Previous
@@ -1053,7 +1137,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=editions&hpg=${hpg + 1}`}
+                href={`/admin?${historyParams({ hpg: String(hpg + 1) })}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 Next →
@@ -1341,7 +1425,16 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
           </div>
         )}
       </td>
-      <td style={{ ...td, maxWidth: 160 }}>{sourceOf(it)}</td>
+      <td
+        style={{
+          ...td,
+          maxWidth: 200,
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+        }}
+      >
+        {sourceOf(it)}
+      </td>
       <td style={td}>
         <div style={{ display: "flex", alignItems: "center" }}>
           <select
@@ -1602,10 +1695,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
             </div>
           ) : undefined
         }
-      />
-
-      {(pageRows.length > 0 || rgroup) && (
-        <div style={{ marginBottom: 14 }}>
+        extra={
           <Link
             prefetch={false}
             href={`/admin?${filterParams({
@@ -1614,15 +1704,21 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
             })}`}
             scroll={false}
             style={{
-              ...smallButton,
-              textDecoration: "none",
+              fontFamily: "var(--font-body)",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--cta-ink)",
               background: rgroup ? "var(--cta-purple)" : "var(--cta-white)",
+              border: "2px solid var(--cta-ink)",
+              borderRadius: 8,
+              padding: "6px 12px",
+              textDecoration: "none",
             }}
           >
             {rgroup ? "Grouped by company ✓" : "Group by company"}
           </Link>
-        </div>
-      )}
+        }
+      />
 
       {pageRows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
@@ -1731,7 +1827,16 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                         </div>
                       )}
                     </td>
-                    <td style={{ ...td, maxWidth: 160 }}>{sourceOf(it)}</td>
+                    <td
+        style={{
+          ...td,
+          maxWidth: 200,
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+        }}
+      >
+        {sourceOf(it)}
+      </td>
                     <td style={td}>
                       <div style={{ display: "flex", alignItems: "center" }}>
                         <select
@@ -2847,20 +2952,67 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const epgRaw = Number(sp.epg);
   const epg = Number.isInteger(epgRaw) && epgRaw > 0 ? epgRaw : 1;
   const EDITIONS_PAGE = 15;
+  // History sort. Default: most recently sent at the top.
+  const ESORTS = ["sent", "stories", "profiles", "recipients"] as const;
+  const eso = (ESORTS as readonly string[]).includes(sp.eso ?? "")
+    ? (sp.eso as (typeof ESORTS)[number])
+    : "sent";
+  const edr = sp.edr === "asc" ? "asc" : "desc";
+  const sentCmp = (a: ShowcaseEdition, b: ShowcaseEdition) => {
+    let d: number;
+    switch (eso) {
+      case "stories":
+        d = itemsOf(a) - itemsOf(b);
+        break;
+      case "profiles":
+        d = profilesOf(a) - profilesOf(b);
+        break;
+      case "recipients":
+        d = a.recipientCount - b.recipientCount;
+        break;
+      default:
+        d = stampOf(a) - stampOf(b);
+    }
+    if (d === 0) d = stampOf(a) - stampOf(b);
+    return edr === "asc" ? d : -d;
+  };
   // Two sections, same shape as Regular Editions: what's in progress on
   // top, everything sent below.
   const drafts = editions
     .filter((e) => e.status !== "sent")
     .sort((a, b) => stampOf(b) - stampOf(a));
-  const sentEditions = editions
-    .filter((e) => e.status === "sent")
-    .sort((a, b) => stampOf(b) - stampOf(a));
+  const sentEditions = editions.filter((e) => e.status === "sent").sort(sentCmp);
   const pageSent = sentEditions.slice(
     (epg - 1) * EDITIONS_PAGE,
     epg * EDITIONS_PAGE,
   );
   const hasMoreSent = sentEditions.length > epg * EDITIONS_PAGE;
   const defaultTo = recipients.join(", ");
+  const sentParams = (over: Record<string, string> = {}) => {
+    const p = new URLSearchParams({ tab: "presenters" });
+    if (eso !== "sent") p.set("eso", eso);
+    if (edr !== "desc") p.set("edr", edr);
+    if (epg > 1) p.set("epg", String(epg));
+    for (const [k, v] of Object.entries(over)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    return p.toString();
+  };
+  const eSortLink = (key: (typeof ESORTS)[number], label: string) => {
+    const nextDir = eso === key ? (edr === "asc" ? "desc" : "asc") : "desc";
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${sentParams({ eso: key, edr: nextDir, epg: "" })}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {eso === key ? (edr === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -3018,10 +3170,10 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={th}>Sent</th>
-                  <th style={th}>Stories</th>
-                  <th style={th}>Profiles</th>
-                  <th style={th}>Recipients</th>
+                  <th style={th}>{eSortLink("sent", "Sent")}</th>
+                  <th style={th}>{eSortLink("stories", "Stories")}</th>
+                  <th style={th}>{eSortLink("profiles", "Profiles")}</th>
+                  <th style={th}>{eSortLink("recipients", "Recipients")}</th>
                   <th style={th}></th>
                 </tr>
               </thead>
@@ -3029,7 +3181,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                 {pageSent.map((e) => (
                   <tr key={e.id}>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {auDate(e.sentAt ?? e.createdAt)}
+                      {formatSydneyStamp(e.sentAt ?? e.createdAt)}
                     </td>
                     <td style={td}>{itemsOf(e)}</td>
                     <td style={td}>{profilesOf(e)}</td>
@@ -3107,7 +3259,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=presenters&epg=${epg - 1}`}
+                href={`/admin?${sentParams({ epg: String(epg - 1) })}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 ← Previous
@@ -3120,7 +3272,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=presenters&epg=${epg + 1}`}
+                href={`/admin?${sentParams({ epg: String(epg + 1) })}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 Next →
@@ -3463,7 +3615,7 @@ function StoryPoolTable({
       <th style={th}>{sortLink("date", "Added")}</th>
       <th style={th}>Published</th>
       <th style={th}>{sortLink("headline", "Story")}</th>
-      <th style={{ ...th, maxWidth: 120 }}>{sortLink("source", "Source")}</th>
+      <th style={{ ...th, maxWidth: 200 }}>{sortLink("source", "Source")}</th>
       <th style={th}>{sortLink("company", "Company")}</th>
       <th style={th}>
         Rating: {sortLink("relevance", "Show")}
@@ -3535,7 +3687,7 @@ function StoryPoolTable({
           </div>
         )}
       </td>
-      <td style={{ ...td, maxWidth: 120 }}>
+      <td style={{ ...td, maxWidth: 200 }}>
         {feedOriginBadge(p, feedNameById)}
         {sourcePublication(p) && (
           <div
@@ -3716,23 +3868,27 @@ function StoryPoolTable({
             </div>
           ) : undefined
         }
-      />
-      {(rows.length > 0 || grouped) && (
-        <div style={{ marginBottom: 14 }}>
+        extra={
           <Link
             prefetch={false}
             href={href({ group: grouped ? "none" : "company", pg: 1 })}
             scroll={false}
             style={{
-              ...smallButton,
-              textDecoration: "none",
+              fontFamily: "var(--font-body)",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--cta-ink)",
               background: grouped ? "var(--cta-purple)" : "var(--cta-white)",
+              border: "2px solid var(--cta-ink)",
+              borderRadius: 8,
+              padding: "6px 12px",
+              textDecoration: "none",
             }}
           >
             {grouped ? "Grouped by company ✓" : "Group by company"}
           </Link>
-        </div>
-      )}
+        }
+      />
       {rows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
           {params.pg > 1 ? (
@@ -3788,7 +3944,7 @@ function StoryPoolTable({
                   <th style={th}>{sortLink("date", "Added")}</th>
                   <th style={th}>Published</th>
                   <th style={th}>{sortLink("headline", "Story")}</th>
-                  <th style={{ ...th, maxWidth: 120 }}>{sortLink("source", "Source")}</th>
+                  <th style={{ ...th, maxWidth: 200 }}>{sortLink("source", "Source")}</th>
                   <th style={th}>{sortLink("company", "Company")}</th>
                   <th style={th}>
                     Rating: {sortLink("relevance", "Show")}
@@ -3864,7 +4020,7 @@ function StoryPoolTable({
                         </div>
                       )}
                     </td>
-                    <td style={{ ...td, maxWidth: 120 }}>
+                    <td style={{ ...td, maxWidth: 200 }}>
                       {feedOriginBadge(p, feedNameById)}
                       {sourcePublication(p) && (
                         <div

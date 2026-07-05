@@ -11,9 +11,13 @@ import { useState } from "react";
 export default function StoryToolbar({
   filters,
   actions,
+  extra,
 }: {
   filters: React.ReactNode;
   actions?: React.ReactNode;
+  /** Extra control(s) shown inline in the same button row (e.g. a
+   * "Group by company" toggle), not tucked under a panel. */
+  extra?: React.ReactNode;
 }) {
   const [open, setOpen] = useState<"filters" | "actions" | null>(null);
   const tab = (active: boolean): React.CSSProperties => ({
@@ -67,6 +71,7 @@ export default function StoryToolbar({
             Actions {open === "actions" ? "▴" : "▾"}
           </button>
         )}
+        {extra}
       </div>
       {/* Panels stay mounted (just hidden) so the bulk form and its row
           checkboxes keep their association while collapsed. */}
