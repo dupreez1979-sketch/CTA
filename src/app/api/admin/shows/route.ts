@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { eq } from "drizzle-orm";
 import { db, shows } from "@/lib/db";
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     NextResponse.redirect(
       new URL(
         `/admin?tab=presenters&message=${encodeURIComponent(message)}${hash}`,
-        request.url,
+        canonicalBase(request.url),
       ),
       { status: 303 },
     );

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { setPresenterRecipients } from "@/lib/presenter";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.redirect(
     new URL(
       `/admin?tab=presenters&message=${encodeURIComponent(message)}`,
-      request.url,
+      canonicalBase(request.url),
     ),
     { status: 303 },
   );

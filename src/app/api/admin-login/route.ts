@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import {
   ADMIN_COOKIE,
   ADMIN_COOKIE_MAX_AGE,
@@ -30,11 +31,11 @@ export async function POST(request: NextRequest) {
     );
   }
   if (password !== expected) {
-    return NextResponse.redirect(new URL("/admin/login?error=1", request.url), {
+    return NextResponse.redirect(new URL("/admin/login?error=1", canonicalBase(request.url)), {
       status: 303,
     });
   }
-  const response = NextResponse.redirect(new URL("/admin", request.url), {
+  const response = NextResponse.redirect(new URL("/admin", canonicalBase(request.url)), {
     status: 303,
   });
   response.cookies.set(ADMIN_COOKIE, await adminSessionToken(), {

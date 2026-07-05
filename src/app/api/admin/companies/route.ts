@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { eq } from "drizzle-orm";
 import { db, companies } from "@/lib/db";
 import { loadCompanies, slugify } from "@/lib/company-store";
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   const action = String(form.get("action") ?? "");
   const redirect = (message: string) =>
     NextResponse.redirect(
-      new URL(`/admin?tab=settings&message=${encodeURIComponent(message)}`, request.url),
+      new URL(`/admin?tab=settings&message=${encodeURIComponent(message)}`, canonicalBase(request.url)),
       { status: 303 },
     );
 

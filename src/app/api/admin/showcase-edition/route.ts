@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import {
   addShowToEdition,
   createEditionFromPool,
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   const redirect = (message: string, edition?: number | null) =>
     NextResponse.redirect(
       showcaseRedirectUrl(
-        request.url,
+        canonicalBase(request.url),
         form,
         message,
         edition === undefined ? undefined : { edition },

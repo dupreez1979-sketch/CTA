@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { randomBytes } from "crypto";
 import { eq, sql } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     NextResponse.redirect(
       new URL(
         `/admin?tab=subscribers&message=${encodeURIComponent(message)}`,
-        request.url,
+        canonicalBase(request.url),
       ),
       { status: 303 },
     );

@@ -73,6 +73,10 @@ export default function AdminModal({
           maxWidth: 560,
           width: "100%",
           padding: "26px 26px 22px",
+          // Never taller than the visible screen (phone keyboards shrink
+          // it further): scroll inside the card instead of clipping.
+          maxHeight: "calc(100dvh - 32px)",
+          overflowY: "auto",
         }}
       >
         <h2

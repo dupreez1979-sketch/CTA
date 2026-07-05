@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { eq } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
 import type { SubscriberCadence } from "@/lib/db/schema";
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       ? `Changed ${updated[0].email} to ${cadence === "none" ? "Showcase only" : cadence}${cadence === "none" ? "" : showcase ? " plus The Showcase Edition" : ", no Showcase Edition"}`
       : "Subscriber not found";
   return NextResponse.redirect(
-    new URL(`/admin?tab=subscribers&message=${encodeURIComponent(message)}`, request.url),
+    new URL(`/admin?tab=subscribers&message=${encodeURIComponent(message)}`, canonicalBase(request.url)),
     { status: 303 },
   );
 }

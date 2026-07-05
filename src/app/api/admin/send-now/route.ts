@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { issueWindow } from "@/lib/cadence";
 import { sendIssue } from "@/lib/send";
 import type { Cadence } from "@/lib/db/schema";
@@ -25,12 +26,12 @@ export async function POST(request: NextRequest) {
           ? `This ${cadence} window's issue was already sent`
           : `Skipped — no items or no subscribers for ${cadence}`;
     return NextResponse.redirect(
-      new URL(`/admin?tab=editions&message=${encodeURIComponent(message)}`, request.url),
+      new URL(`/admin?tab=editions&message=${encodeURIComponent(message)}`, canonicalBase(request.url)),
       { status: 303 },
     );
   } catch (err) {
     return NextResponse.redirect(
-      new URL(`/admin?tab=editions&message=${encodeURIComponent(`Send failed: ${err}`)}`, request.url),
+      new URL(`/admin?tab=editions&message=${encodeURIComponent(`Send failed: ${err}`)}`, canonicalBase(request.url)),
       { status: 303 },
     );
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { and, inArray, ne } from "drizzle-orm";
 import { db, feedItems } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
   }
   const back = (message: string) => {
     params.set("message", message);
-    return NextResponse.redirect(new URL(`/admin?${params}`, request.url), {
+    return NextResponse.redirect(new URL(`/admin?${params}`, canonicalBase(request.url)), {
       status: 303,
     });
   };

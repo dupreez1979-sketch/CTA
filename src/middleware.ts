@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { ADMIN_COOKIE, adminSessionToken } from "@/lib/admin-session";
 import { messagePageHtml } from "@/lib/message-page";
 
@@ -22,6 +23,25 @@ export async function middleware(request: NextRequest) {
       },
     );
   }
+  // Netlify sometimes serves a request under its deploy-permalink host
+  // (123abc--site.netlify.app). The login cookie lives on the real host
+  // only, so staying there looks like being logged out. Bounce straight
+  // back to the canonical address, keeping the path and query.
+  const appUrl = canonicalBase(request.url);
+  try {
+    const canonicalHost = new URL(appUrl).host;
+    const host = request.nextUrl.host;
+    if (host !== canonicalHost && host.endsWith(`--${canonicalHost}`)) {
+      const url = new URL(
+        request.nextUrl.pathname + request.nextUrl.search,
+        appUrl,
+      );
+      return NextResponse.redirect(url, { status: 308 });
+    }
+  } catch {
+    // APP_URL malformed: skip canonicalisation rather than break admin.
+  }
+
   const { pathname } = request.nextUrl;
   if (pathname === "/admin/login") return NextResponse.next();
 
@@ -40,11 +60,11 @@ export async function middleware(request: NextRequest) {
         { status: 401 },
       );
     }
-    return NextResponse.redirect(new URL("/admin/login", request.url), {
+    return NextResponse.redirect(new URL("/admin/login", canonicalBase(request.url)), {
       status: 303,
     });
   }
-  return NextResponse.redirect(new URL("/admin/login", request.url));
+  return NextResponse.redirect(new URL("/admin/login", canonicalBase(request.url)));
 }
 
 export const config = {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { eq } from "drizzle-orm";
 import { db, feedItems } from "@/lib/db";
 
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.redirect(
     new URL(
       `/admin?tab=settings&message=${encodeURIComponent("Post dismissed from the unfiled list")}`,
-      request.url,
+      canonicalBase(request.url),
     ),
     { status: 303 },
   );

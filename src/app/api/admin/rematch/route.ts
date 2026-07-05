@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, feedItems } from "@/lib/db";
 import { FALLBACK_COMPANY_KEY, matchCompany } from "@/lib/companies";
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
       ? "No unfiled posts to re-check"
       : `Re-checked ${unfiled.length} unfiled post${unfiled.length === 1 ? "" : "s"}: ${moved} now filed under a company, ${unfiled.length - moved} still unmatched`;
   return NextResponse.redirect(
-    new URL(`/admin?tab=settings&message=${encodeURIComponent(message)}`, request.url),
+    new URL(`/admin?tab=settings&message=${encodeURIComponent(message)}`, canonicalBase(request.url)),
     { status: 303 },
   );
 }

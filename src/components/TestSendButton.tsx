@@ -62,7 +62,9 @@ export default function TestSendButton({
               style={{
                 width: "100%",
                 fontFamily: "var(--font-body)",
-                fontSize: 14,
+                // 16px minimum: below that iOS zooms the page on focus,
+                // which breaks the popup layout on phones.
+                fontSize: 16,
                 padding: "10px 12px",
                 border: "2px solid var(--cta-ink)",
                 borderRadius: 12,

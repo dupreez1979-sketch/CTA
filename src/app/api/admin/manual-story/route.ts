@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { randomBytes } from "crypto";
 import { db, feedItems } from "@/lib/db";
 import {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   const asSocial = String(form.get("social") ?? "") === "1";
   const redirect = (message: string, ok = true) =>
     NextResponse.redirect(
-      showcaseRedirectUrl(request.url, form, message, {
+      showcaseRedirectUrl(canonicalBase(request.url), form, message, {
         edition: Number.isInteger(editionId) && editionId > 0 ? editionId : null,
       }),
       { status: ok ? 303 : 303 },

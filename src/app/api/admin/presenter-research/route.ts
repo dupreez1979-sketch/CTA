@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { eq } from "drizzle-orm";
 import { db, companies, feedItems } from "@/lib/db";
 import { researchItem } from "@/lib/show-research";
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
   const form = await request.formData();
   const id = Number(form.get("id"));
   const redirect = (message: string) =>
-    NextResponse.redirect(showcaseRedirectUrl(request.url, form, message), {
+    NextResponse.redirect(showcaseRedirectUrl(canonicalBase(request.url), form, message), {
       status: 303,
     });
   if (!Number.isInteger(id)) return redirect("Invalid input");

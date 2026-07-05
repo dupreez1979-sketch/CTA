@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { setNotifyEmails } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.redirect(
     new URL(
       `/admin?tab=settings&message=${encodeURIComponent(message)}`,
-      request.url,
+      canonicalBase(request.url),
     ),
     { status: 303 },
   );

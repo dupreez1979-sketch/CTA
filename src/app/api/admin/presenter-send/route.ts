@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import {
   sendEditionLive,
   sendEditionTest,
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   const mode = String(form.get("mode") ?? "test");
   const redirect = (message: string, edition: number | null) =>
     NextResponse.redirect(
-      showcaseRedirectUrl(request.url, form, message, { edition }),
+      showcaseRedirectUrl(canonicalBase(request.url), form, message, { edition }),
       { status: 303 },
     );
   if (!Number.isInteger(id) || id <= 0) return redirect("Invalid input", null);

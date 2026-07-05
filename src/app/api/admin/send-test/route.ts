@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { issueWindow } from "@/lib/cadence";
 import { sendTest } from "@/lib/send";
 import { setPresenterRecipients } from "@/lib/presenter";
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     NextResponse.redirect(
       new URL(
         `/admin?tab=editions&message=${encodeURIComponent(message)}`,
-        request.url,
+        canonicalBase(request.url),
       ),
       { status: 303 },
     );

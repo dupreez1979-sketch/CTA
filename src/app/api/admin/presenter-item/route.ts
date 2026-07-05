@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalBase } from "@/lib/canonical";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, feedItems, type PresenterRelevance } from "@/lib/db";
 import {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   const redirect = (message: string, ok = true) =>
     quick
       ? NextResponse.json({ ok, message }, { status: ok ? 200 : 409 })
-      : NextResponse.redirect(showcaseRedirectUrl(request.url, form, message), {
+      : NextResponse.redirect(showcaseRedirectUrl(canonicalBase(request.url), form, message), {
           status: 303,
         });
   // Bulk add from the story pool (Stories tab): every ticked story goes
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       NextResponse.redirect(
         new URL(
           `/admin?tab=review&message=${encodeURIComponent(message)}#story-pool`,
-          request.url,
+          canonicalBase(request.url),
         ),
         { status: 303 },
       );
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
         : "",
     ].join("");
     return NextResponse.redirect(
-      showcaseRedirectUrl(request.url, form, message, { edition: editionId }),
+      showcaseRedirectUrl(canonicalBase(request.url), form, message, { edition: editionId }),
       { status: 303 },
     );
   }

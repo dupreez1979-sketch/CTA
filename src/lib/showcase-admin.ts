@@ -1,3 +1,5 @@
+import { canonicalBase } from "./canonical";
+
 /**
  * Shared redirect builder for The Showcase admin routes: every action
  * bounces back to the tab, preserving the builder context (edition id)
@@ -30,5 +32,5 @@ export function showcaseRedirectUrl(
     typeof anchor === "string" && /^[a-z][a-z0-9-]*$/.test(anchor)
       ? `#${anchor}`
       : "";
-  return new URL(`/admin?${params.toString()}${hash}`, requestUrl);
+  return new URL(`/admin?${params.toString()}${hash}`, canonicalBase(requestUrl));
 }
