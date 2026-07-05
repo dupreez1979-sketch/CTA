@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, feedItems, type PresenterRelevance } from "@/lib/db";
 import {
   RELEVANCE_OPTIONS,
   addItemToEdition,
   addShowFromItem,
   addShowToEdition,
+  createEditionFromPool,
   getEdition,
   moveEditionItem,
   moveEditionShow,
@@ -39,6 +40,75 @@ export async function POST(request: NextRequest) {
       : NextResponse.redirect(showcaseRedirectUrl(request.url, form, message), {
           status: 303,
         });
+  // Bulk add from the story pool (Stories tab): every ticked story goes
+  // into a draft Showcase in one action, creating the draft first when
+  // asked. Lands in the builder so the result is right in front of you.
+  if (action === "add-many") {
+    const ids = form
+      .getAll("ids")
+      .map((v) => Number(v))
+      .filter((n) => Number.isInteger(n) && n > 0);
+    const backToPool = (message: string) =>
+      NextResponse.redirect(
+        new URL(
+          `/admin?tab=review&message=${encodeURIComponent(message)}#story-pool`,
+          request.url,
+        ),
+        { status: 303 },
+      );
+    if (ids.length === 0) return backToPool("No stories selected");
+
+    const asSocial = String(form.get("social") ?? "") === "1";
+    const editionRaw = String(form.get("edition") ?? "");
+    let editionId: number;
+    let createdNew = false;
+    if (editionRaw === "new") {
+      const created = await createEditionFromPool();
+      editionId = created.id;
+      createdNew = true;
+    } else {
+      editionId = Number(editionRaw);
+      if (!Number.isInteger(editionId) || editionId <= 0)
+        return backToPool("Pick a Showcase draft first");
+      const edition = await getEdition(editionId);
+      if (!edition) return backToPool("That Showcase no longer exists");
+      if (edition.status === "sent" || edition.status === "sending")
+        return backToPool("A sent Showcase can't be changed");
+    }
+
+    const added: number[] = [];
+    for (const itemId of ids) {
+      const ok = await addItemToEdition(editionId, itemId);
+      if (!ok) continue;
+      added.push(itemId);
+      if (asSocial) await setEditionItemSocial(editionId, itemId, true);
+    }
+    if (added.length > 0) {
+      // The admin is looking right at them — no need to notify later.
+      await db()
+        .update(feedItems)
+        .set({ presenterNotifiedAt: new Date() })
+        .where(
+          and(
+            inArray(feedItems.id, added),
+            isNull(feedItems.presenterNotifiedAt),
+          ),
+        );
+    }
+    const skipped = ids.length - added.length;
+    const message = [
+      createdNew ? "New Showcase draft created. " : "",
+      `Added ${added.length} stor${added.length === 1 ? "y" : "ies"} to ${asSocial ? "Social Theatre" : "the news stories"}`,
+      skipped > 0
+        ? ` (${skipped} ${skipped === 1 ? "was" : "were"} already in this Showcase)`
+        : "",
+    ].join("");
+    return NextResponse.redirect(
+      showcaseRedirectUrl(request.url, form, message, { edition: editionId }),
+      { status: 303 },
+    );
+  }
+
   if (!Number.isInteger(id)) return redirect("Invalid input", false);
 
   // Moves are the hottest button in the builder: handled first, with no

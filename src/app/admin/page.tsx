@@ -908,6 +908,26 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   );
 }
 
+/**
+ * When the daily pipeline will next pull the feeds: the scheduled function
+ * runs at 21:00 UTC every day (netlify/functions/daily-pipeline.mts),
+ * shown in Sydney time so the label survives daylight saving.
+ */
+function nextAutoRefresh(now: Date = new Date()): string {
+  const next = new Date(now);
+  next.setUTCHours(21, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  const formatted = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Sydney",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(next);
+  return `${formatted} (Sydney time)`;
+}
+
 const REVIEW_PAGE = 20;
 const REVIEW_STATUSES = ["pending", "unsure", "rejected", "approved"] as const;
 type ReviewFilterStatus = (typeof REVIEW_STATUSES)[number];
@@ -943,7 +963,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
   }
 
   const params = parseShowcaseListParams(sp);
-  const [companyList, rows, statusCounts, pool, usedDates, feedRows] =
+  const [companyList, rows, statusCounts, pool, usedDates, feedRows, drafts] =
     await Promise.all([
       loadCompanies(),
       db()
@@ -964,6 +984,14 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       queryStoryPool(params),
       getUsedStoryDates(),
       loadFeeds(),
+      db()
+        .select({
+          id: showcaseEditions.id,
+          createdAt: showcaseEditions.createdAt,
+        })
+        .from(showcaseEditions)
+        .where(sql`${showcaseEditions.status} in ('draft', 'failed')`)
+        .orderBy(desc(showcaseEditions.createdAt)),
     ]);
   const nameByKey = new Map(companyList.map((c) => [c.key, c.name]));
   const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
@@ -1024,20 +1052,16 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
 
   return (
     <>
-    <section className="admin-card">
-      <h2 style={h2}>Refresh stories</h2>
-      <p style={muted}>
-        Runs the same feed-ingest step as the daily pipeline: new posts get
-        an AI headline and summary. Stories from the social feed go straight
-        into the story pool below; stories from media feeds wait in the
-        review queue until you decide.
-      </p>
-      <form action="/api/admin/ingest" method="post">
+    <div style={{ margin: "0 0 26px" }}>
+      <form action="/api/admin/ingest" method="post" style={{ margin: 0 }}>
         <button type="submit" style={buttonStyle}>
-          Refresh stories now
+          Refresh
         </button>
       </form>
-    </section>
+      <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0" }}>
+        Next auto refresh: {nextAutoRefresh()}
+      </p>
+    </div>
 
     <section className="admin-card" id="story-pool">
       <h2 style={h2}>Story pool</h2>
@@ -1050,8 +1074,8 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         rated stories. Social feed stories rated High are offered to each
         New Showcase automatically; stories approved from the review queue
         below join this pool too, but are only ever added to a Showcase by
-        hand. Change a rating here to promote a missed story or keep one
-        out for good.
+        hand. Tick stories to add them to a draft Showcase in one go, or
+        change a rating to promote a missed story or keep one out for good.
       </p>
       <StoryPoolTable
         pool={pool}
@@ -1063,6 +1087,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         params={params}
         tab="review"
         anchor="story-pool"
+        drafts={drafts}
       />
     </section>
 
@@ -2868,6 +2893,7 @@ function StoryPoolTable({
   params,
   tab,
   anchor,
+  drafts,
 }: {
   pool: StoryPoolPage;
   usedDates: Map<number, Date | null>;
@@ -2882,6 +2908,9 @@ function StoryPoolTable({
   tab: "presenters" | "review";
   /** Section id to return to after filtering (forms) and paging (links). */
   anchor: string;
+  /** Draft Showcases for the bulk "add selected" bar; when given, each row
+   * gets a tick box and selected stories can be sent to a draft at once. */
+  drafts?: { id: number; createdAt: Date }[];
 }) {
   const { rows, hasMore } = pool;
   const href = (over: Partial<ShowcaseListParams>) => {
@@ -3000,10 +3029,45 @@ function StoryPoolTable({
         </p>
       ) : (
         <>
+          {drafts && (
+            /* Bulk add: the row tick boxes attach to this form via the
+               form attribute, so it doesn't wrap the table. */
+            <form
+              id="pool-bulk"
+              action="/api/admin/presenter-item"
+              method="post"
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <input type="hidden" name="action" value="add-many" />
+              <SelectAllCheckbox formId="pool-bulk" />
+              <select name="edition" style={smallInput}>
+                {drafts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    Draft #{d.id} · {d.createdAt.toISOString().slice(0, 10)}
+                  </option>
+                ))}
+                <option value="new">New Showcase draft</option>
+              </select>
+              <select name="social" style={smallInput}>
+                <option value="0">As show stories</option>
+                <option value="1">As Social Theatre stories</option>
+              </select>
+              <button type="submit" style={smallButton}>
+                Add selected to Showcase
+              </button>
+            </form>
+          )}
           <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
+                  {drafts && <th style={th}></th>}
                   <th style={th}>{sortLink("date", "Date")}</th>
                   <th style={th}>{sortLink("company", "Company")}</th>
                   <th style={th}>{sortLink("headline", "Headline")}</th>
@@ -3014,6 +3078,17 @@ function StoryPoolTable({
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
+                    {drafts && (
+                      <td style={td}>
+                        <input
+                          type="checkbox"
+                          name="ids"
+                          value={p.id}
+                          form="pool-bulk"
+                          style={{ width: 18, height: 18 }}
+                        />
+                      </td>
+                    )}
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {p.publishedAt.toISOString().slice(0, 10)}
                     </td>
