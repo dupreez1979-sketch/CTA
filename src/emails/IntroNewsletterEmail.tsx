@@ -127,8 +127,8 @@ export default function IntroNewsletterEmail({
         <style>{MOBILE_STYLES}</style>
       </Head>
       <Preview>
-        The newsletter of Australia&#39;s professional children&#39;s theatre
-        makers: choose how you hear from us.
+        Australia&#39;s professional children&#39;s theatre makers now share
+        their news in one place. Here is how to get it in your inbox.
       </Preview>
       <Body
         className="email-bg"
@@ -208,8 +208,8 @@ export default function IntroNewsletterEmail({
             </Text>
             <Text className="body-p" style={{ ...body(16), margin: "0 0 6px" }}>
               Australia&#39;s professional children&#39;s theatre makers now
-              share their news in one place. Here is how to get it delivered
-              to your inbox, as often as you like.
+              share their news in one place. Here is how to get it in your
+              inbox.
             </Text>
           </Section>
 
@@ -218,13 +218,12 @@ export default function IntroNewsletterEmail({
               className="intro-h"
               style={{ ...display(32, 0.94), margin: "0 0 16px" }}
             >
-              One newsletter, every company, your pace
+              News about Australia&#39;s best children&#39;s theatre
             </Text>
             <Text className="body-p" style={body()}>
-              Every edition gathers the latest from the companies of the
-              Children&#39;s Theatre Alliance: new shows, tours, seasons and
-              stories, grouped by company with a short, readable summary for
-              each.
+              Every edition brings together what the companies of the
+              Children&#39;s Theatre Alliance are making: new shows, tours and
+              stories.
             </Text>
           </Section>
 
@@ -256,7 +255,7 @@ export default function IntroNewsletterEmail({
                       style={{ ...body(13.5), margin: "10px 0 0" }}
                     >
                       Weekly and fortnightly editions open with a featured
-                      story picked from across the Alliance.
+                      story from across the Alliance.
                     </Text>
                   </td>
                 </tr>
@@ -286,12 +285,12 @@ export default function IntroNewsletterEmail({
                       className="body-p"
                       style={{ ...body(14.5), margin: 0 }}
                     >
-                      Show news for presenters, programmers and partners:
-                      productions that can tour, profiled with their official
-                      show pages and age ranges. It has no fixed schedule; it
-                      arrives when there is show news worth sharing. Every
-                      subscriber can receive it, or you can choose it on its
-                      own.
+                      Be the first to know about new show announcements. Made
+                      for presenters, programmers and partners, it profiles
+                      productions ready to tour, with their official show
+                      pages and age ranges. News arrives when it happens, so
+                      you can keep up to date with the shows you are
+                      interested in.
                     </Text>
                   </td>
                 </tr>
@@ -368,10 +367,10 @@ export default function IntroNewsletterEmail({
                       }}
                     >
                       The Children&#39;s Theatre Alliance is the national
-                      platform of Australia&#39;s professional theatre
-                      companies making work for children aged 0 to 14.
-                      Together we collaborate to ensure every Australian child
-                      grows up with theatre as part of their life.
+                      platform of Australia&#39;s professional companies
+                      making theatre for children aged 0 to 14. Together we
+                      work to ensure every Australian child grows up with
+                      theatre as part of their life.
                     </Text>
                     <Link
                       href={WEBSITE}
