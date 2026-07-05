@@ -1259,6 +1259,13 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       </p>
 
       {/* Filters */}
+      <details
+        className="tool-fold"
+        open={hasFilters || status !== "pending" || undefined}
+      >
+        <summary>
+          Filters{hasFilters || status !== "pending" ? " (on)" : ""}
+        </summary>
       <form method="get" action="/admin" className="filter-bar">
         <input type="hidden" name="tab" value="review" />
         <div className="filter-field">
@@ -1318,6 +1325,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
           </Link>
         )}
       </form>
+      </details>
 
       {pageRows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
@@ -1329,6 +1337,8 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         <>
           {/* Bulk actions. The row checkboxes attach to this form via the
               form attribute, so it doesn't wrap the table. */}
+          <details className="tool-fold">
+            <summary>Actions</summary>
           <div className="bulk-bar">
             <form
               id="review-bulk"
@@ -1379,6 +1389,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
               </form>
             )}
           </div>
+          </details>
 
           <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -3118,6 +3129,8 @@ function StoryPoolTable({
 
   return (
     <>
+      <details className="tool-fold" open={isFiltered ? true : undefined}>
+        <summary>Filters{isFiltered ? " (on)" : ""}</summary>
       <form method="get" action={`/admin#${anchor}`} className="filter-bar">
         <input type="hidden" name="tab" value="review" />
         <div className="filter-field">
@@ -3172,6 +3185,7 @@ function StoryPoolTable({
           </Link>
         )}
       </form>
+      </details>
       {rows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
           {params.pg > 1 ? (
@@ -3190,30 +3204,33 @@ function StoryPoolTable({
           {drafts && (
             /* Bulk add: the row tick boxes attach to this form via the
                form attribute, so it doesn't wrap the table. */
-            <form
-              id="pool-bulk"
-              action="/api/admin/presenter-item"
-              method="post"
-              className="bulk-bar"
-            >
-              <input type="hidden" name="action" value="add-many" />
-              <SelectAllCheckbox formId="pool-bulk" />
-              <select name="edition" style={smallInput}>
-                {drafts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    Draft #{d.id} · {d.createdAt.toISOString().slice(0, 10)}
-                  </option>
-                ))}
-                <option value="new">New Showcase draft</option>
-              </select>
-              <select name="social" style={smallInput}>
-                <option value="0">As show stories</option>
-                <option value="1">As Social Theatre stories</option>
-              </select>
-              <button type="submit" style={smallButton}>
-                Add selected to Showcase
-              </button>
-            </form>
+            <details className="tool-fold">
+              <summary>Add to Showcase</summary>
+              <form
+                id="pool-bulk"
+                action="/api/admin/presenter-item"
+                method="post"
+                className="bulk-bar"
+              >
+                <input type="hidden" name="action" value="add-many" />
+                <SelectAllCheckbox formId="pool-bulk" />
+                <select name="edition" style={smallInput}>
+                  {drafts.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      Draft #{d.id} · {d.createdAt.toISOString().slice(0, 10)}
+                    </option>
+                  ))}
+                  <option value="new">New Showcase draft</option>
+                </select>
+                <select name="social" style={smallInput}>
+                  <option value="0">As show stories</option>
+                  <option value="1">As Social Theatre stories</option>
+                </select>
+                <button type="submit" style={smallButton}>
+                  Add selected to Showcase
+                </button>
+              </form>
+            </details>
           )}
           <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>

@@ -620,6 +620,59 @@ body {
   background: rgba(172, 158, 252, 0.12);
 }
 
+/* Collapsible toolbar sections ("Filters", "Actions") above the Stories
+   tables: closed they are two small buttons on one line, open they take
+   the full width for their controls. */
+.tool-fold {
+  display: inline-block;
+  margin: 0 10px 12px 0;
+}
+
+.tool-fold[open] {
+  display: block;
+  width: 100%;
+}
+
+.tool-fold > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cta-ink);
+  background: var(--cta-white);
+  border: 2px solid var(--cta-ink);
+  border-radius: 8px;
+  padding: 6px 12px;
+  user-select: none;
+}
+
+.tool-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-fold > summary::after {
+  content: "▾";
+  font-size: 10px;
+}
+
+.tool-fold[open] > summary {
+  background: var(--cta-purple);
+  margin-bottom: 12px;
+}
+
+.tool-fold[open] > summary::after {
+  content: "▴";
+}
+
+.tool-fold .filter-bar,
+.tool-fold .bulk-bar {
+  margin-bottom: 4px;
+}
+
 /* One consistent toolbar above every admin table: labelled filters in a
    row that stack to full width on phones. */
 .filter-bar {
