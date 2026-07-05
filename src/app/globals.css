@@ -620,17 +620,29 @@ body {
   background: rgba(172, 158, 252, 0.12);
 }
 
-/* Collapsible toolbar sections ("Filters", "Actions") above the Stories
-   tables: closed they are two small buttons on one line, open they take
-   the full width for their controls. */
-.tool-fold {
-  display: inline-block;
-  margin: 0 10px 12px 0;
+/* The toggle buttons ("Details", "Filters", "Actions") stay together on
+   one row; opening a fold drops its panel to a full-width line below the
+   row without displacing the buttons (display:contents lifts the summary
+   and panel into the flex row, and the panel is ordered last). */
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
-.tool-fold[open] {
-  display: block;
-  width: 100%;
+.tool-row > .detail-toggle {
+  margin: 0;
+}
+
+.tool-row > details {
+  display: contents;
+}
+
+.tool-row > details > :not(summary) {
+  order: 1;
+  flex-basis: 100%;
 }
 
 .tool-fold > summary {

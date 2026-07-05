@@ -22,8 +22,9 @@ const labelStyle: React.CSSProperties = {
 };
 
 /**
- * The show/social relevance pair in the story pool. Saves in the
- * background (no reload); a brief tick confirms the save.
+ * The show/social relevance pair in the story pool. Each change saves
+ * itself in the background (no Save button, no reload), like the review
+ * queue's company picker; a brief tick confirms the save.
  */
 export default function RatingsForm({
   itemId,
@@ -37,47 +38,39 @@ export default function RatingsForm({
   const router = useRouter();
   const [showVal, setShowVal] = useState(show);
   const [socialVal, setSocialVal] = useState(social);
-  // When fresh server values arrive (e.g. after "AI re-rate" refreshes the
-  // page data), adopt them — otherwise the selects would keep showing the
-  // values from when the page first loaded.
+  // When fresh server values arrive (e.g. after a refresh re-rates the
+  // story), adopt them — otherwise the selects keep the load-time values.
   const [lastProps, setLastProps] = useState({ show, social });
   if (show !== lastProps.show || social !== lastProps.social) {
     setLastProps({ show, social });
     setShowVal(show);
     setSocialVal(social);
   }
-  const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast, show: showToast } = useToast();
   const [, startTransition] = useTransition();
 
-  const save = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/admin/presenter-item", {
-        method: "POST",
-        headers: { "x-quick": "1" },
-        body: new URLSearchParams({
-          action: "ratings",
-          id: String(itemId),
-          relevance: showVal,
-          socialRelevance: socialVal,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setError(data?.message ?? "Could not save the ratings.");
-      } else {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 1500);
-        showToast("Ratings saved");
-      }
-      startTransition(() => router.refresh());
-    } finally {
-      setBusy(false);
+  const save = async (relevance: string, socialRelevance: string) => {
+    const res = await fetch("/api/admin/presenter-item", {
+      method: "POST",
+      headers: { "x-quick": "1" },
+      body: new URLSearchParams({
+        action: "ratings",
+        id: String(itemId),
+        relevance,
+        socialRelevance,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.message ?? "Could not save the ratings.");
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+      showToast("Ratings saved");
     }
+    startTransition(() => router.refresh());
   };
 
   return (
@@ -86,7 +79,10 @@ export default function RatingsForm({
         Show{" "}
         <select
           value={showVal}
-          onChange={(e) => setShowVal(e.target.value)}
+          onChange={(e) => {
+            setShowVal(e.target.value);
+            save(e.target.value, socialVal);
+          }}
           style={selectStyle}
         >
           <option value="high">high</option>
@@ -98,7 +94,10 @@ export default function RatingsForm({
         Social{" "}
         <select
           value={socialVal}
-          onChange={(e) => setSocialVal(e.target.value)}
+          onChange={(e) => {
+            setSocialVal(e.target.value);
+            save(showVal, e.target.value);
+          }}
           style={{ ...selectStyle, background: "var(--cta-mint)" }}
         >
           <option value="high">high</option>
@@ -106,25 +105,19 @@ export default function RatingsForm({
           <option value="low">low</option>
         </select>
       </label>
-      <button
-        type="button"
-        onClick={save}
-        disabled={busy}
+      <span
+        aria-live="polite"
         style={{
-          fontFamily: "var(--font-body)",
+          fontSize: 13,
           fontWeight: 700,
-          fontSize: 12,
-          color: "var(--cta-ink)",
-          background: saved ? "var(--cta-emerald)" : "var(--cta-white)",
-          border: "2px solid var(--cta-ink)",
-          borderRadius: 8,
-          padding: "6px 12px",
-          cursor: busy ? "wait" : "pointer",
-          opacity: busy ? 0.5 : 1,
+          color: "var(--cta-emerald)",
+          opacity: saved ? 1 : 0,
+          transition: "opacity 0.2s",
+          width: 14,
         }}
       >
-        {saved ? "✓" : "Save"}
-      </button>
+        ✓
+      </span>
       <AdminModal
         open={error !== null}
         title="That didn't work"

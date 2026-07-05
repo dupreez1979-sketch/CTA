@@ -1073,7 +1073,7 @@ function nextAutoRefresh(now: Date = new Date()): string {
 }
 
 const REVIEW_PAGE = 20;
-const REVIEW_STATUSES = ["pending", "unsure", "rejected", "approved"] as const;
+const REVIEW_STATUSES = ["pending", "rejected", "approved"] as const;
 type ReviewFilterStatus = (typeof REVIEW_STATUSES)[number];
 
 const CONFIDENCE_COLOURS: Record<string, string> = {
@@ -1189,7 +1189,6 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
 
   const STATUS_LABEL: Record<ReviewFilterStatus, string> = {
     pending: "Pending",
-    unsure: "Unsure",
     rejected: "Rejected",
     approved: "Approved",
   };
@@ -1197,11 +1196,23 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
   return (
     <>
     <div style={{ margin: "0 0 26px" }}>
-      <form action="/api/admin/ingest" method="post" style={{ margin: 0 }}>
-        <button type="submit" style={buttonStyle}>
-          Refresh
-        </button>
-      </form>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <form action="/api/admin/ingest" method="post" style={{ margin: 0 }}>
+          <button type="submit" style={buttonStyle}>
+            Refresh
+          </button>
+        </form>
+        <HelpTip title="What Refresh does">
+          Refresh pulls every active feed and files what it finds. Stories
+          from the social feed get an AI headline, summary and show and
+          Social Theatre ratings, then go straight into the story pool.
+          Stories from media feeds are read by the AI (which suggests the
+          company and how confident it is) and wait in the review queue
+          below for your approval. Nothing is emailed. This runs on its own
+          once every morning; press Refresh to pull new stories right now
+          rather than wait for the next run.
+        </HelpTip>
+      </div>
       <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0" }}>
         Next auto refresh: {nextAutoRefresh()}
       </p>
@@ -1253,12 +1264,12 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       <p style={{ ...muted, marginBottom: 16 }}>
         Waiting: <strong>{countBy.pending ?? 0} pending</strong>
         {" · "}
-        {countBy.unsure ?? 0} unsure {" · "}
         {countBy.rejected ?? 0} rejected {" · "}
         {countBy.approved ?? 0} approved
       </p>
 
-      {/* Filters */}
+      {/* Filters + actions toolbar */}
+      <div className="tool-row">
       <DetailToggle />
       <details className="tool-fold">
         <summary>Filters</summary>
@@ -1322,19 +1333,11 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         )}
       </form>
       </details>
-
-      {pageRows.length === 0 ? (
-        <p style={{ ...muted, marginBottom: 0 }}>
-          {status === "pending" && !hasFilters
-            ? "Nothing waiting for review. Stories from manual review feeds land here after the next refresh."
-            : "No stories match these filters."}
-        </p>
-      ) : (
-        <>
-          {/* Bulk actions. The row checkboxes attach to this form via the
-              form attribute, so it doesn't wrap the table. */}
-          <details className="tool-fold">
-            <summary>Actions</summary>
+      {pageRows.length > 0 && (
+        /* Bulk actions. The row checkboxes attach to these forms via the
+           form attribute, so they don't wrap the table. */
+        <details className="tool-fold">
+          <summary>Actions</summary>
           <div className="bulk-bar">
             <form
               id="review-bulk"
@@ -1351,14 +1354,6 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                 style={smallButton}
               >
                 Approve selected
-              </button>
-              <button
-                type="submit"
-                name="op"
-                value="unsure"
-                style={{ ...smallButton, background: "var(--cta-white)" }}
-              >
-                Mark unsure
               </button>
               <button type="submit" name="op" value="reject" style={dangerButton}>
                 Reject selected
@@ -1385,8 +1380,18 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
               </form>
             )}
           </div>
-          </details>
+        </details>
+      )}
+      </div>
 
+      {pageRows.length === 0 ? (
+        <p style={{ ...muted, marginBottom: 0 }}>
+          {status === "pending" && !hasFilters
+            ? "Nothing waiting for review. Stories from manual review feeds land here after the next refresh."
+            : "No stories match these filters."}
+        </p>
+      ) : (
+        <>
           <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -1452,20 +1457,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                     </td>
                     <td style={{ ...td, maxWidth: 160 }}>{sourceOf(it)}</td>
                     <td style={td}>
-                      {it.aiMatchConfidence && (
-                        <span
-                          style={{
-                            ...badge(
-                              CONFIDENCE_COLOURS[it.aiMatchConfidence] ??
-                                "var(--cta-white)",
-                            ),
-                            marginBottom: 6,
-                          }}
-                        >
-                          {it.aiMatchConfidence}
-                        </span>
-                      )}
-                      <div style={{ marginTop: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
                         <select
                           form={`rv-${it.id}`}
                           name="company"
@@ -1478,6 +1470,30 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                             </option>
                           ))}
                         </select>
+                        {it.aiMatchConfidence && (
+                          <HelpTip title="AI match confidence">
+                            <span
+                              style={{
+                                ...badge(
+                                  CONFIDENCE_COLOURS[it.aiMatchConfidence] ??
+                                    "var(--cta-white)",
+                                ),
+                              }}
+                            >
+                              {it.aiMatchConfidence}
+                            </span>
+                            <p style={{ margin: "12px 0 0" }}>
+                              How sure the AI is that this article is about the
+                              suggested company.{" "}
+                              <strong>High</strong> the article clearly names
+                              and describes that Australian company;{" "}
+                              <strong>medium</strong> probably, but the
+                              evidence is thin; <strong>low</strong> a name
+                              mention that may be a different organisation.
+                              Always your call.
+                            </p>
+                          </HelpTip>
+                        )}
                       </div>
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
@@ -1490,21 +1506,6 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                           style={{ ...smallButton, marginRight: 6 }}
                         >
                           Approve
-                        </button>
-                      )}
-                      {status !== "unsure" && (
-                        <button
-                          form={`rv-${it.id}`}
-                          type="submit"
-                          name="op"
-                          value="unsure"
-                          style={{
-                            ...smallButton,
-                            background: "var(--cta-white)",
-                            marginRight: 6,
-                          }}
-                        >
-                          Unsure
                         </button>
                       )}
                       {status !== "rejected" && (
@@ -3119,6 +3120,7 @@ function StoryPoolTable({
 
   return (
     <>
+      <div className="tool-row">
       <DetailToggle />
       <details className="tool-fold">
         <summary>Filters</summary>
@@ -3176,6 +3178,38 @@ function StoryPoolTable({
         )}
       </form>
       </details>
+      {drafts && rows.length > 0 && (
+        /* Bulk add: the row tick boxes attach to this form via the form
+           attribute, so it doesn't wrap the table. */
+        <details className="tool-fold">
+          <summary>Actions</summary>
+          <form
+            id="pool-bulk"
+            action="/api/admin/presenter-item"
+            method="post"
+            className="bulk-bar"
+          >
+            <input type="hidden" name="action" value="add-many" />
+            <SelectAllCheckbox formId="pool-bulk" />
+            <select name="edition" style={smallInput}>
+              {drafts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  Draft #{d.id} · {d.createdAt.toISOString().slice(0, 10)}
+                </option>
+              ))}
+              <option value="new">New Showcase draft</option>
+            </select>
+            <select name="social" style={smallInput}>
+              <option value="0">As show stories</option>
+              <option value="1">As Social Theatre stories</option>
+            </select>
+            <button type="submit" style={smallButton}>
+              Add selected to Showcase
+            </button>
+          </form>
+        </details>
+      )}
+      </div>
       {rows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
           {params.pg > 1 ? (
@@ -3191,37 +3225,6 @@ function StoryPoolTable({
         </p>
       ) : (
         <>
-          {drafts && (
-            /* Bulk add: the row tick boxes attach to this form via the
-               form attribute, so it doesn't wrap the table. */
-            <details className="tool-fold">
-              <summary>Actions</summary>
-              <form
-                id="pool-bulk"
-                action="/api/admin/presenter-item"
-                method="post"
-                className="bulk-bar"
-              >
-                <input type="hidden" name="action" value="add-many" />
-                <SelectAllCheckbox formId="pool-bulk" />
-                <select name="edition" style={smallInput}>
-                  {drafts.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      Draft #{d.id} · {d.createdAt.toISOString().slice(0, 10)}
-                    </option>
-                  ))}
-                  <option value="new">New Showcase draft</option>
-                </select>
-                <select name="social" style={smallInput}>
-                  <option value="0">As show stories</option>
-                  <option value="1">As Social Theatre stories</option>
-                </select>
-                <button type="submit" style={smallButton}>
-                  Add selected to Showcase
-                </button>
-              </form>
-            </details>
-          )}
           <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -3304,20 +3307,11 @@ function StoryPoolTable({
                       {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <RatingsForm
-                          itemId={p.id}
-                          show={p.presenterRelevance}
-                          social={p.socialRelevance}
-                        />
-                        <QuickAction
-                          fields={{ action: "reassess", id: p.id }}
-                          announce
-                          style={{ ...smallButton, background: "var(--cta-white)" }}
-                        >
-                          AI re-rate
-                        </QuickAction>
-                      </div>
+                      <RatingsForm
+                        itemId={p.id}
+                        show={p.presenterRelevance}
+                        social={p.socialRelevance}
+                      />
                     </td>
                   </tr>
                 ))}
