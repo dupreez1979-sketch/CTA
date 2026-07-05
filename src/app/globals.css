@@ -673,6 +673,37 @@ body {
   margin-bottom: 4px;
 }
 
+/* "Details" switch: summary lines under story titles start hidden and
+   appear when the card's toggle is on. */
+.detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cta-ink);
+  background: var(--cta-white);
+  border: 2px solid var(--cta-ink);
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin: 0 10px 12px 0;
+  vertical-align: top;
+}
+
+.admin-card[data-details] .detail-toggle {
+  background: var(--cta-purple);
+}
+
+.story-summary {
+  display: none;
+}
+
+.admin-card[data-details] .story-summary {
+  display: block;
+}
+
 /* One consistent toolbar above every admin table: labelled filters in a
    row that stack to full width on phones. */
 .filter-bar {

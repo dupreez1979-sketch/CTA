@@ -49,6 +49,7 @@ import HelpTip from "@/components/HelpTip";
 import TestSendButton from "@/components/TestSendButton";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 import AddShowModal from "@/components/AddShowModal";
+import DetailToggle from "@/components/DetailToggle";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
@@ -1258,6 +1259,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       </p>
 
       {/* Filters */}
+      <DetailToggle />
       <details className="tool-fold">
         <summary>Filters</summary>
       <form method="get" action="/admin" className="filter-bar">
@@ -1437,6 +1439,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                       </a>
                       {it.aiMatchReason && (
                         <div
+                          className="story-summary"
                           style={{
                             fontSize: 12,
                             color: "var(--text-muted)",
@@ -3116,6 +3119,7 @@ function StoryPoolTable({
 
   return (
     <>
+      <DetailToggle />
       <details className="tool-fold">
         <summary>Filters</summary>
       <form method="get" action={`/admin#${anchor}`} className="filter-bar">
@@ -3247,9 +3251,11 @@ function StoryPoolTable({
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {p.publishedAt.toISOString().slice(0, 10)}
                     </td>
-                    <td style={{ ...td, minWidth: 220 }}>
-                      {p.aiHeading.slice(0, 70)}
-                      {p.aiHeading.length > 70 ? "…" : ""}
+                    <td style={{ ...td, minWidth: 220, maxWidth: 420 }}>
+                      <strong style={{ fontSize: 13.5 }}>
+                        {p.aiHeading.slice(0, 90)}
+                        {p.aiHeading.length > 90 ? "…" : ""}
+                      </strong>
                       {p.postUrl && (
                         <>
                           {" "}
@@ -3276,6 +3282,19 @@ function StoryPoolTable({
                             ? ` ${usedDates.get(p.id)!.toISOString().slice(0, 10)}`
                             : ""}
                         </span>
+                      )}
+                      {p.aiSummary && (
+                        <div
+                          className="story-summary"
+                          style={{
+                            fontSize: 12.5,
+                            color: "var(--text-body)",
+                            marginTop: 4,
+                            fontWeight: 400,
+                          }}
+                        >
+                          {p.aiSummary}
+                        </div>
                       )}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
