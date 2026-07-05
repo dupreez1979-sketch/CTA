@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canonicalBase } from "@/lib/canonical";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { db, feedItems, type PresenterRelevance } from "@/lib/db";
+import {
+  db,
+  feedItems,
+  newsletterInclusions,
+  type PresenterRelevance,
+} from "@/lib/db";
 import {
   RELEVANCE_OPTIONS,
   addItemToEdition,
@@ -41,6 +46,58 @@ export async function POST(request: NextRequest) {
       : NextResponse.redirect(showcaseRedirectUrl(canonicalBase(request.url), form, message), {
           status: 303,
         });
+  const backToPool = (message: string) =>
+    NextResponse.redirect(
+      new URL(
+        `/admin?tab=review&message=${encodeURIComponent(message)}#story-pool`,
+        canonicalBase(request.url),
+      ),
+      { status: 303 },
+    );
+
+  // Story pool "Regular +": push a story into the next send of every
+  // cadence. It appears once in each, then drops off (send.ts clears the
+  // rows once that cadence has gone out).
+  if (action === "force-newsletter") {
+    if (!Number.isInteger(id) || id <= 0) return backToPool("Invalid input");
+    const [story] = await db()
+      .select()
+      .from(feedItems)
+      .where(eq(feedItems.id, id))
+      .limit(1);
+    if (!story) return backToPool("Story not found");
+    // Social/auto-feed stories are already in the newsletters.
+    if (story.source === "feed" && story.reviewStatus === "auto")
+      return backToPool("That story is already in the newsletters");
+    await db()
+      .insert(newsletterInclusions)
+      .values(
+        (["daily", "weekly", "fortnightly"] as const).map((cadence) => ({
+          feedItemId: id,
+          cadence,
+        })),
+      )
+      .onConflictDoNothing();
+    return backToPool(
+      `"${story.aiHeading.slice(0, 50)}" will be in the next daily, weekly and fortnightly newsletter`,
+    );
+  }
+
+  // Story pool "X": drop a story from the pool for good. Kept in the DB so
+  // the feed's de-duplication stops the article ever coming back.
+  if (action === "ignore") {
+    if (!Number.isInteger(id) || id <= 0) return backToPool("Invalid input");
+    const updated = await db()
+      .update(feedItems)
+      .set({ ignored: true })
+      .where(eq(feedItems.id, id))
+      .returning({ heading: feedItems.aiHeading });
+    if (updated.length === 0) return backToPool("Story not found");
+    return backToPool(
+      `Removed "${updated[0].heading.slice(0, 50)}" from the story pool for good`,
+    );
+  }
+
   // Bulk add from the story pool (Stories tab): every ticked story goes
   // into a draft Showcase in one action, creating the draft first when
   // asked. Lands in the builder so the result is right in front of you.
@@ -49,14 +106,6 @@ export async function POST(request: NextRequest) {
       .getAll("ids")
       .map((v) => Number(v))
       .filter((n) => Number.isInteger(n) && n > 0);
-    const backToPool = (message: string) =>
-      NextResponse.redirect(
-        new URL(
-          `/admin?tab=review&message=${encodeURIComponent(message)}#story-pool`,
-          canonicalBase(request.url),
-        ),
-        { status: 303 },
-      );
     if (ids.length === 0) return backToPool("No stories selected");
 
     const asSocial = String(form.get("social") ?? "") === "1";

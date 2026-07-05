@@ -1165,8 +1165,9 @@ export async function queryStoryPool(
   p: ShowcaseListParams,
   opts: { excludeEditionId?: number } = {},
 ): Promise<StoryPoolPage> {
-  // Pending/rejected review-feed items live in the Review queue, not here.
-  const conditions = [usableStory()];
+  // Pending/rejected review-feed items live in the Review queue, not here;
+  // ignored stories (the X action) are dropped from the pool for good.
+  const conditions = [usableStory(), eq(feedItems.ignored, false)];
   if (p.rel === "high") {
     conditions.push(eq(feedItems.presenterRelevance, "high"));
   } else if (p.rel === "s-high") {

@@ -1,4 +1,4 @@
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, or } from "drizzle-orm";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
@@ -7,6 +7,7 @@ import {
   deliveries,
   feedItems,
   issues,
+  newsletterInclusions,
   subscribers,
   type FeedItem,
 } from "./db";
@@ -65,20 +66,30 @@ export async function assembleIssue(
 ): Promise<AssembledIssue | null> {
   const baseUrl = env("APP_URL").replace(/\/$/, "");
   const nameByKey = await companyNameMap();
+  // Stories explicitly pushed into this cadence via the pool's Regular "+"
+  // are included regardless of their publishing window.
+  const forced = db()
+    .select({ id: newsletterInclusions.feedItemId })
+    .from(newsletterInclusions)
+    .where(eq(newsletterInclusions.cadence, window.cadence));
   const items = await db()
     .select()
     .from(feedItems)
     .where(
       and(
-        gte(feedItems.publishedAt, window.start),
-        lt(feedItems.publishedAt, window.end),
-        // Stories written by hand in the Showcase builder belong to The
-        // Showcase only, never to the cadence newsletter.
-        eq(feedItems.source, "feed"),
-        // Only stories from trusted automatic feeds. Review-feed stories,
-        // even approved ones, are Showcase-only for now: they can be added
-        // to an edition by hand but never enter the cadence newsletters.
-        eq(feedItems.reviewStatus, "auto"),
+        eq(feedItems.ignored, false),
+        or(
+          // Trusted automatic-feed stories within the window (the default).
+          // Hand-written and review-feed stories never enter here on their
+          // own; they arrive only when explicitly forced in (below).
+          and(
+            gte(feedItems.publishedAt, window.start),
+            lt(feedItems.publishedAt, window.end),
+            eq(feedItems.source, "feed"),
+            eq(feedItems.reviewStatus, "auto"),
+          ),
+          inArray(feedItems.id, forced),
+        ),
       ),
     )
     .orderBy(feedItems.publishedAt);
@@ -234,6 +245,14 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
         sentAt: status === "sent" ? new Date() : null,
       })
       .where(eq(issues.id, issueId));
+    // Forced stories are "for the next send" of this cadence: once it has
+    // actually gone out, clear them so they appear once then drop off. A
+    // skipped send keeps them waiting for the next real one.
+    if (status === "sent") {
+      await db()
+        .delete(newsletterInclusions)
+        .where(eq(newsletterInclusions.cadence, window.cadence));
+    }
   };
 
   try {

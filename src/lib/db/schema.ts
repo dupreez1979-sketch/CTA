@@ -180,11 +180,35 @@ export const feedItems = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // Removed from the story pool via the "ignore" (X) action. Kept so the
+    // feed's guid de-duplication stops the article ever coming back.
+    ignored: boolean("ignored").notNull().default(false),
   },
   (t) => [
     uniqueIndex("feed_items_guid_idx").on(t.guid),
     index("feed_items_review_idx").on(t.reviewStatus, t.publishedAt),
   ],
+);
+
+/**
+ * A story explicitly pushed into the next regular newsletter of a cadence
+ * (the story pool's Regular "+"). assembleIssue includes these regardless
+ * of the publishing window; the row is cleared once that cadence sends, so
+ * the story appears once then drops off.
+ */
+export const newsletterInclusions = pgTable(
+  "newsletter_inclusions",
+  {
+    id: serial("id").primaryKey(),
+    feedItemId: integer("feed_item_id").notNull(),
+    cadence: text("cadence", {
+      enum: ["daily", "weekly", "fortnightly"],
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("newsletter_inclusion_idx").on(t.feedItemId, t.cadence)],
 );
 
 /** Curated show registry powering The Showcase's "Shows in the Spotlight" list. */

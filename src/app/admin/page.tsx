@@ -49,6 +49,7 @@ import HelpTip from "@/components/HelpTip";
 import TestSendButton from "@/components/TestSendButton";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 import AddShowModal from "@/components/AddShowModal";
+import ShowcaseAddModal from "@/components/ShowcaseAddModal";
 import DetailToggle from "@/components/DetailToggle";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
@@ -1503,9 +1504,11 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                           type="submit"
                           name="op"
                           value="approve"
+                          title="Approve: add to the story pool"
+                          aria-label="Approve"
                           style={{ ...smallButton, marginRight: 6 }}
                         >
-                          Approve
+                          + Approve
                         </button>
                       )}
                       {status !== "rejected" && (
@@ -1514,9 +1517,11 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                           type="submit"
                           name="op"
                           value="reject"
+                          title="Reject: keep out for good"
+                          aria-label="Reject"
                           style={dangerButton}
                         >
-                          Reject
+                          ✕
                         </button>
                       )}
                     </td>
@@ -3076,6 +3081,10 @@ function StoryPoolTable({
   drafts?: { id: number; createdAt: Date }[];
 }) {
   const { rows, hasMore } = pool;
+  const draftOptions = (drafts ?? []).map((d) => ({
+    id: d.id,
+    label: `Draft #${d.id} · ${d.createdAt.toISOString().slice(0, 10)}`,
+  }));
   const href = (over: Partial<ShowcaseListParams>) => {
     // Changing sort or filters implicitly resets to page 1 unless the
     // override sets pg itself.
@@ -3179,34 +3188,20 @@ function StoryPoolTable({
       </form>
       </details>
       {drafts && rows.length > 0 && (
-        /* Bulk add: the row tick boxes attach to this form via the form
-           attribute, so it doesn't wrap the table. */
+        /* Bulk add: tick rows, then this opens the same popup as the
+           per-row Showcase +. Row tick boxes carry form="pool-bulk". */
         <details className="tool-fold">
           <summary>Actions</summary>
-          <form
-            id="pool-bulk"
-            action="/api/admin/presenter-item"
-            method="post"
-            className="bulk-bar"
-          >
-            <input type="hidden" name="action" value="add-many" />
+          <div className="bulk-bar">
             <SelectAllCheckbox formId="pool-bulk" />
-            <select name="edition" style={smallInput}>
-              {drafts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  Draft #{d.id} · {d.createdAt.toISOString().slice(0, 10)}
-                </option>
-              ))}
-              <option value="new">New Showcase draft</option>
-            </select>
-            <select name="social" style={smallInput}>
-              <option value="0">As show stories</option>
-              <option value="1">As Social Theatre stories</option>
-            </select>
-            <button type="submit" style={smallButton}>
+            <ShowcaseAddModal
+              bulk
+              drafts={draftOptions}
+              style={smallButton}
+            >
               Add selected to Showcase
-            </button>
-          </form>
+            </ShowcaseAddModal>
+          </div>
         </details>
       )}
       </div>
@@ -3235,6 +3230,7 @@ function StoryPoolTable({
                   <th style={th}>{sortLink("source", "Source")}</th>
                   <th style={th}>{sortLink("company", "Company")}</th>
                   <th style={th}>{sortLink("relevance", "Rating")}</th>
+                  <th style={th}>Newsletters</th>
                 </tr>
               </thead>
               <tbody>
@@ -3312,6 +3308,64 @@ function StoryPoolTable({
                         show={p.presenterRelevance}
                         social={p.socialRelevance}
                       />
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {p.source === "feed" && p.reviewStatus === "auto" ? (
+                          <span
+                            title="Already in the newsletters"
+                            style={{
+                              ...smallButton,
+                              background: "var(--cta-white)",
+                              opacity: 0.4,
+                              cursor: "default",
+                            }}
+                          >
+                            Regular ✓
+                          </span>
+                        ) : (
+                          <form
+                            action="/api/admin/presenter-item"
+                            method="post"
+                            style={{ display: "inline" }}
+                          >
+                            <input type="hidden" name="action" value="force-newsletter" />
+                            <input type="hidden" name="id" value={p.id} />
+                            <ConfirmSubmit
+                              title="Add to the newsletters"
+                              message={`Add "${p.aiHeading.slice(0, 50)}" to the next daily, weekly and fortnightly newsletter? It appears once in each, then drops off.`}
+                              confirmLabel="Add"
+                              style={{ ...smallButton, background: "var(--cta-white)" }}
+                            >
+                              Regular +
+                            </ConfirmSubmit>
+                          </form>
+                        )}
+                        <ShowcaseAddModal
+                          itemId={p.id}
+                          drafts={draftOptions}
+                          style={{ ...smallButton }}
+                        >
+                          Showcase +
+                        </ShowcaseAddModal>
+                        <form
+                          action="/api/admin/presenter-item"
+                          method="post"
+                          style={{ display: "inline" }}
+                        >
+                          <input type="hidden" name="action" value="ignore" />
+                          <input type="hidden" name="id" value={p.id} />
+                          <ConfirmSubmit
+                            danger
+                            title="Remove from the story pool"
+                            message={`Remove "${p.aiHeading.slice(0, 50)}" from the story pool for good? It will not come back, even if the feed lists it again.`}
+                            confirmLabel="Remove for good"
+                            style={{ ...smallButton, background: "var(--cta-pink)" }}
+                          >
+                            ✕
+                          </ConfirmSubmit>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))}

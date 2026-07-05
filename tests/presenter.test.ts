@@ -51,6 +51,7 @@ function item(overrides: Partial<FeedItem>): FeedItem {
     rawText: null,
     reviewedAt: null,
     reviewedBy: null,
+    ignored: false,
     // Deprecated columns still present on the row type
     presenterRelevant: false,
     presenterStatus: null,

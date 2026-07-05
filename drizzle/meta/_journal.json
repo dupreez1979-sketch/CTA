@@ -113,6 +113,13 @@
       "when": 1783200381007,
       "tag": "0015_rss-feeds-review",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1783200441007,
+      "tag": "0016_newsletter-inclusions",
+      "breakpoints": true
     }
   ]
 }
