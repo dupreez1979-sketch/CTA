@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lt, or } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
@@ -72,6 +72,10 @@ export async function assembleIssue(
     .select({ id: newsletterInclusions.feedItemId })
     .from(newsletterInclusions)
     .where(eq(newsletterInclusions.cadence, window.cadence));
+  // "Our" date: when the story entered the system (a media story's
+  // approval date, otherwise the feed-ingest date), not the article's
+  // original publish date. This is what the newsletter window uses.
+  const ourDate = sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt})`;
   const items = await db()
     .select()
     .from(feedItems)
@@ -83,8 +87,8 @@ export async function assembleIssue(
           // Hand-written and review-feed stories never enter here on their
           // own; they arrive only when explicitly forced in (below).
           and(
-            gte(feedItems.publishedAt, window.start),
-            lt(feedItems.publishedAt, window.end),
+            gte(ourDate, window.start),
+            lt(ourDate, window.end),
             eq(feedItems.source, "feed"),
             eq(feedItems.reviewStatus, "auto"),
           ),
@@ -92,7 +96,7 @@ export async function assembleIssue(
         ),
       ),
     )
-    .orderBy(feedItems.publishedAt);
+    .orderBy(ourDate);
   if (items.length === 0) return null;
 
   // Newest first within the window

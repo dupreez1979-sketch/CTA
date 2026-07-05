@@ -1116,7 +1116,8 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         .select()
         .from(feedItems)
         .where(and(...conditions))
-        .orderBy(desc(feedItems.publishedAt))
+        // Newest-added first: when the refresh brought it into the queue.
+        .orderBy(sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt}) desc`)
         .limit(REVIEW_PAGE + 1)
         .offset((pg - 1) * REVIEW_PAGE),
       db()
@@ -1382,6 +1383,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
               <thead>
                 <tr>
                   <th style={th}></th>
+                  <th style={th}>Added</th>
                   <th style={th}>Published</th>
                   <th style={th}>Story</th>
                   <th style={th}>Source</th>
@@ -1400,6 +1402,9 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                         form="review-bulk"
                         style={{ width: 18, height: 18 }}
                       />
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {(it.reviewedAt ?? it.createdAt).toISOString().slice(0, 10)}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {it.publishedAt.toISOString().slice(0, 10)}
@@ -3219,7 +3224,8 @@ function StoryPoolTable({
               <thead>
                 <tr>
                   {drafts && <th style={th}></th>}
-                  <th style={th}>{sortLink("date", "Published")}</th>
+                  <th style={th}>{sortLink("date", "Added")}</th>
+                  <th style={th}>Published</th>
                   <th style={th}>{sortLink("headline", "Story")}</th>
                   <th style={th}>{sortLink("source", "Source")}</th>
                   <th style={th}>{sortLink("company", "Company")}</th>
@@ -3241,6 +3247,9 @@ function StoryPoolTable({
                         />
                       </td>
                     )}
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {(p.reviewedAt ?? p.createdAt).toISOString().slice(0, 10)}
+                    </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {p.publishedAt.toISOString().slice(0, 10)}
                     </td>

@@ -1198,6 +1198,9 @@ export async function queryStoryPool(
   // Feed name via a subquery so the row shape stays a plain FeedItem;
   // hand-written stories (no feed) sort together at the end.
   const feedName = sql`coalesce((select f.name from feeds f where f.id = ${feedItems.feedId}), 'zzz-manual')`;
+  // "Our" date: approval date for media stories, else the feed-ingest
+  // date. This is the effective publish date the pool sorts by.
+  const ourDate = sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt})`;
   const orderCol =
     p.sort === "company"
       ? feedItems.companyKey
@@ -1207,7 +1210,7 @@ export async function queryStoryPool(
           ? relevanceRank
           : p.sort === "source"
             ? feedName
-            : feedItems.publishedAt;
+            : ourDate;
 
   // Fetch one extra row to know whether a further page exists.
   const rows = await db()
@@ -1216,7 +1219,7 @@ export async function queryStoryPool(
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(
       p.dir === "asc" ? asc(orderCol) : desc(orderCol),
-      desc(feedItems.publishedAt),
+      desc(ourDate),
     )
     .limit(p.ps + 1)
     .offset((p.pg - 1) * p.ps);
