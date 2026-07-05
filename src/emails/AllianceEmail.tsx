@@ -79,6 +79,8 @@ const INK = COLORS.ink;
  */
 const MOBILE_STYLES = `
 @media only screen and (max-width: 480px) {
+  /* Full-bleed on phones: hide the mint backdrop so the email fills the screen. */
+  .email-bg, .bg-pad, body { padding: 0 !important; }
   .px { padding-left: 20px !important; padding-right: 20px !important; }
   .logo { height: 88px !important; }
   .footer-logo { height: 72px !important; }
@@ -134,17 +136,21 @@ export default function AllianceEmail({
       </Head>
       <Preview>{`${intro} — ${dateRange}`}</Preview>
       <Body
+        className="email-bg"
         style={{
           // Mint backdrop: the cream email floats on it like a card.
+          // The padding lives on the .bg-pad Section below, NOT here: React
+          // Email moves Body styles onto a wrapper the mobile styles can't
+          // target, and phones need to strip the padding to go full-bleed.
           margin: 0,
           backgroundColor: COLORS.mint,
-          padding: "28px 12px",
           fontFamily: FONT_BODY,
           color: INK,
         }}
       >
         {/* Hybrid width: the attribute keeps desktop Outlook at 680px; the
             CSS makes modern clients fluid (full-width on phones). */}
+        <Section className="bg-pad" style={{ padding: "28px 12px" }}>
         <Container
           width={680}
           style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
@@ -635,6 +641,7 @@ export default function AllianceEmail({
             </Text>
           </Section>
         </Container>
+        </Section>
       </Body>
     </Html>
   );
