@@ -390,6 +390,28 @@ body {
   display: contents;
 }
 
+/* Settings and Log out live in the bar as icons; the word only appears
+   inside the mobile overlay where space is no concern. */
+.admin-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-nav-icon svg {
+  display: block;
+}
+
+.admin-nav-icon-label {
+  display: none;
+}
+
+.admin-nav-icon:hover,
+.admin-nav-icon[aria-current="true"] {
+  text-decoration: none;
+  color: var(--cta-violet);
+}
+
 /* Burger menu: on narrow screens the links live in a full-screen mint
    overlay, like the website's mobile navigation. AdminNav (client
    component) toggles it and closes it when an item is selected. */
@@ -475,6 +497,10 @@ body {
 
   .admin-nav-links .admin-nav-link:hover {
     text-decoration: none;
+  }
+
+  .admin-nav-links .admin-nav-icon-label {
+    display: inline;
   }
 }
 

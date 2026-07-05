@@ -52,21 +52,69 @@ export default function AdminNav({
         >
           ✕
         </button>
-        {tabs.map((t) => (
-          <Link
-            prefetch={false}
-            key={t.id}
-            href={`/admin?tab=${t.id}`}
-            className="admin-nav-link"
-            aria-current={active === t.id}
-            onClick={() => setOpen(false)}
+        {tabs
+          .filter((t) => t.id !== "settings")
+          .map((t) => (
+            <Link
+              prefetch={false}
+              key={t.id}
+              href={`/admin?tab=${t.id}`}
+              className="admin-nav-link"
+              aria-current={active === t.id}
+              onClick={() => setOpen(false)}
+            >
+              {t.label}
+            </Link>
+          ))}
+        {/* Settings and Log out as icons: the text menu stays compact. */}
+        <Link
+          prefetch={false}
+          href="/admin?tab=settings"
+          className="admin-nav-link admin-nav-icon"
+          aria-current={active === "settings"}
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => setOpen(false)}
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
           >
-            {t.label}
-          </Link>
-        ))}
+            <circle cx="12" cy="12" r="3.2" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z" />
+          </svg>
+          <span className="admin-nav-icon-label">Settings</span>
+        </Link>
         <form action="/api/admin-logout" method="post">
-          <button type="submit" className="admin-nav-link">
-            Log out
+          <button
+            type="submit"
+            className="admin-nav-link admin-nav-icon"
+            aria-label="Log out"
+            title="Log out"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span className="admin-nav-icon-label">Log out</span>
           </button>
         </form>
       </nav>

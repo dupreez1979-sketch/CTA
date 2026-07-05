@@ -58,7 +58,7 @@ const CADENCES = ["daily", "weekly", "fortnightly"] as const;
 
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "editions", label: "Regular Editions" },
+  { id: "editions", label: "Editions" },
   { id: "presenters", label: "The Showcase" },
   { id: "review", label: "Stories" },
   { id: "shows", label: "Shows" },
