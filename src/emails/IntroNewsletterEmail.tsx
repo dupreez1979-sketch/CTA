@@ -333,7 +333,7 @@ export default function IntroNewsletterEmail({
           </Section>
 
           {/* About the Alliance — deliberately secondary */}
-          <Section className="px" style={{ padding: "24px 40px 8px" }}>
+          <Section className="px" style={{ padding: "24px 40px 36px" }}>
             <table
               role="presentation"
               width="100%"

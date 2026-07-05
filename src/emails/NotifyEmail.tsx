@@ -112,7 +112,7 @@ export default function NotifyEmail({
           </Section>
           <Cloud baseUrl={baseUrl} pair="creamwarm-cream" />
 
-          <Section style={{ padding: "24px 40px 8px" }}>
+          <Section style={{ padding: "24px 40px 36px" }}>
             <Text
               style={{
                 fontFamily: FONT_DISPLAY,

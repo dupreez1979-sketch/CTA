@@ -1053,7 +1053,7 @@ export default function ShowcaseEmail({
               with the Spotlight boxes above) */}
           <Section
             className="px"
-            style={{ padding: "38px 40px 12px", textAlign: "center" as const }}
+            style={{ padding: "38px 40px 40px", textAlign: "center" as const }}
           >
             <Img
               src={logo}

@@ -317,7 +317,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           </Section>
 
           {/* Get involved — deliberately quiet */}
-          <Section className="px" style={{ padding: "22px 40px 8px" }}>
+          <Section className="px" style={{ padding: "22px 40px 36px" }}>
             <table
               role="presentation"
               width="100%"

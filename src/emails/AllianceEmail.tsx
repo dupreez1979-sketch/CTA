@@ -375,7 +375,7 @@ export default function AllianceEmail({
           )}
 
           {/* Company sections */}
-          <Section className="px" style={{ padding: "10px 40px 6px" }}>
+          <Section className="px" style={{ padding: "10px 40px 36px" }}>
             {companies.map((co) => (
               <table
                 key={co.name}
