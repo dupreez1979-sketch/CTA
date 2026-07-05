@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import * as React from "react";
@@ -77,9 +77,14 @@ async function selectWindowItems(window: IssueWindow): Promise<FeedItem[]> {
   // approval date, otherwise the feed-ingest date), not the article's
   // original publish date. This is what the newsletter window uses.
   const ourDate = sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt})`;
+  // Bind the window bounds as ISO strings cast to timestamptz. Comparing a
+  // raw SQL expression (the coalesce) against a bare Date makes drizzle pass
+  // an untyped Date to the postgres-js driver, which then fails to serialise
+  // it ("string argument ... received an instance of Date"); a cast string
+  // avoids that path entirely.
   const inWindow = and(
-    gte(ourDate, window.start),
-    lt(ourDate, window.end),
+    sql`${ourDate} >= ${window.start.toISOString()}::timestamptz`,
+    sql`${ourDate} < ${window.end.toISOString()}::timestamptz`,
     // Trusted automatic-feed stories only. Hand-written and review-feed
     // stories never enter on their own; they arrive only when forced in.
     eq(feedItems.source, "feed"),
