@@ -2399,22 +2399,9 @@ async function SubscribersTab({
 async function SettingsTab() {
   // Seeds the table on first load, then read the raw rows for editing
   await loadCompanies();
-  const [companyRows, unfiled, notifyEmails, feedRows, blockedSources] =
+  const [companyRows, notifyEmails, feedRows, blockedSources] =
     await Promise.all([
       db().select().from(companies).orderBy(asc(companies.name)),
-      db()
-        .select()
-        .from(feedItems)
-        .where(
-          and(
-            eq(feedItems.companyKey, "around-the-alliance"),
-            eq(feedItems.reviewed, false),
-            // Review-feed items are triaged in the Review queue, not here.
-            inArray(feedItems.reviewStatus, ["auto", "approved"]),
-          ),
-        )
-        .orderBy(desc(feedItems.publishedAt))
-        .limit(15),
       getNotifyEmails(),
       loadFeeds(),
       getBlockedSources(),
@@ -2846,76 +2833,6 @@ async function SettingsTab() {
         The shows page URL is where The Showcase looks up official show
         pages, copy and images for that company.
       </p>
-    </section>
-
-    <section className="admin-card">
-      <h2 style={h2}>
-        Unfiled posts
-        <HelpTip title="Unfiled posts">
-          Recent posts that couldn&#39;t be matched to a company (they
-          appear under &quot;Around the Alliance&quot; in issues). The page
-          name and text shown are what the feed provided: if you can tell
-          who posted it, add a match word to that company above (show
-          titles work well), then click re-file.
-        </HelpTip>
-      </h2>
-      {unfiled.length === 0 ? (
-        <p style={{ ...muted, marginBottom: 0 }}>
-          Nothing unfiled: every post is matched to a company.
-        </p>
-      ) : (
-        <>
-          <div className="table-scroll" style={{ marginBottom: 14 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={th}>Posted</th>
-                  <th style={th}>Page name (from feed)</th>
-                  <th style={th}>Post text</th>
-                  <th style={th}>Link</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {unfiled.map((it) => (
-                  <tr key={it.id}>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {auDate(it.publishedAt)}
-                    </td>
-                    <td style={td}>{it.creator ?? "(not provided)"}</td>
-                    <td style={td}>
-                      {(it.rawTitle ?? "").slice(0, 90) || "(no text)"}
-                      {(it.rawTitle ?? "").length > 90 ? "…" : ""}
-                    </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <a
-                        href={it.postUrl}
-                        target="_blank"
-                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                      >
-                        open ↗
-                      </a>
-                    </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <form action="/api/admin/ignore-item" method="post">
-                        <input type="hidden" name="id" value={it.id} />
-                        <button type="submit" style={dangerButton}>
-                          Ignore
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <form action="/api/admin/rematch" method="post">
-            <button type="submit" style={buttonStyle}>
-              Re-file unfiled posts
-            </button>
-          </form>
-        </>
-      )}
     </section>
 
     <section className="admin-card">
