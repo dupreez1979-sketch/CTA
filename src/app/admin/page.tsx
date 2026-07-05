@@ -3256,8 +3256,10 @@ function StoryPoolTable({
               <label style={fieldLabel}>Rating</label>
               <AutoSubmitSelect name="rel" defaultValue={params.rel} style={smallInput}>
                 <option value="all">All ratings</option>
-                <option value="high">High for shows</option>
-                <option value="s-high">High for Social Theatre</option>
+                <option value="high">Show: high</option>
+                <option value="medium">Show: medium</option>
+                <option value="s-high">Social Theatre: high</option>
+                <option value="s-medium">Social Theatre: medium</option>
                 <option value="other">Rated lower</option>
               </AutoSubmitSelect>
             </div>
@@ -3337,9 +3339,13 @@ function StoryPoolTable({
                   <th style={th}>{sortLink("date", "Added")}</th>
                   <th style={th}>Published</th>
                   <th style={th}>{sortLink("headline", "Story")}</th>
-                  <th style={th}>{sortLink("source", "Source")}</th>
+                  <th style={{ ...th, maxWidth: 120 }}>{sortLink("source", "Source")}</th>
                   <th style={th}>{sortLink("company", "Company")}</th>
-                  <th style={th}>{sortLink("relevance", "Rating")}</th>
+                  <th style={th}>
+                    Rating: {sortLink("relevance", "Show")}
+                    {" / "}
+                    {sortLink("social", "Social")}
+                  </th>
                   <th style={th}>Newsletters</th>
                 </tr>
               </thead>
@@ -3409,14 +3415,18 @@ function StoryPoolTable({
                         </div>
                       )}
                     </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <td style={{ ...td, maxWidth: 120 }}>
                       {feedOriginBadge(p, feedNameById)}
                       {sourcePublication(p) && (
                         <div
+                          title={sourcePublication(p)}
                           style={{
                             fontSize: 11.5,
                             color: "var(--text-muted)",
                             marginTop: 4,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {sourcePublication(p)}

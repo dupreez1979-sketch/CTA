@@ -1111,11 +1111,13 @@ export const STORY_POOL_PAGE_SIZES = [10, 20, 50] as const;
 export type StoryPoolPageSize = (typeof STORY_POOL_PAGE_SIZES)[number];
 
 export interface ShowcaseListParams {
-  sort: "date" | "company" | "headline" | "relevance" | "source";
+  /** "relevance" sorts by show rating; "social" by Social Theatre rating. */
+  sort: "date" | "company" | "headline" | "relevance" | "social" | "source";
   dir: "asc" | "desc";
-  /** "all" (the default) shows everything; "high" = rated high for shows,
-   * "s-high" = rated high for Social Theatre, "other" = neither. */
-  rel: "all" | "high" | "s-high" | "other";
+  /** "all" (default) shows everything; "high"/"medium" filter show rating,
+   * "s-high"/"s-medium" filter Social Theatre rating, "other" = neither
+   * rated high. */
+  rel: "all" | "high" | "medium" | "s-high" | "s-medium" | "other";
   co: string;
   q: string;
   /** 1-based page through the full history, `ps` stories per page. */
@@ -1128,8 +1130,15 @@ export interface ShowcaseListParams {
 export function parseShowcaseListParams(
   sp: Record<string, string | undefined>,
 ): ShowcaseListParams {
-  const sorts = ["date", "company", "headline", "relevance", "source"] as const;
-  const rels = ["all", "high", "s-high", "other"] as const;
+  const sorts = [
+    "date",
+    "company",
+    "headline",
+    "relevance",
+    "social",
+    "source",
+  ] as const;
+  const rels = ["all", "high", "medium", "s-high", "s-medium", "other"] as const;
   const pg = Number(sp.pg);
   const ps = Number(sp.ps);
   return {
@@ -1170,8 +1179,12 @@ export async function queryStoryPool(
   const conditions = [usableStory(), eq(feedItems.ignored, false)];
   if (p.rel === "high") {
     conditions.push(eq(feedItems.presenterRelevance, "high"));
+  } else if (p.rel === "medium") {
+    conditions.push(eq(feedItems.presenterRelevance, "medium"));
   } else if (p.rel === "s-high") {
     conditions.push(eq(feedItems.socialRelevance, "high"));
+  } else if (p.rel === "s-medium") {
+    conditions.push(eq(feedItems.socialRelevance, "medium"));
   } else if (p.rel === "other") {
     conditions.push(
       sql`not (${feedItems.presenterRelevance} = 'high' or ${feedItems.socialRelevance} = 'high')`,
@@ -1195,6 +1208,7 @@ export async function queryStoryPool(
   }
 
   const relevanceRank = sql`case ${feedItems.presenterRelevance} when 'high' then 0 when 'medium' then 1 else 2 end`;
+  const socialRank = sql`case ${feedItems.socialRelevance} when 'high' then 0 when 'medium' then 1 else 2 end`;
   // Feed name via a subquery so the row shape stays a plain FeedItem;
   // hand-written stories (no feed) sort together at the end.
   const feedName = sql`coalesce((select f.name from feeds f where f.id = ${feedItems.feedId}), 'zzz-manual')`;
@@ -1208,9 +1222,11 @@ export async function queryStoryPool(
         ? feedItems.aiHeading
         : p.sort === "relevance"
           ? relevanceRank
-          : p.sort === "source"
-            ? feedName
-            : ourDate;
+          : p.sort === "social"
+            ? socialRank
+            : p.sort === "source"
+              ? feedName
+              : ourDate;
 
   // Fetch one extra row to know whether a further page exists.
   const rows = await db()
