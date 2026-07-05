@@ -82,6 +82,16 @@ function usableStory() {
   return sql`${feedItems.reviewStatus} in ('auto', 'approved')`;
 }
 
+/**
+ * SQL fragment: stories from trusted automatic feeds only. Used where a
+ * story would be picked up without a human choosing it (edition prefill):
+ * approved review-feed stories stay in the pool for manual adding but are
+ * never auto-selected.
+ */
+function autoStory() {
+  return sql`${feedItems.reviewStatus} = 'auto'`;
+}
+
 /** SQL fragment: the feed item is not part of any SENT edition. */
 function notInSentEdition() {
   return sql`not exists (
@@ -229,7 +239,7 @@ export async function createEditionFromPool(): Promise<{
         and(
           eq(feedItems.presenterRelevance, "high"),
           notInSentEdition(),
-          usableStory(),
+          autoStory(),
         ),
       )
       .orderBy(desc(feedItems.publishedAt))
@@ -241,7 +251,7 @@ export async function createEditionFromPool(): Promise<{
         and(
           eq(feedItems.socialRelevance, "high"),
           notInSentEdition(),
-          usableStory(),
+          autoStory(),
         ),
       )
       .orderBy(desc(feedItems.publishedAt))

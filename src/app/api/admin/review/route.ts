@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * Admin: decide on stories in the review queue (single row or bulk).
- * op = approve | reject | unsure. Approved stories join the newsletters
- * and The Showcase; rejected rows are kept so the guid dedup stops the
+ * op = approve | reject | unsure. Approved stories become available in
+ * the Showcase builder's story pool (manual adding only, never the cadence
+ * newsletters); rejected rows are kept so the guid dedup stops the
  * article resurfacing. Trusted "auto" rows are never touched.
  */
 export async function POST(request: NextRequest) {
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
   const noun = `stor${n === 1 ? "y" : "ies"}`;
   const message =
     status === "approved"
-      ? `Approved ${n} ${noun}. They now count for newsletters and The Showcase.`
+      ? `Approved ${n} ${noun}. They are now available to add to Showcase editions.`
       : status === "rejected"
         ? `Rejected ${n} ${noun}. They stay out of everything.`
         : `Marked ${n} ${noun} as unsure.`;

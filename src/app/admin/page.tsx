@@ -1033,11 +1033,13 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       <h2 style={h2}>Review queue</h2>
       <p style={muted}>
         Stories from manual review feeds wait here until you decide.
-        Approved stories join the newsletters and The Showcase; rejected
-        stories are kept out for good (and never resurface, even if the
-        feed repeats them). The AI match is only a guide: check the article
-        before approving, and change the company if it guessed wrong.
-        Everything is reversible from the status filter.
+        Approved stories become available in the Showcase builder, where
+        you add them by hand (they never enter the daily or weekly
+        newsletters automatically); rejected stories are kept out for good
+        (and never resurface, even if the feed repeats them). The AI match
+        is only a guide: check the article before approving, and change the
+        company if it guessed wrong. Everything is reversible from the
+        status filter.
       </p>
       <p style={{ ...muted, marginBottom: 16 }}>
         Waiting: <strong>{countBy.pending ?? 0} pending</strong>
@@ -2313,6 +2315,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     registry,
     pool,
     usedDates,
+    feedRows,
   ] = await Promise.all([
     db().select().from(showcaseEditions),
     getEditionCounts(),
@@ -2322,8 +2325,10 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     db().select().from(shows).orderBy(asc(shows.title)),
     queryStoryPool(params),
     getUsedStoryDates(),
+    loadFeeds(),
   ]);
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
+  const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
 
   const itemsOf = (e: ShowcaseEdition) =>
     e.status === "sent" ? e.itemCount : (counts.get(e.id)?.items ?? 0);
@@ -2624,6 +2629,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
           usedDates={usedDates}
           nameByKey={nameByKey}
           companyRows={companyRows}
+          feedNameById={feedNameById}
           mode="browse"
           params={params}
           anchor="story-pool"
@@ -2803,11 +2809,54 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
  * every row also gets an Add button targeting the given edition, and
  * stories already used are excluded by the query upstream.
  */
+/**
+ * Where a story came from, as a small badge: the feed's name for RSS
+ * stories (yellow when it arrived through the Review queue, so media
+ * stories stand out from the trusted social feed), "Manual" for stories
+ * written by hand. Legacy rows from before the feeds registry carry no
+ * feed link and get no badge (they are all from the social feed).
+ */
+function feedOriginBadge(
+  it: FeedItem,
+  feedNameById: Map<number, string>,
+): React.ReactNode {
+  if (it.source === "manual") {
+    return (
+      <span
+        style={{ ...badge("var(--cta-white)"), marginLeft: 8, fontSize: 10 }}
+        title="Written by hand in the Showcase builder"
+      >
+        Manual
+      </span>
+    );
+  }
+  const name = it.feedId == null ? undefined : feedNameById.get(it.feedId);
+  if (!name) return null;
+  const fromReview = it.reviewStatus !== "auto";
+  return (
+    <span
+      style={{
+        ...badge(fromReview ? "var(--cta-yellow)" : "var(--cta-white)"),
+        marginLeft: 8,
+        fontSize: 10,
+      }}
+      title={
+        fromReview
+          ? `From the "${name}" feed, approved in the Review queue`
+          : `From the "${name}" feed`
+      }
+    >
+      {name}
+    </span>
+  );
+}
+
 function StoryPoolTable({
   pool,
   usedDates,
   nameByKey,
   companyRows,
+  feedNameById,
   mode,
   editionId,
   params,
@@ -2817,6 +2866,8 @@ function StoryPoolTable({
   usedDates: Map<number, Date | null>;
   nameByKey: Map<string, string>;
   companyRows: { key: string; name: string }[];
+  /** Feed id → feed name, for the origin badge on each story. */
+  feedNameById: Map<number, string>;
   mode: "browse" | "add";
   editionId?: number;
   params: ShowcaseListParams;
@@ -2975,6 +3026,7 @@ function StoryPoolTable({
                           </a>
                         </>
                       )}
+                      {feedOriginBadge(p, feedNameById)}
                       {usedDates.has(p.id) && (
                         <span
                           style={{
@@ -3107,6 +3159,7 @@ async function EditionBuilder({
     pool,
     usedDates,
     registry,
+    feedRows,
   ] =
     await Promise.all([
       getEditionItems(edition.id),
@@ -3127,8 +3180,10 @@ async function EditionBuilder({
             .where(eq(shows.status, "active"))
             .orderBy(asc(shows.title))
         : Promise.resolve([]),
+      loadFeeds(),
     ]);
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
+  const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
   const companyName = (key: string) =>
     nameByKey.get(key) ?? "Around the Alliance";
   const showsPageByKey = new Map(
@@ -3297,13 +3352,16 @@ async function EditionBuilder({
             you change the rating filter. Search, or page further back, to
             dig deeper. Stories
             marked <strong>Sent</strong> have already appeared in a past
-            Showcase but can be added again on purpose.
+            Showcase but can be added again on purpose. A badge on each
+            story shows the feed it came from; yellow means it arrived
+            through the Review queue.
           </p>
           <StoryPoolTable
             pool={pool}
             usedDates={usedDates}
             nameByKey={nameByKey}
             companyRows={companyRows}
+            feedNameById={feedNameById}
             mode="add"
             editionId={edition.id}
             params={params}
@@ -3361,6 +3419,7 @@ async function EditionBuilder({
               editionId={edition.id}
               company={companyName(e.item.companyKey)}
               showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
+              origin={feedOriginBadge(e.item, feedNameById)}
             />
           ))}
         {editable && (
@@ -3398,6 +3457,7 @@ async function EditionBuilder({
               editionId={edition.id}
               company={companyName(e.item.companyKey)}
               showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
+              origin={feedOriginBadge(e.item, feedNameById)}
             />
           ))}
           <ManualStoryForm
@@ -3532,6 +3592,7 @@ function BuilderStoryCard({
   editionId,
   company,
   showsPageUrl,
+  origin,
 }: {
   it: FeedItem;
   featured: boolean;
@@ -3540,6 +3601,8 @@ function BuilderStoryCard({
   editionId: number;
   company: string;
   showsPageUrl: string | null;
+  /** Feed origin badge (see feedOriginBadge), so the source stays visible. */
+  origin?: React.ReactNode;
 }) {
   return (
             <div
@@ -3584,6 +3647,7 @@ function BuilderStoryCard({
                       Social Theatre
                     </span>
                   )}
+                  {origin}
                   {!it.showTitle && !isSocial && (
                     <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
                       Needs show title
