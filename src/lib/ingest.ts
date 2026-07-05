@@ -10,6 +10,7 @@ import {
   type Company,
 } from "./companies";
 import { activeFeeds } from "./feed-store";
+import { getBlockedSources, isBlockedSource } from "./blocked-sources";
 
 /**
  * Feed ingestion across every active feed in the registry (Settings → RSS
@@ -41,9 +42,10 @@ export interface IngestSummary {
 }
 
 export async function ingestFeed(): Promise<IngestSummary> {
-  const [companies, sources] = await Promise.all([
+  const [companies, sources, blocked] = await Promise.all([
     loadCompanies(),
     activeFeeds(),
+    getBlockedSources(),
   ]);
   // Stories from before the feeds registry carry no feed link. They all
   // came from the automatic (social) feed, so file them under it once;
@@ -65,7 +67,7 @@ export async function ingestFeed(): Promise<IngestSummary> {
   };
   for (const feed of sources) {
     try {
-      const r = await ingestOneFeed(feed, companies);
+      const r = await ingestOneFeed(feed, companies, blocked);
       summary.seen += r.seen;
       summary.added += r.added;
       summary.remaining += r.remaining;
@@ -91,6 +93,7 @@ export async function ingestFeed(): Promise<IngestSummary> {
 async function ingestOneFeed(
   feed: Feed,
   companies: Company[],
+  blocked: string[],
 ): Promise<{
   seen: number;
   added: number;
@@ -112,7 +115,19 @@ async function ingestOneFeed(
       ),
     );
   const known = new Set(existing.map((e) => e.guid));
-  const fresh = items.filter((i) => !known.has(i.guid));
+  let fresh = items.filter((i) => !known.has(i.guid));
+  // Review feeds honour the blocked-sources list: matching articles never
+  // reach the queue (and cost no AI). Automatic feeds are the companies'
+  // own posts, so they are not filtered.
+  if (feed.mode === "review" && blocked.length > 0) {
+    fresh = fresh.filter(
+      (i) =>
+        !isBlockedSource(
+          { creator: i.creator, link: i.link, title: i.title },
+          blocked,
+        ),
+    );
+  }
   const batch = fresh.slice(0, MAX_PER_RUN);
 
   let added = 0;

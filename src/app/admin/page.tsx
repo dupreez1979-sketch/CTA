@@ -16,6 +16,7 @@ import {
 } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
 import { loadFeeds } from "@/lib/feed-store";
+import { getBlockedSources } from "@/lib/blocked-sources";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
 import {
@@ -57,6 +58,19 @@ import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
 
 export const dynamic = "force-dynamic";
+
+/** Australian short date: dd-mm-yy (UTC, matching how the app stores days). */
+function auDate(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const yy = String(d.getUTCFullYear()).slice(-2);
+  return `${dd}-${mm}-${yy}`;
+}
+
+/** Australian short date and time: dd-mm-yy HH:MM (UTC). */
+function auDateTime(d: Date): string {
+  return `${auDate(d)} ${d.toISOString().slice(11, 16)}`;
+}
 
 const CADENCES = ["daily", "weekly", "fortnightly"] as const;
 
@@ -512,7 +526,7 @@ async function OverviewTab({
       key: `edition-${e.id}`,
       type: "The Showcase",
       showcase: true,
-      label: (e.sentAt ?? e.createdAt).toISOString().slice(0, 10),
+      label: auDate(e.sentAt ?? e.createdAt),
       status: e.status as string,
       items: e.itemCount,
       recipients: e.recipientCount,
@@ -899,7 +913,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
                       </div>
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {last ? new Date(last).toISOString().slice(0, 10) : "Not yet"}
+                      {last ? auDate(new Date(last)) : "Not yet"}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {formatSydneyDateTime(
@@ -988,7 +1002,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
                       {i.cadence}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {(i.sentAt ?? i.windowEnd).toISOString().slice(0, 10)}
+                      {auDate(i.sentAt ?? i.windowEnd)}
                     </td>
                     <td style={td}>
                       {i.recipientCount > 0 ? (
@@ -1078,6 +1092,15 @@ const REVIEW_PAGE = 20;
 const REVIEW_STATUSES = ["pending", "rejected", "approved"] as const;
 type ReviewFilterStatus = (typeof REVIEW_STATUSES)[number];
 
+const REVIEW_SORTS = [
+  "added",
+  "published",
+  "story",
+  "source",
+  "confidence",
+] as const;
+type ReviewSort = (typeof REVIEW_SORTS)[number];
+
 const CONFIDENCE_COLOURS: Record<string, string> = {
   high: "var(--cta-emerald)",
   medium: "var(--cta-yellow)",
@@ -1097,7 +1120,20 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
   const q = (sp.rq ?? "").trim();
   const pgRaw = Number(sp.rpg);
   const pg = Number.isInteger(pgRaw) && pgRaw > 0 ? pgRaw : 1;
+  const rso = (REVIEW_SORTS as readonly string[]).includes(sp.rso ?? "")
+    ? (sp.rso as ReviewSort)
+    : "added";
+  // Dates default newest-first; text and confidence default ascending.
+  const rdr =
+    sp.rdr === "asc"
+      ? "asc"
+      : sp.rdr === "desc"
+        ? "desc"
+        : rso === "added" || rso === "published"
+          ? "desc"
+          : "asc";
 
+  const blocked = await getBlockedSources();
   const conditions = [eq(feedItems.reviewStatus, status)];
   if (conf !== "all") conditions.push(eq(feedItems.aiMatchConfidence, conf));
   if (co) conditions.push(eq(feedItems.suggestedCompanyKey, co));
@@ -1107,6 +1143,27 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       sql`(${feedItems.rawTitle} ilike ${like} or ${feedItems.aiHeading} ilike ${like} or ${feedItems.creator} ilike ${like} or ${feedItems.postUrl} ilike ${like})`,
     );
   }
+  // Blocked sources never appear in the queue (belt-and-braces: ingest
+  // also skips them, but this covers anything stored before a term was
+  // added).
+  for (const term of blocked) {
+    const like = `%${term}%`;
+    conditions.push(
+      sql`not (coalesce(${feedItems.creator}, '') ilike ${like} or ${feedItems.postUrl} ilike ${like} or coalesce(${feedItems.rawTitle}, '') ilike ${like})`,
+    );
+  }
+
+  const orderExpr =
+    rso === "published"
+      ? sql`${feedItems.publishedAt}`
+      : rso === "story"
+        ? sql`lower(coalesce(${feedItems.rawTitle}, ${feedItems.aiHeading}))`
+        : rso === "source"
+          ? sql`lower(coalesce(${feedItems.creator}, ${feedItems.postUrl}))`
+          : rso === "confidence"
+            ? sql`case ${feedItems.aiMatchConfidence} when 'high' then 0 when 'medium' then 1 else 2 end`
+            : sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt})`;
+  const orderBy = sql`${orderExpr} ${rdr === "asc" ? sql`asc` : sql`desc`}`;
 
   const params = parseShowcaseListParams(sp);
   const [companyList, rows, statusCounts, pool, usedDates, feedRows, drafts] =
@@ -1116,8 +1173,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         .select()
         .from(feedItems)
         .where(and(...conditions))
-        // Newest-added first: when the refresh brought it into the queue.
-        .orderBy(sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt}) desc`)
+        .orderBy(orderBy)
         .limit(REVIEW_PAGE + 1)
         .offset((pg - 1) * REVIEW_PAGE),
       db()
@@ -1157,11 +1213,32 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     if (co) params.set("rco", co);
     if (q) params.set("rq", q);
     if (pg > 1) params.set("rpg", String(pg));
+    if (rso !== "added") params.set("rso", rso);
+    if (sp.rdr === "asc" || sp.rdr === "desc") params.set("rdr", rdr);
     for (const [k, v] of Object.entries(overrides)) {
       if (v) params.set(k, v);
       else params.delete(k);
     }
     return params;
+  };
+  // Clickable column header: sorts by `key`, flipping direction if already
+  // the active column.
+  const reviewSortLink = (key: ReviewSort, label: string) => {
+    const dateKey = key === "added" || key === "published";
+    const nextDir =
+      rso === key ? (rdr === "asc" ? "desc" : "asc") : dateKey ? "desc" : "asc";
+    const params = filterParams({ rso: key, rdr: nextDir, rpg: "" });
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${params}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {rso === key ? (rdr === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
   };
   const filterHidden = (
     <>
@@ -1383,11 +1460,11 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
               <thead>
                 <tr>
                   <th style={th}></th>
-                  <th style={th}>Added</th>
-                  <th style={th}>Published</th>
-                  <th style={th}>Story</th>
-                  <th style={th}>Source</th>
-                  <th style={th}>Suggested match</th>
+                  <th style={th}>{reviewSortLink("added", "Added")}</th>
+                  <th style={th}>{reviewSortLink("published", "Published")}</th>
+                  <th style={th}>{reviewSortLink("story", "Story")}</th>
+                  <th style={th}>{reviewSortLink("source", "Source")}</th>
+                  <th style={th}>{reviewSortLink("confidence", "Suggested match")}</th>
                   <th style={th}>Decide</th>
                 </tr>
               </thead>
@@ -1404,10 +1481,10 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                       />
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {(it.reviewedAt ?? it.createdAt).toISOString().slice(0, 10)}
+                      {auDate(it.reviewedAt ?? it.createdAt)}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {it.publishedAt.toISOString().slice(0, 10)}
+                      {auDate(it.publishedAt)}
                     </td>
                     <td style={{ ...td, minWidth: 280, maxWidth: 460 }}>
                       <form
@@ -1855,7 +1932,7 @@ async function SubscribersTab({
                     {s.status}
                   </span>
                 </td>
-                <td style={td}>{s.createdAt.toISOString().slice(0, 10)}</td>
+                <td style={td}>{auDate(s.createdAt)}</td>
                 <td style={td}>
                   <form action="/api/admin/delete-subscriber" method="post">
                     <input type="hidden" name="id" value={s.id} />
@@ -1962,24 +2039,26 @@ async function SubscribersTab({
 async function SettingsTab() {
   // Seeds the table on first load, then read the raw rows for editing
   await loadCompanies();
-  const [companyRows, unfiled, notifyEmails, feedRows] = await Promise.all([
-    db().select().from(companies).orderBy(asc(companies.name)),
-    db()
-      .select()
-      .from(feedItems)
-      .where(
-        and(
-          eq(feedItems.companyKey, "around-the-alliance"),
-          eq(feedItems.reviewed, false),
-          // Review-feed items are triaged in the Review queue, not here.
-          inArray(feedItems.reviewStatus, ["auto", "approved"]),
-        ),
-      )
-      .orderBy(desc(feedItems.publishedAt))
-      .limit(15),
-    getNotifyEmails(),
-    loadFeeds(),
-  ]);
+  const [companyRows, unfiled, notifyEmails, feedRows, blockedSources] =
+    await Promise.all([
+      db().select().from(companies).orderBy(asc(companies.name)),
+      db()
+        .select()
+        .from(feedItems)
+        .where(
+          and(
+            eq(feedItems.companyKey, "around-the-alliance"),
+            eq(feedItems.reviewed, false),
+            // Review-feed items are triaged in the Review queue, not here.
+            inArray(feedItems.reviewStatus, ["auto", "approved"]),
+          ),
+        )
+        .orderBy(desc(feedItems.publishedAt))
+        .limit(15),
+      getNotifyEmails(),
+      loadFeeds(),
+      getBlockedSources(),
+    ]);
 
   return (
     <>
@@ -2100,6 +2179,40 @@ async function SettingsTab() {
         </div>
         <button type="submit" style={buttonStyle}>
           Save
+        </button>
+      </form>
+    </section>
+
+    <section className="admin-card">
+      <h2 style={h2}>
+        Blocked sources
+        <HelpTip title="Blocked sources">
+          Media outlets whose articles should never reach the review queue
+          (for example an aggregator that only ever means the overseas
+          company of the same name). Separate terms with commas or new
+          lines; each is matched against a story&#39;s author, link and
+          title. Use a domain like australianstage.com.au or a name like
+          Australian Stage. Existing queue items matching a new term drop
+          out on save; future ones are skipped at the source.
+        </HelpTip>
+      </h2>
+      <form
+        action="/api/admin/blocked-sources"
+        method="post"
+        style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}
+      >
+        <div style={{ flex: "1 1 320px" }}>
+          <label style={fieldLabel}>Blocked terms</label>
+          <textarea
+            name="terms"
+            rows={3}
+            defaultValue={blockedSources.join(", ")}
+            placeholder="australianstage.com.au, Australian Stage"
+            style={{ ...inputStyle, width: "100%", resize: "vertical" }}
+          />
+        </div>
+        <button type="submit" style={{ ...buttonStyle, marginTop: 22 }}>
+          Save blocked sources
         </button>
       </form>
     </section>
@@ -2407,7 +2520,7 @@ async function SettingsTab() {
                 {unfiled.map((it) => (
                   <tr key={it.id}>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {it.publishedAt.toISOString().slice(0, 10)}
+                      {auDate(it.publishedAt)}
                     </td>
                     <td style={td}>{it.creator ?? "(not provided)"}</td>
                     <td style={td}>
@@ -2586,7 +2699,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                   return (
                     <tr key={e.id}>
                       <td style={{ ...td, whiteSpace: "nowrap" }}>
-                        {e.createdAt.toISOString().slice(0, 10)}
+                        {auDate(e.createdAt)}
                       </td>
                       <td style={td}>{itemsOf(e)}</td>
                       <td style={td}>{profilesOf(e)}</td>
@@ -2707,7 +2820,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                 {pageSent.map((e) => (
                   <tr key={e.id}>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {(e.sentAt ?? e.createdAt).toISOString().slice(0, 10)}
+                      {auDate(e.sentAt ?? e.createdAt)}
                     </td>
                     <td style={td}>{itemsOf(e)}</td>
                     <td style={td}>{profilesOf(e)}</td>
@@ -3089,7 +3202,7 @@ function StoryPoolTable({
   const { rows, hasMore } = pool;
   const draftOptions = (drafts ?? []).map((d) => ({
     id: d.id,
-    label: `Draft #${d.id} · ${d.createdAt.toISOString().slice(0, 10)}`,
+    label: `Draft #${d.id} · ${auDate(d.createdAt)}`,
   }));
   const href = (over: Partial<ShowcaseListParams>) => {
     // Changing sort or filters implicitly resets to page 1 unless the
@@ -3248,10 +3361,10 @@ function StoryPoolTable({
                       </td>
                     )}
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {(p.reviewedAt ?? p.createdAt).toISOString().slice(0, 10)}
+                      {auDate(p.reviewedAt ?? p.createdAt)}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {p.publishedAt.toISOString().slice(0, 10)}
+                      {auDate(p.publishedAt)}
                     </td>
                     <td style={{ ...td, minWidth: 220, maxWidth: 420 }}>
                       <strong style={{ fontSize: 13.5 }}>
@@ -3281,7 +3394,7 @@ function StoryPoolTable({
                         >
                           Sent
                           {usedDates.get(p.id)
-                            ? ` ${usedDates.get(p.id)!.toISOString().slice(0, 10)}`
+                            ? ` ${auDate(usedDates.get(p.id)!)}`
                             : ""}
                         </span>
                       )}
@@ -3534,8 +3647,8 @@ async function EditionBuilder({
         </div>
         <p style={muted}>
           {edition.status === "sent"
-            ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? `${edition.recipientCount} subscriber${edition.recipientCount === 1 ? "" : "s"}`}.`
-            : `Started ${edition.createdAt.toISOString().slice(0, 10)}.`}
+            ? `Sent ${(edition.sentAt ? auDate(edition.sentAt) : "")} to ${edition.recipients ?? `${edition.recipientCount} subscriber${edition.recipientCount === 1 ? "" : "s"}`}.`
+            : `Started ${auDate(edition.createdAt)}.`}
         </p>
         {editable && (
           <div
@@ -3932,7 +4045,7 @@ function BuilderStoryCard({
                   {" · "}
                   {company}
                   {" · "}
-                  {it.publishedAt.toISOString().slice(0, 10)}
+                  {auDate(it.publishedAt)}
                   {featured && !isSocial && (
                     <span style={{ ...badge("var(--cta-yellow)"), marginLeft: 8 }}>
                       Profile
@@ -3959,7 +4072,7 @@ function BuilderStoryCard({
                   {it.presenterReason ?? "Added by hand"}
                   {" · "}
                   {it.presenterResearchedAt
-                    ? `researched ${it.presenterResearchedAt.toISOString().slice(0, 10)}`
+                    ? `researched ${auDate(it.presenterResearchedAt)}`
                     : "not researched yet"}
                   {it.postUrl && (
                     <>
@@ -4323,7 +4436,7 @@ async function SubscriberDetailView({
         </div>
         <p style={muted}>
           {sub.email} · receives the {receives} · joined{" "}
-          {sub.createdAt.toISOString().slice(0, 10)}
+          {auDate(sub.createdAt)}
         </p>
       </section>
 
@@ -4382,7 +4495,7 @@ async function SubscriberDetailView({
               {filtered.map((d) => (
                 <tr key={d.id}>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
-                    {d.sentAt.toISOString().slice(0, 10)}
+                    {auDate(d.sentAt)}
                   </td>
                   <td style={td}>
                     <span
@@ -4553,7 +4666,7 @@ function RecipientTable({
                 </td>
                 <td style={td}>{s?.email ?? ""}</td>
                 <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  {d.sentAt.toISOString().slice(0, 16).replace("T", " ")}
+                  {auDateTime(d.sentAt)}
                 </td>
               </tr>
             ))}
@@ -4645,7 +4758,7 @@ async function IssueRecipientsView({
           >
             {issue.status}
           </span>
-          {issue.sentAt ? ` · sent ${issue.sentAt.toISOString().slice(0, 10)}` : ""} ·{" "}
+          {issue.sentAt ? ` · sent ${auDate(issue.sentAt)}` : ""} ·{" "}
           {issue.itemCount} stor{issue.itemCount === 1 ? "y" : "ies"} ·{" "}
           {issue.recipientCount} recipient{issue.recipientCount === 1 ? "" : "s"}
         </p>
