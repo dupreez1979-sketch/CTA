@@ -783,14 +783,14 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>Fetch new posts</h2>
+        <h2 style={h2}>Refresh stories</h2>
         <p style={muted}>
           Runs the same feed-ingest step as the daily pipeline: new posts get
           an AI headline and summary and appear in the previews.
         </p>
         <form action="/api/admin/ingest" method="post">
           <button type="submit" style={buttonStyle}>
-            Fetch new posts now
+            Refresh stories now
           </button>
         </form>
       </section>
@@ -994,7 +994,7 @@ async function SubscribersTab({
   return (
     <>
     <section className="admin-card">
-      <h2 style={h2}>Subscribers</h2>
+      <h2 style={h2}>Audience list</h2>
       <div
         style={{
           display: "flex",
@@ -1229,7 +1229,7 @@ async function SubscribersTab({
     </section>
 
     <section className="admin-card">
-      <h2 style={h2}>Add a subscriber</h2>
+      <h2 style={h2}>New audience</h2>
       <p style={muted}>
         Adds someone directly, exactly as if they signed up themselves. If
         the address is already subscribed, their details and choices are
@@ -1323,7 +1323,7 @@ async function SettingsTab() {
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>Introduction emails</h2>
+        <h2 style={h2}>Introductions</h2>
         <p style={muted}>
           Two one-off branded emails for funders, presenters and friends
           (including international). <strong>Introduce the Alliance</strong>{" "}
@@ -1405,7 +1405,7 @@ async function SettingsTab() {
       <AiCreditsCard />
 
     <section className="admin-card">
-      <h2 style={h2}>New-subscriber notifications</h2>
+      <h2 style={h2}>Notifications</h2>
       <p style={muted}>
         These addresses get a short branded email every time someone new
         subscribes. Separate several with commas. Leave empty to turn
@@ -1762,7 +1762,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>Showcase editions</h2>
+        <h2 style={h2}>Editions</h2>
         <p style={muted}>
           The Showcase is built one edition at a time. New Showcase starts a
           draft pre-filled with the latest high-relevance stories and the
@@ -2702,7 +2702,7 @@ async function EditionBuilder({
       )}
 
       <section className="admin-card" id="news-stories">
-        <h2 style={h2}>{editable ? "2 · " : ""}News stories in this Showcase</h2>
+        <h2 style={h2}>{editable ? "2 · " : ""}Show stories</h2>
         {editable ? (
           <p style={muted}>
             Listed in the order they will appear in the email: use the ▲ ▼
@@ -2764,7 +2764,7 @@ async function EditionBuilder({
 
       {editable && (
         <section className="admin-card" id="social-stories">
-          <h2 style={h2}>3 · Social Theatre</h2>
+          <h2 style={h2}>3 · Social stories</h2>
           <p style={muted}>
             Stories told through the social lens. They appear in the mint
             Social Theatre band of the email, without a show card, in the
