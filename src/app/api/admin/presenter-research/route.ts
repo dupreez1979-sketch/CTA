@@ -35,19 +35,23 @@ export async function POST(request: NextRequest) {
   // Persist the submitted edits first (the card's full form arrives here).
   // A bare POST with just the id (no field inputs) skips this.
   let showTitle = item.showTitle;
+  // A pasted show page URL forces research to scrape that page directly
+  // instead of hunting for the show on the company's shows page.
+  let directUrl = item.showUrl;
   let saved = false;
   if (form.has("showTitle")) {
     const val = (name: string) => String(form.get(name) ?? "").trim() || null;
     const aiHeading = String(form.get("aiHeading") ?? "").trim();
     const aiSummary = String(form.get("aiSummary") ?? "").trim();
     showTitle = val("showTitle");
+    directUrl = val("showUrl");
     await db()
       .update(feedItems)
       .set({
         aiHeading: aiHeading || item.aiHeading,
         aiSummary: aiSummary || item.aiSummary,
         showTitle,
-        showUrl: val("showUrl"),
+        showUrl: directUrl,
         showBlurb: val("showBlurb"),
         showAgeRange: val("showAgeRange"),
         showImageUrl: val("showImageUrl"),
@@ -57,9 +61,9 @@ export async function POST(request: NextRequest) {
   }
   const prefix = saved ? "Saved. " : "";
 
-  if (!showTitle)
+  if (!showTitle && !directUrl)
     return redirect(
-      `${prefix}To research, type the show's name into the Show title field first — research looks it up on the company's shows page`,
+      `${prefix}To research, type the show's name (research looks it up on the company's shows page) or paste the show's page URL to pull the details straight from it`,
     );
 
   const [company] = await db()
@@ -67,12 +71,19 @@ export async function POST(request: NextRequest) {
     .from(companies)
     .where(eq(companies.key, item.companyKey))
     .limit(1);
-  if (!company?.showsPageUrl)
+  // Only the shows-page discovery path needs the company's shows page; a
+  // pasted URL bypasses it.
+  if (!directUrl && !company?.showsPageUrl)
     return redirect(
-      `${prefix}This company has no shows page URL yet — add one on the Settings tab, then research again`,
+      `${prefix}This company has no shows page URL yet. Add one on the Settings tab, or paste the show's page URL here, then research again`,
     );
 
-  const result = await researchItem(showTitle, item.guid, company.showsPageUrl);
+  const result = await researchItem(
+    showTitle,
+    item.guid,
+    company?.showsPageUrl ?? null,
+    directUrl,
+  );
   await db()
     .update(feedItems)
     .set({

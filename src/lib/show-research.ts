@@ -253,11 +253,35 @@ async function fetchHtml(url: string): Promise<string | null> {
   }
 }
 
+/** Pull blurb/age/image straight from one already-known show page URL. */
+async function researchFromShowUrl(
+  showUrl: string,
+  guid: string,
+): Promise<ShowResearchResult> {
+  const html = await fetchHtml(showUrl);
+  if (!html) return { ...EMPTY_RESEARCH, showUrl };
+  const meta = extractShowMeta(html, showUrl);
+  const showImageUrl = meta.imageUrl
+    ? await rehostImage(meta.imageUrl, `${guid}-show`)
+    : null;
+  return {
+    showUrl,
+    showBlurb: meta.blurb,
+    showAgeRange: meta.ageRange,
+    showImageUrl,
+  };
+}
+
 async function researchItemInner(
   showTitle: string | null,
   guid: string,
   showsPageUrl: string | null,
+  directUrl: string | null,
 ): Promise<ShowResearchResult> {
+  // A pasted show page URL is the manual override: scrape it directly and
+  // skip the discovery step on the company's shows page.
+  if (directUrl) return researchFromShowUrl(directUrl, guid);
+
   if (!showTitle || !showsPageUrl) return EMPTY_RESEARCH;
 
   const showsPageHtml = await fetchHtml(showsPageUrl);
@@ -271,31 +295,21 @@ async function researchItemInner(
   }
   if (!showUrl) return EMPTY_RESEARCH;
 
-  const showPageHtml = await fetchHtml(showUrl);
-  if (!showPageHtml) return { ...EMPTY_RESEARCH, showUrl };
-
-  const meta = extractShowMeta(showPageHtml, showUrl);
-  const showImageUrl = meta.imageUrl
-    ? await rehostImage(meta.imageUrl, `${guid}-show`)
-    : null;
-
-  return {
-    showUrl,
-    showBlurb: meta.blurb,
-    showAgeRange: meta.ageRange,
-    showImageUrl,
-  };
+  return researchFromShowUrl(showUrl, guid);
 }
 
 /**
- * Research one Showcase draft item against its company's shows page.
- * Never throws; always returns a (possibly partial or empty) result within
- * a hard deadline so one slow site can't eat the function's time budget.
+ * Research one Showcase draft item. With `directUrl` (a show page URL the
+ * admin pasted) it scrapes that page directly; otherwise it discovers the
+ * show on the company's shows page using the title. Never throws; always
+ * returns a (possibly partial or empty) result within a hard deadline so
+ * one slow site can't eat the function's time budget.
  */
 export async function researchItem(
   showTitle: string | null,
   guid: string,
   showsPageUrl: string | null,
+  directUrl: string | null = null,
 ): Promise<ShowResearchResult> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<ShowResearchResult>((resolve) => {
@@ -303,7 +317,7 @@ export async function researchItem(
   });
   try {
     return await Promise.race([
-      researchItemInner(showTitle, guid, showsPageUrl),
+      researchItemInner(showTitle, guid, showsPageUrl, directUrl),
       deadline,
     ]);
   } catch (err) {

@@ -50,7 +50,8 @@ import TestSendButton from "@/components/TestSendButton";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 import AddShowModal from "@/components/AddShowModal";
 import ShowcaseAddModal from "@/components/ShowcaseAddModal";
-import DetailToggle from "@/components/DetailToggle";
+import StoryToolbar from "@/components/StoryToolbar";
+import RefreshButton from "@/components/RefreshButton";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
@@ -1198,11 +1199,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     <>
     <div style={{ margin: "0 0 26px" }}>
       <div style={{ display: "flex", alignItems: "center" }}>
-        <form action="/api/admin/ingest" method="post" style={{ margin: 0 }}>
-          <button type="submit" style={buttonStyle}>
-            Refresh
-          </button>
-        </form>
+        <RefreshButton />
         <HelpTip title="What Refresh does">
           Refresh pulls every active feed and files what it finds. Stories
           from the social feed get an AI headline, summary and show and
@@ -1270,120 +1267,107 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       </p>
 
       {/* Filters + actions toolbar */}
-      <div className="tool-row">
-      <DetailToggle />
-      <details className="tool-fold">
-        <summary>Filters</summary>
-      <form method="get" action="/admin" className="filter-bar">
-        <input type="hidden" name="tab" value="review" />
-        <div className="filter-field">
-          <label style={fieldLabel}>Status</label>
-          <AutoSubmitSelect name="rst" defaultValue={status} style={smallInput}>
-            {REVIEW_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </AutoSubmitSelect>
-        </div>
-        <div className="filter-field">
-          <label style={fieldLabel}>Confidence</label>
-          <AutoSubmitSelect name="rcf" defaultValue={conf} style={smallInput}>
-            <option value="all">All</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </AutoSubmitSelect>
-        </div>
-        <div className="filter-field">
-          <label style={fieldLabel}>Company</label>
-          <AutoSubmitSelect name="rco" defaultValue={co} style={smallInput}>
-            <option value="">All companies</option>
-            {companyOptions.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.name}
-              </option>
-            ))}
-          </AutoSubmitSelect>
-        </div>
-        <div className="filter-field filter-field-grow">
-          <label style={fieldLabel}>Search</label>
-          <input
-            name="rq"
-            defaultValue={q}
-            placeholder="Title, source or keyword"
-            style={{ ...smallInput, width: "100%" }}
-          />
-        </div>
-        <button type="submit" style={smallButton}>
-          Search
-        </button>
-        {hasFilters && (
-          <Link
-            prefetch={false}
-            href={`/admin?tab=review${status !== "pending" ? `&rst=${status}` : ""}`}
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "var(--cta-ink)",
-              alignSelf: "center",
-            }}
-          >
-            Clear
-          </Link>
-        )}
-      </form>
-      </details>
-      {pageRows.length > 0 && (
-        /* Bulk actions. The row checkboxes attach to these forms via the
-           form attribute, so they don't wrap the table. */
-        <details className="tool-fold">
-          <summary>Actions</summary>
-          <div className="bulk-bar">
-            <form
-              id="review-bulk"
-              action="/api/admin/review"
-              method="post"
-              style={{ display: "contents" }}
-            >
-              {filterHidden}
-              <SelectAllCheckbox formId="review-bulk" />
-              <button
-                type="submit"
-                name="op"
-                value="approve"
-                style={smallButton}
+      <StoryToolbar
+        filters={
+          <form method="get" action="/admin" className="filter-bar">
+            <input type="hidden" name="tab" value="review" />
+            <div className="filter-field">
+              <label style={fieldLabel}>Status</label>
+              <AutoSubmitSelect name="rst" defaultValue={status} style={smallInput}>
+                {REVIEW_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </AutoSubmitSelect>
+            </div>
+            <div className="filter-field">
+              <label style={fieldLabel}>Confidence</label>
+              <AutoSubmitSelect name="rcf" defaultValue={conf} style={smallInput}>
+                <option value="all">All</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </AutoSubmitSelect>
+            </div>
+            <div className="filter-field">
+              <label style={fieldLabel}>Company</label>
+              <AutoSubmitSelect name="rco" defaultValue={co} style={smallInput}>
+                <option value="">All companies</option>
+                {companyOptions.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.name}
+                  </option>
+                ))}
+              </AutoSubmitSelect>
+            </div>
+            <div className="filter-field filter-field-grow">
+              <label style={fieldLabel}>Search</label>
+              <input
+                name="rq"
+                defaultValue={q}
+                placeholder="Title, source or keyword"
+                style={{ ...smallInput, width: "100%" }}
+              />
+            </div>
+            <button type="submit" style={smallButton}>
+              Search
+            </button>
+            {hasFilters && (
+              <Link
+                prefetch={false}
+                href={`/admin?tab=review${status !== "pending" ? `&rst=${status}` : ""}`}
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--cta-ink)",
+                  alignSelf: "center",
+                }}
               >
-                Approve selected
-              </button>
-              <button type="submit" name="op" value="reject" style={dangerButton}>
-                Reject selected
-              </button>
-            </form>
-            {highIdsOnPage.length > 0 && status === "pending" && (
+                Clear
+              </Link>
+            )}
+          </form>
+        }
+        actions={
+          pageRows.length > 0 ? (
+            /* Bulk actions. The row checkboxes attach to these forms via
+               the form attribute, so they don't wrap the table. */
+            <div className="bulk-bar">
               <form
+                id="review-bulk"
                 action="/api/admin/review"
                 method="post"
                 style={{ display: "contents" }}
               >
                 {filterHidden}
-                {highIdsOnPage.map((id) => (
-                  <input key={id} type="hidden" name="ids" value={id} />
-                ))}
-                <button
-                  type="submit"
-                  name="op"
-                  value="approve"
-                  style={smallButton}
-                >
-                  Approve all {highIdsOnPage.length} high confidence
+                <SelectAllCheckbox formId="review-bulk" />
+                <button type="submit" name="op" value="approve" style={smallButton}>
+                  Approve selected
+                </button>
+                <button type="submit" name="op" value="reject" style={dangerButton}>
+                  Reject selected
                 </button>
               </form>
-            )}
-          </div>
-        </details>
-      )}
-      </div>
+              {highIdsOnPage.length > 0 && status === "pending" && (
+                <form
+                  action="/api/admin/review"
+                  method="post"
+                  style={{ display: "contents" }}
+                >
+                  {filterHidden}
+                  {highIdsOnPage.map((id) => (
+                    <input key={id} type="hidden" name="ids" value={id} />
+                  ))}
+                  <button type="submit" name="op" value="approve" style={smallButton}>
+                    Approve all {highIdsOnPage.length} high confidence
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : undefined
+        }
+      />
 
       {pageRows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
@@ -3014,6 +2998,23 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
  * written by hand. Legacy rows from before the feeds registry carry no
  * feed link and get no badge (they are all from the social feed).
  */
+/**
+ * The actual publication a story came from, shown under the feed badge so
+ * the origin is concrete: the feed's author/creator, or the article URL's
+ * host. Hand-written stories have no publication.
+ */
+function sourcePublication(it: FeedItem): string {
+  if (it.source === "manual") return "";
+  let host = "";
+  try {
+    host = new URL(it.postUrl).hostname.replace(/^www\./, "");
+  } catch {
+    host = "";
+  }
+  if (it.creator && host && it.creator !== host) return `${it.creator} · ${host}`;
+  return it.creator || host || "";
+}
+
 function feedOriginBadge(
   it: FeedItem,
   feedNameById: Map<number, string>,
@@ -3129,82 +3130,75 @@ function StoryPoolTable({
 
   return (
     <>
-      <div className="tool-row">
-      <DetailToggle />
-      <details className="tool-fold">
-        <summary>Filters</summary>
-      <form method="get" action={`/admin#${anchor}`} className="filter-bar">
-        <input type="hidden" name="tab" value="review" />
-        {params.ps !== 10 && (
-          <input type="hidden" name="ps" value={params.ps} />
-        )}
-        <div className="filter-field">
-          <label style={fieldLabel}>Rating</label>
-          <AutoSubmitSelect name="rel" defaultValue={params.rel} style={smallInput}>
-            <option value="all">All ratings</option>
-            <option value="high">High for shows</option>
-            <option value="s-high">High for Social Theatre</option>
-            <option value="other">Rated lower</option>
-          </AutoSubmitSelect>
-        </div>
-        <div className="filter-field">
-          <label style={fieldLabel}>Company</label>
-          <AutoSubmitSelect name="co" defaultValue={params.co} style={smallInput}>
-            <option value="">All companies</option>
-            {companyRows.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.name}
-              </option>
-            ))}
-          </AutoSubmitSelect>
-        </div>
-        <div className="filter-field filter-field-grow">
-          <label style={fieldLabel}>Search</label>
-          <input
-            name="q"
-            defaultValue={params.q}
-            placeholder="Headline or show title"
-            style={{ ...smallInput, width: "100%" }}
-          />
-        </div>
-        <button type="submit" style={smallButton}>
-          Search
-        </button>
-        {isFiltered && (
-          <Link
-            prefetch={false}
-            href="/admin?tab=review#story-pool"
-            scroll={false}
-            style={{
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: "var(--cta-ink)",
-              alignSelf: "center",
-            }}
-          >
-            Clear
-          </Link>
-        )}
-      </form>
-      </details>
-      {drafts && rows.length > 0 && (
-        /* Bulk add: tick rows, then this opens the same popup as the
-           per-row Showcase +. Row tick boxes carry form="pool-bulk". */
-        <details className="tool-fold">
-          <summary>Actions</summary>
-          <div className="bulk-bar">
-            <SelectAllCheckbox formId="pool-bulk" />
-            <ShowcaseAddModal
-              bulk
-              drafts={draftOptions}
-              style={smallButton}
-            >
-              Add selected to Showcase
-            </ShowcaseAddModal>
-          </div>
-        </details>
-      )}
-      </div>
+      <StoryToolbar
+        filters={
+          <form method="get" action={`/admin#${anchor}`} className="filter-bar">
+            <input type="hidden" name="tab" value="review" />
+            {params.ps !== 10 && (
+              <input type="hidden" name="ps" value={params.ps} />
+            )}
+            <div className="filter-field">
+              <label style={fieldLabel}>Rating</label>
+              <AutoSubmitSelect name="rel" defaultValue={params.rel} style={smallInput}>
+                <option value="all">All ratings</option>
+                <option value="high">High for shows</option>
+                <option value="s-high">High for Social Theatre</option>
+                <option value="other">Rated lower</option>
+              </AutoSubmitSelect>
+            </div>
+            <div className="filter-field">
+              <label style={fieldLabel}>Company</label>
+              <AutoSubmitSelect name="co" defaultValue={params.co} style={smallInput}>
+                <option value="">All companies</option>
+                {companyRows.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.name}
+                  </option>
+                ))}
+              </AutoSubmitSelect>
+            </div>
+            <div className="filter-field filter-field-grow">
+              <label style={fieldLabel}>Search</label>
+              <input
+                name="q"
+                defaultValue={params.q}
+                placeholder="Headline or show title"
+                style={{ ...smallInput, width: "100%" }}
+              />
+            </div>
+            <button type="submit" style={smallButton}>
+              Search
+            </button>
+            {isFiltered && (
+              <Link
+                prefetch={false}
+                href="/admin?tab=review#story-pool"
+                scroll={false}
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: "var(--cta-ink)",
+                  alignSelf: "center",
+                }}
+              >
+                Clear
+              </Link>
+            )}
+          </form>
+        }
+        actions={
+          drafts && rows.length > 0 ? (
+            /* Bulk add: tick rows, then this opens the same popup as the
+               per-row Showcase +. Row tick boxes carry form="pool-bulk". */
+            <div className="bulk-bar">
+              <SelectAllCheckbox formId="pool-bulk" />
+              <ShowcaseAddModal bulk drafts={draftOptions} style={smallButton}>
+                Add selected to Showcase
+              </ShowcaseAddModal>
+            </div>
+          ) : undefined
+        }
+      />
       {rows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
           {params.pg > 1 ? (
@@ -3298,6 +3292,17 @@ function StoryPoolTable({
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {feedOriginBadge(p, feedNameById)}
+                      {sourcePublication(p) && (
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            color: "var(--text-muted)",
+                            marginTop: 4,
+                          }}
+                        >
+                          {sourcePublication(p)}
+                        </div>
+                      )}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
@@ -4161,9 +4166,9 @@ function BuilderStoryCard({
                 </div>
                 {!isSocial && !showsPageUrl && (
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
-                    Research needs {company}&#39;s shows
-                    page URL before it can find this show. Add it on the
-                    Settings tab.
+                    To find this show by title, add {company}&#39;s shows page
+                    URL on the Settings tab. Or paste the show&#39;s own page
+                    URL above and research pulls the details straight from it.
                   </div>
                 )}
               </details>
