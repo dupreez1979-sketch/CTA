@@ -429,6 +429,9 @@ body {
     margin: 0;
     background: var(--cta-mint);
     flex-direction: column;
+    /* The desktop rule wraps; here wrapping would split the menu into a
+       second column on short screens. One column, scroll if needed. */
+    flex-wrap: nowrap;
     align-items: center;
     gap: 36px;
     padding: 100px 24px 48px;

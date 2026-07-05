@@ -55,7 +55,7 @@ const CADENCES = ["daily", "weekly", "fortnightly"] as const;
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "editions", label: "Editions" },
-  { id: "review", label: "Review" },
+  { id: "review", label: "Stories" },
   { id: "presenters", label: "The Showcase" },
   { id: "subscribers", label: "Subscribers" },
   { id: "settings", label: "Settings" },
@@ -798,19 +798,6 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>Refresh stories</h2>
-        <p style={muted}>
-          Runs the same feed-ingest step as the daily pipeline: new posts get
-          an AI headline and summary and appear in the previews.
-        </p>
-        <form action="/api/admin/ingest" method="post">
-          <button type="submit" style={buttonStyle}>
-            Refresh stories now
-          </button>
-        </form>
-      </section>
-
-      <section className="admin-card">
         <h2 style={h2}>Preview the next newsletter</h2>
         <p style={muted}>
           Opens the newsletter exactly as it would send right now, using the
@@ -955,24 +942,31 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     );
   }
 
-  const [companyList, rows, statusCounts] = await Promise.all([
-    loadCompanies(),
-    db()
-      .select()
-      .from(feedItems)
-      .where(and(...conditions))
-      .orderBy(desc(feedItems.publishedAt))
-      .limit(REVIEW_PAGE + 1)
-      .offset((pg - 1) * REVIEW_PAGE),
-    db()
-      .select({
-        status: feedItems.reviewStatus,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(feedItems)
-      .where(inArray(feedItems.reviewStatus, [...REVIEW_STATUSES]))
-      .groupBy(feedItems.reviewStatus),
-  ]);
+  const params = parseShowcaseListParams(sp);
+  const [companyList, rows, statusCounts, pool, usedDates, feedRows] =
+    await Promise.all([
+      loadCompanies(),
+      db()
+        .select()
+        .from(feedItems)
+        .where(and(...conditions))
+        .orderBy(desc(feedItems.publishedAt))
+        .limit(REVIEW_PAGE + 1)
+        .offset((pg - 1) * REVIEW_PAGE),
+      db()
+        .select({
+          status: feedItems.reviewStatus,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(feedItems)
+        .where(inArray(feedItems.reviewStatus, [...REVIEW_STATUSES]))
+        .groupBy(feedItems.reviewStatus),
+      queryStoryPool(params),
+      getUsedStoryDates(),
+      loadFeeds(),
+    ]);
+  const nameByKey = new Map(companyList.map((c) => [c.key, c.name]));
+  const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
   const hasMore = rows.length > REVIEW_PAGE;
   const pageRows = rows.slice(0, REVIEW_PAGE);
   const countBy = Object.fromEntries(statusCounts.map((c) => [c.status, c.count]));
@@ -1029,6 +1023,49 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
   };
 
   return (
+    <>
+    <section className="admin-card">
+      <h2 style={h2}>Refresh stories</h2>
+      <p style={muted}>
+        Runs the same feed-ingest step as the daily pipeline: new posts get
+        an AI headline and summary. Stories from the social feed go straight
+        into the story pool below; stories from media feeds wait in the
+        review queue until you decide.
+      </p>
+      <form action="/api/admin/ingest" method="post">
+        <button type="submit" style={buttonStyle}>
+          Refresh stories now
+        </button>
+      </form>
+    </section>
+
+    <section className="admin-card" id="story-pool">
+      <h2 style={h2}>Story pool</h2>
+      <p style={muted}>
+        Every story that has come in, rated by the AI twice: once for show
+        relevance and once for Social Theatre (theatre in health, access
+        and community settings, not education or fundraising). Stories
+        rated <strong>High</strong> on either scale are what this list
+        shows by default; switch the rating filter to see medium and low
+        rated stories. Social feed stories rated High are offered to each
+        New Showcase automatically; stories approved from the review queue
+        below join this pool too, but are only ever added to a Showcase by
+        hand. Change a rating here to promote a missed story or keep one
+        out for good.
+      </p>
+      <StoryPoolTable
+        pool={pool}
+        usedDates={usedDates}
+        nameByKey={nameByKey}
+        companyRows={companyList}
+        feedNameById={feedNameById}
+        mode="browse"
+        params={params}
+        tab="review"
+        anchor="story-pool"
+      />
+    </section>
+
     <section className="admin-card">
       <h2 style={h2}>Review queue</h2>
       <p style={muted}>
@@ -1368,6 +1405,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         the feed they came from and when they were approved.
       </p>
     </section>
+    </>
   );
 }
 
@@ -2305,7 +2343,6 @@ async function ShowcaseTab({ sp }: { sp: ShowcaseParams }) {
  * and the "Shows in the Spotlight" registry.
  */
 async function EditionListView({ sp }: { sp: ShowcaseParams }) {
-  const params = parseShowcaseListParams(sp);
   const [
     editions,
     counts,
@@ -2313,9 +2350,6 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     subscriberCount,
     companyRows,
     registry,
-    pool,
-    usedDates,
-    feedRows,
   ] = await Promise.all([
     db().select().from(showcaseEditions),
     getEditionCounts(),
@@ -2323,12 +2357,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     getShowcaseSubscriberCount(),
     db().select().from(companies).orderBy(asc(companies.name)),
     db().select().from(shows).orderBy(asc(shows.title)),
-    queryStoryPool(params),
-    getUsedStoryDates(),
-    loadFeeds(),
   ]);
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
-  const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
 
   const itemsOf = (e: ShowcaseEdition) =>
     e.status === "sent" ? e.itemCount : (counts.get(e.id)?.items ?? 0);
@@ -2612,30 +2642,6 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
         </form>
       </section>
 
-      <section className="admin-card" id="story-pool">
-        <h2 style={h2}>Story pool</h2>
-        <p style={muted}>
-          Every story the feed has brought in, rated by the AI twice: once
-          for show relevance and once for Social Theatre (theatre in health,
-          access and community settings, not education or fundraising).
-          Stories rated <strong>High</strong> on either scale are offered to
-          each New Showcase automatically, in the matching section, and are
-          what this list shows by default; switch the rating filter to see
-          medium and low rated stories. Change a rating here to promote a
-          missed story or keep one out for good.
-        </p>
-        <StoryPoolTable
-          pool={pool}
-          usedDates={usedDates}
-          nameByKey={nameByKey}
-          companyRows={companyRows}
-          feedNameById={feedNameById}
-          mode="browse"
-          params={params}
-          anchor="story-pool"
-        />
-      </section>
-
       <section className="admin-card" id="registry">
         <h2 style={h2}>Shows in the Spotlight</h2>
         <p style={muted}>
@@ -2860,6 +2866,7 @@ function StoryPoolTable({
   mode,
   editionId,
   params,
+  tab,
   anchor,
 }: {
   pool: StoryPoolPage;
@@ -2871,6 +2878,8 @@ function StoryPoolTable({
   mode: "browse" | "add";
   editionId?: number;
   params: ShowcaseListParams;
+  /** Which admin tab the table lives on (filter form and paging links). */
+  tab: "presenters" | "review";
   /** Section id to return to after filtering (forms) and paging (links). */
   anchor: string;
 }) {
@@ -2879,7 +2888,7 @@ function StoryPoolTable({
     // Changing sort or filters implicitly resets to page 1 unless the
     // override sets pg itself.
     const merged = { ...params, pg: 1, ...over };
-    const q = new URLSearchParams({ tab: "presenters" });
+    const q = new URLSearchParams({ tab });
     if (editionId) q.set("edition", String(editionId));
     if (merged.rel !== "highs") q.set("rel", merged.rel);
     if (merged.co) q.set("co", merged.co);
@@ -2930,7 +2939,7 @@ function StoryPoolTable({
           marginBottom: 12,
         }}
       >
-        <input type="hidden" name="tab" value="presenters" />
+        <input type="hidden" name="tab" value={tab} />
         {editionId ? (
           <input type="hidden" name="edition" value={editionId} />
         ) : null}
@@ -2966,8 +2975,8 @@ function StoryPoolTable({
             prefetch={false}
             href={
               editionId
-                ? `/admin?tab=presenters&edition=${editionId}`
-                : "/admin?tab=presenters"
+                ? `/admin?tab=${tab}&edition=${editionId}`
+                : `/admin?tab=${tab}`
             }
             scroll={false}
             style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
@@ -3365,6 +3374,7 @@ async function EditionBuilder({
             mode="add"
             editionId={edition.id}
             params={params}
+            tab="presenters"
             anchor="add-stories"
           />
         </section>

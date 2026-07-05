@@ -36,16 +36,16 @@ export async function POST(request: NextRequest) {
         : "";
     const reviewNote =
       result.queued > 0
-        ? `, ${result.queued} waiting in Review`
+        ? `, ${result.queued} waiting for review below`
         : "";
     const message = `Refreshed ${result.feeds.length} feed${result.feeds.length === 1 ? "" : "s"}: ${result.seen} stories seen, ${result.added} new${reviewNote}${result.remaining > 0 ? `, ${result.remaining} still queued (click again)` : ""}${showcaseNote}${itemNote}${failedNote}`;
     return NextResponse.redirect(
-      new URL(`/admin?tab=editions&message=${encodeURIComponent(message)}`, request.url),
+      new URL(`/admin?tab=review&message=${encodeURIComponent(message)}`, request.url),
       { status: 303 },
     );
   } catch (err) {
     return NextResponse.redirect(
-      new URL(`/admin?tab=editions&message=${encodeURIComponent(`Ingest failed: ${err}`)}`, request.url),
+      new URL(`/admin?tab=review&message=${encodeURIComponent(`Ingest failed: ${err}`)}`, request.url),
       { status: 303 },
     );
   }
