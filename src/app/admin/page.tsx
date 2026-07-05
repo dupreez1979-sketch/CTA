@@ -54,9 +54,9 @@ const CADENCES = ["daily", "weekly", "fortnightly"] as const;
 
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "editions", label: "Editions" },
-  { id: "review", label: "Stories" },
+  { id: "editions", label: "Regular Editions" },
   { id: "presenters", label: "The Showcase" },
+  { id: "review", label: "Stories" },
   { id: "subscribers", label: "Subscribers" },
   { id: "settings", label: "Settings" },
 ] as const;
@@ -1083,9 +1083,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         nameByKey={nameByKey}
         companyRows={companyList}
         feedNameById={feedNameById}
-        mode="browse"
         params={params}
-        tab="review"
         anchor="story-pool"
         drafts={drafts}
       />
@@ -2836,11 +2834,6 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
 }
 
 /**
- * Filter form + sortable results table for the story pool. In "add" mode
- * every row also gets an Add button targeting the given edition, and
- * stories already used are excluded by the query upstream.
- */
-/**
  * Where a story came from, as a small badge: the feed's name for RSS
  * stories (yellow when it arrived through the Review queue, so media
  * stories stand out from the trusted social feed), "Manual" for stories
@@ -2882,16 +2875,18 @@ function feedOriginBadge(
   );
 }
 
+/**
+ * Filter form + sortable results table for the story pool (Stories tab).
+ * Rows carry tick boxes feeding the bulk "add selected to a Showcase
+ * draft" bar above the table.
+ */
 function StoryPoolTable({
   pool,
   usedDates,
   nameByKey,
   companyRows,
   feedNameById,
-  mode,
-  editionId,
   params,
-  tab,
   anchor,
   drafts,
 }: {
@@ -2901,11 +2896,7 @@ function StoryPoolTable({
   companyRows: { key: string; name: string }[];
   /** Feed id → feed name, for the origin badge on each story. */
   feedNameById: Map<number, string>;
-  mode: "browse" | "add";
-  editionId?: number;
   params: ShowcaseListParams;
-  /** Which admin tab the table lives on (filter form and paging links). */
-  tab: "presenters" | "review";
   /** Section id to return to after filtering (forms) and paging (links). */
   anchor: string;
   /** Draft Showcases for the bulk "add selected" bar; when given, each row
@@ -2917,8 +2908,7 @@ function StoryPoolTable({
     // Changing sort or filters implicitly resets to page 1 unless the
     // override sets pg itself.
     const merged = { ...params, pg: 1, ...over };
-    const q = new URLSearchParams({ tab });
-    if (editionId) q.set("edition", String(editionId));
+    const q = new URLSearchParams({ tab: "review" });
     if (merged.rel !== "highs") q.set("rel", merged.rel);
     if (merged.co) q.set("co", merged.co);
     if (merged.q) q.set("q", merged.q);
@@ -2968,10 +2958,7 @@ function StoryPoolTable({
           marginBottom: 12,
         }}
       >
-        <input type="hidden" name="tab" value={tab} />
-        {editionId ? (
-          <input type="hidden" name="edition" value={editionId} />
-        ) : null}
+        <input type="hidden" name="tab" value="review" />
         <select name="rel" defaultValue={params.rel} style={smallInput}>
           <option value="highs">High: show or social</option>
           <option value="high">Show: high</option>
@@ -3002,11 +2989,7 @@ function StoryPoolTable({
         {isFiltered && (
           <Link
             prefetch={false}
-            href={
-              editionId
-                ? `/admin?tab=${tab}&edition=${editionId}`
-                : `/admin?tab=${tab}`
-            }
+            href="/admin?tab=review#story-pool"
             scroll={false}
             style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
           >
@@ -3072,7 +3055,6 @@ function StoryPoolTable({
                   <th style={th}>{sortLink("company", "Company")}</th>
                   <th style={th}>{sortLink("headline", "Headline")}</th>
                   <th style={th}>{sortLink("relevance", "Relevance")}</th>
-                  <th style={th}></th>
                 </tr>
               </thead>
               <tbody>
@@ -3143,39 +3125,6 @@ function StoryPoolTable({
                         </QuickAction>
                       </div>
                     </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {mode === "add" && editionId && (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 6,
-                          }}
-                        >
-                          <QuickAction
-                            fields={{ action: "add", id: p.id, edition: editionId }}
-                            style={{ ...smallButton, width: "100%" }}
-                          >
-                            Add to news
-                          </QuickAction>
-                          <QuickAction
-                            fields={{
-                              action: "add",
-                              social: "1",
-                              id: p.id,
-                              edition: editionId,
-                            }}
-                            style={{
-                              ...smallButton,
-                              width: "100%",
-                              background: "var(--cta-mint)",
-                            }}
-                          >
-                            Add to Social Theatre
-                          </QuickAction>
-                        </div>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -3232,7 +3181,6 @@ async function EditionBuilder({
   sp: ShowcaseParams;
 }) {
   const editable = edition.status === "draft" || edition.status === "failed";
-  const params = parseShowcaseListParams(sp);
   // One parallel round-trip for everything the builder needs.
   const [
     entries,
@@ -3240,8 +3188,6 @@ async function EditionBuilder({
     companyRows,
     recipients,
     subscriberCount,
-    pool,
-    usedDates,
     registry,
     feedRows,
   ] =
@@ -3251,12 +3197,6 @@ async function EditionBuilder({
       db().select().from(companies).orderBy(asc(companies.name)),
       getPresenterRecipients(),
       getShowcaseSubscriberCount(),
-      editable
-        ? queryStoryPool(params, { excludeEditionId: edition.id })
-        : Promise.resolve({ rows: [], hasMore: false }),
-      editable
-        ? getUsedStoryDates()
-        : Promise.resolve(new Map<number, Date | null>()),
       editable
         ? db()
             .select()
@@ -3423,40 +3363,24 @@ async function EditionBuilder({
       )}
 
       {editable && (
-        <section
-          className="admin-card"
-          id="add-stories"
-          style={{ background: "var(--cta-cream-deep)" }}
-        >
-          <h2 style={h2}>1 · Add stories</h2>
-          <p style={muted}>
-            Stories not yet in this Showcase, ready to add to the sections
-            below. Stories rated high for shows or for Social Theatre are
-            shown by default; medium and low rated stories are hidden until
-            you change the rating filter. Search, or page further back, to
-            dig deeper. Stories
-            marked <strong>Sent</strong> have already appeared in a past
-            Showcase but can be added again on purpose. A badge on each
-            story shows the feed it came from; yellow means it arrived
-            through the Review queue.
-          </p>
-          <StoryPoolTable
-            pool={pool}
-            usedDates={usedDates}
-            nameByKey={nameByKey}
-            companyRows={companyRows}
-            feedNameById={feedNameById}
-            mode="add"
-            editionId={edition.id}
-            params={params}
-            tab="presenters"
-            anchor="add-stories"
-          />
-        </section>
+        <p style={{ margin: "0 0 4px" }}>
+          <Link
+            prefetch={false}
+            href="/admin?tab=review#story-pool"
+            style={{
+              ...buttonStyle,
+              display: "inline-block",
+              textDecoration: "none",
+              background: "var(--cta-white)",
+            }}
+          >
+            Add stories from the Stories tab →
+          </Link>
+        </p>
       )}
 
       <section className="admin-card" id="news-stories">
-        <h2 style={h2}>{editable ? "2 · " : ""}Show stories</h2>
+        <h2 style={h2}>{editable ? "1 · " : ""}Show stories</h2>
         {editable ? (
           <p style={muted}>
             Listed in the order they will appear in the email: use the ▲ ▼
@@ -3469,7 +3393,7 @@ async function EditionBuilder({
         )}
         {newsEntries.length === 0 && (
           <p style={{ ...muted, marginBottom: 0 }}>
-            No news stories yet. Add some from the list above.
+            No news stories yet. Add some from the Stories tab.
           </p>
         )}
         {!editable &&
@@ -3519,7 +3443,7 @@ async function EditionBuilder({
 
       {editable && (
         <section className="admin-card" id="social-stories">
-          <h2 style={h2}>3 · Social stories</h2>
+          <h2 style={h2}>2 · Social stories</h2>
           <p style={muted}>
             Stories told through the social lens. They appear in the mint
             Social Theatre band of the email, without a show card, in the
@@ -3556,7 +3480,7 @@ async function EditionBuilder({
 
       <section className="admin-card" id="edition-shows">
         <h2 style={h2}>
-          {editable ? "4 · " : ""}Spotlight shows in this Showcase
+          {editable ? "3 · " : ""}Spotlight shows in this Showcase
         </h2>
         <p style={muted}>
           The show grid at the bottom of this edition, two cards per row, in
