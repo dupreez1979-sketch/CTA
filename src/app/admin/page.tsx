@@ -58,6 +58,7 @@ import RefreshButton from "@/components/RefreshButton";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
+import LogViewer from "@/components/LogViewer";
 
 export const dynamic = "force-dynamic";
 
@@ -2915,6 +2916,21 @@ async function SettingsTab() {
           </form>
         </>
       )}
+    </section>
+
+    <section className="admin-card">
+      <h2 style={h2}>
+        Activity log
+        <HelpTip title="Activity log">
+          A short record of the things not shown elsewhere: errors and
+          warnings (like a failed send or a feed that could not be read) and
+          subscriber activity (new sign-ups, preference changes and
+          unsubscribes). Newsletters and Showcase sends are not here, they
+          have their own History. The log is loaded only when you open it, so
+          it never slows the page, and it keeps just the most recent entries.
+        </HelpTip>
+      </h2>
+      <LogViewer />
     </section>
     </>
   );

@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
 import type { SubscriberCadence } from "@/lib/db/schema";
 import { notifyNewSubscriber } from "@/lib/notify";
+import { logInfo } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,12 @@ export async function POST(request: NextRequest) {
   if (existing.length === 0 && row) {
     // Never throws — a notification problem must not break the sign-up.
     await notifyNewSubscriber(row);
+    await logInfo("subscriber", `New subscriber: ${email} (${cadence})`);
+  } else if (row) {
+    await logInfo(
+      "subscriber",
+      `Subscriber re-submitted the sign-up form: ${email} (${cadence})`,
+    );
   }
 
   return NextResponse.json({ ok: true });

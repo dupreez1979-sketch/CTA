@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
+import { logInfo } from "@/lib/log";
 import PuzzleShape from "@/components/PuzzleShape";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +24,11 @@ export default async function UnsubscribePage({
       .update(subscribers)
       .set({ status: "unsubscribed", updatedAt: new Date() })
       .where(eq(subscribers.unsubscribeToken, token))
-      .returning({ id: subscribers.id });
-    if (updated.length > 0) outcome = "done";
+      .returning({ id: subscribers.id, email: subscribers.email });
+    if (updated.length > 0) {
+      outcome = "done";
+      await logInfo("subscriber", `Unsubscribed: ${updated[0].email}`);
+    }
   }
 
   return (

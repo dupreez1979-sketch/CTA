@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
+import { logInfo } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,12 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
   if (token) {
-    await db()
+    const [gone] = await db()
       .update(subscribers)
       .set({ status: "unsubscribed", updatedAt: new Date() })
-      .where(eq(subscribers.unsubscribeToken, token));
+      .where(eq(subscribers.unsubscribeToken, token))
+      .returning({ email: subscribers.email });
+    if (gone) await logInfo("subscriber", `Unsubscribed (one-click): ${gone.email}`);
   }
   return NextResponse.json({ ok: true });
 }

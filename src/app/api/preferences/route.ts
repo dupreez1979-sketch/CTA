@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, subscribers } from "@/lib/db";
 import type { SubscriberCadence } from "@/lib/db/schema";
+import { logInfo } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,18 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await db()
+  const [changed] = await db()
     .update(subscribers)
     .set({ cadence, showcase, status: "active", updatedAt: new Date() })
-    .where(eq(subscribers.unsubscribeToken, token));
+    .where(eq(subscribers.unsubscribeToken, token))
+    .returning({ email: subscribers.email });
+
+  if (changed) {
+    await logInfo(
+      "subscriber",
+      `Preferences changed: ${changed.email} → ${cadence}${showcase ? ", Showcase on" : ", Showcase off"}`,
+    );
+  }
 
   return NextResponse.redirect(
     new URL(

@@ -120,6 +120,13 @@
       "when": 1783200441007,
       "tag": "0016_newsletter-inclusions",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783200501007,
+      "tag": "0017_activity-log",
+      "breakpoints": true
     }
   ]
 }

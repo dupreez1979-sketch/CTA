@@ -13,6 +13,7 @@ import {
 } from "./db";
 import type { Cadence } from "./db/schema";
 import { ensureNewsletterSchema, isMissingSchema } from "./db-errors";
+import { logError } from "./log";
 import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
 import { companyNameMap } from "./company-store";
 import { pickFeatured } from "./ai";
@@ -383,6 +384,10 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
     };
   } catch (err) {
     await finish("failed", 0, 0);
+    await logError(
+      "send",
+      `${window.cadence} newsletter failed to send: ${err instanceof Error ? err.message : String(err)}`,
+    );
     throw err;
   }
 }

@@ -11,6 +11,7 @@ import {
 } from "./companies";
 import { activeFeeds } from "./feed-store";
 import { getBlockedSources, isBlockedSource } from "./blocked-sources";
+import { logError, logWarning } from "./log";
 
 /**
  * Feed ingestion across every active feed in the registry (Settings → RSS
@@ -78,6 +79,12 @@ export async function ingestFeed(): Promise<IngestSummary> {
         added: r.added,
         ...(r.failed > 0 ? { failed: r.failed, error: r.firstError } : {}),
       });
+      if (r.failed > 0) {
+        await logWarning(
+          "feed",
+          `Feed "${feed.name}": ${r.failed} stor${r.failed === 1 ? "y" : "ies"} could not be processed${r.firstError ? ` (${r.firstError})` : ""}`,
+        );
+      }
     } catch (err) {
       console.error(`Feed "${feed.name}" failed:`, err);
       summary.feeds.push({
@@ -85,6 +92,10 @@ export async function ingestFeed(): Promise<IngestSummary> {
         added: 0,
         error: err instanceof Error ? err.message : String(err),
       });
+      await logError(
+        "feed",
+        `Feed "${feed.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
   return summary;

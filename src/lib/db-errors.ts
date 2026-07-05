@@ -68,3 +68,34 @@ export function ensureNewsletterSchema(): Promise<boolean> {
   })();
   return ensured;
 }
+
+/**
+ * Ensure the activity-log table (migration 0017) exists, in case the
+ * runtime database is behind the migrations. Idempotent and best-effort,
+ * run at most once per process; callers of the log tolerate its absence.
+ */
+let logsEnsured: Promise<boolean> | null = null;
+export function ensureLogsSchema(): Promise<boolean> {
+  logsEnsured ??= (async () => {
+    try {
+      await db().execute(
+        sql`CREATE TABLE IF NOT EXISTS "logs" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "level" text NOT NULL,
+          "category" text NOT NULL,
+          "message" text NOT NULL
+        )`,
+      );
+      await db().execute(
+        sql`CREATE INDEX IF NOT EXISTS "logs_created_idx" ON "logs" ("created_at")`,
+      );
+      return true;
+    } catch (err) {
+      logsEnsured = null;
+      console.error("ensureLogsSchema: could not verify/create logs table:", err);
+      return false;
+    }
+  })();
+  return logsEnsured;
+}

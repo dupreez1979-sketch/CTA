@@ -375,6 +375,30 @@ export const settings = pgTable("settings", {
   value: text("value").notNull(),
 });
 
+/**
+ * A lightweight activity log for the admin: errors, warnings and subscriber
+ * lifecycle events (joined, changed preferences, unsubscribed). Deliberately
+ * NOT a record of sends or editions (those have their own history). Kept
+ * small by capping the row count on write, and only ever read on demand
+ * (the Settings log panel), so it never touches the app's normal load path.
+ */
+export const logs = pgTable(
+  "logs",
+  {
+    id: serial("id").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    level: text("level", { enum: ["error", "warning", "info"] }).notNull(),
+    // A short grouping tag, e.g. "subscriber", "feed", "send".
+    category: text("category").notNull(),
+    message: text("message").notNull(),
+  },
+  (t) => [index("logs_created_idx").on(t.createdAt)],
+);
+export type LogRow = typeof logs.$inferSelect;
+export type LogLevel = LogRow["level"];
+
 export type Subscriber = typeof subscribers.$inferSelect;
 export type Delivery = typeof deliveries.$inferSelect;
 export type FeedItem = typeof feedItems.$inferSelect;
