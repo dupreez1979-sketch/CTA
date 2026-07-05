@@ -105,8 +105,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
           width={680}
           style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
-          <Cloud baseUrl={baseUrl} pair="mint-creamwarm" />
-          {/* Masthead: cloud edges above and below, no hard line. */}
+          {/* Masthead: straight top edge, cloud edge below, no hard line. */}
           <Section
             className="px"
             style={{

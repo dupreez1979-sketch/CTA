@@ -46,10 +46,8 @@ export const CLOUD_PAIRS: ReadonlyArray<{
   below: string;
   flip?: boolean;
 }> = [
-  { above: "mint", below: "creamwarm" }, // email top: masthead rises from the mint backdrop
   { above: "creamwarm", below: "cream" }, // under the masthead (tone on tone)
-  { above: "cream", below: "sky" }, // entering the Social Theatre band
-  { above: "sky", below: "cream" }, // leaving the band: cream clouds in a blue sky
+  { above: "sky", below: "cream" }, // leaving the Social Theatre band: cream clouds in a blue sky
   { above: "cream", below: "purple" }, // before the footer
 ];
 

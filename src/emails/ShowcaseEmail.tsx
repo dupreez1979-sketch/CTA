@@ -318,8 +318,7 @@ export default function ShowcaseEmail({
           width={680}
           style={{ width: "100%", maxWidth: 680, backgroundColor: COLORS.cream }}
         >
-          <Cloud baseUrl={baseUrl} pair="mint-creamwarm" />
-          {/* Masthead: cloud edges above and below, no hard line. */}
+          {/* Masthead: straight top edge, cloud edge below, no hard line. */}
           <Section
             className="px"
             style={{
@@ -924,17 +923,17 @@ export default function ShowcaseEmail({
 
           {/* Social Theatre — its own world: mint band, no show cards.
               Hidden when no stories are tagged. */}
-          {social.length > 0 && <Cloud baseUrl={baseUrl} pair="cream-sky" />}
           {social.length > 0 && (
             <Section
               className="px"
               style={{
                 // Sky, not mint: the email backdrop is mint now, and the
-                // Social Theatre band must read as its own section. The
-                // cloud strips above and below ARE its edges, so no hard
-                // borders and no gap.
+                // Social Theatre band must read as its own section. It
+                // starts on a straight edge and ends in the cloud strip
+                // below; no hard borders.
                 backgroundColor: COLORS.sky,
                 padding: "30px 40px 24px",
+                marginTop: 30,
               }}
             >
               <Text className="intro-h" style={display(26, 0.94)}>
