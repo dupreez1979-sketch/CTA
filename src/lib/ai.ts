@@ -397,3 +397,68 @@ export async function pickShowUrl(
   const parsed = JSON.parse(text.text) as { index: number };
   return parsed.index >= 0 && parsed.index < links.length ? parsed.index : null;
 }
+
+const SHOW_BLURB_SCHEMA = {
+  type: "object",
+  properties: {
+    aboutThisShow: {
+      type: "boolean",
+      description:
+        "True ONLY if the page genuinely describes this specific production/show (its story, staging, performances). False if the page is mainly about the company itself (its mission, values, history, what it does), a general season/listing page, a news article, or a different show.",
+    },
+    blurb: {
+      type: ["string", "null"],
+      description:
+        "A short, engaging 1-2 sentence description of THIS SHOW for a newsletter: what the show is about, what happens on stage, what audiences will experience. Describe the production itself only. NEVER describe the theatre company, its mission, position, values or what it does in general. Null when aboutThisShow is false.",
+    },
+    ageRange: {
+      type: ["string", "null"],
+      description:
+        "The recommended audience age for the show if the page states one, e.g. \"ages 3-8\", \"5+\", \"all ages\". Null if not stated.",
+    },
+  },
+  required: ["aboutThisShow", "blurb", "ageRange"],
+  additionalProperties: false,
+} as const;
+
+/**
+ * Write a show-specific blurb from a scraped show page. The key job is to
+ * stay ON THE SHOW: theatre pages very often carry the company's site-wide
+ * tagline as their meta description, so a naive scrape describes the company
+ * rather than the production. This asks the model to describe the show only,
+ * and to say so (aboutThisShow=false, null blurb) when the page isn't really
+ * about a specific show — better no blurb than a wrong one.
+ */
+export async function writeShowBlurb(
+  showTitle: string | null,
+  pageText: string,
+): Promise<{ aboutThisShow: boolean; blurb: string | null; ageRange: string | null }> {
+  const subject = showTitle
+    ? `the production titled "${showTitle}"`
+    : "the production featured on this page";
+  const response = await client().messages.create({
+    model: MODEL,
+    max_tokens: 400,
+    system: VOICE,
+    output_config: { format: { type: "json_schema", schema: SHOW_BLURB_SCHEMA } },
+    messages: [
+      {
+        role: "user",
+        content: `Below is the text of a web page from a children's theatre company. Write a short newsletter blurb about ${subject} — its story, what happens on stage, and who it is for.\n\nStay strictly on the SHOW. Do not describe the company, its mission, values, history, awards or what it does in general, even if the page talks about those. If the page is really about the company, or is a listing/season page or a news article rather than a page about this specific show, set aboutThisShow to false and return a null blurb.\n\nPAGE TEXT:\n${pageText.slice(0, 6000)}`,
+      },
+    ],
+  });
+  await recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
+  const text = response.content.find((b) => b.type === "text");
+  if (!text) throw new Error("No text block in show-blurb response");
+  const parsed = JSON.parse(text.text) as {
+    aboutThisShow: boolean;
+    blurb: string | null;
+    ageRange: string | null;
+  };
+  return {
+    aboutThisShow: parsed.aboutThisShow,
+    blurb: parsed.aboutThisShow ? (parsed.blurb?.trim() || null) : null,
+    ageRange: parsed.ageRange?.trim() || null,
+  };
+}

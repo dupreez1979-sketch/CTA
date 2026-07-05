@@ -1,4 +1,4 @@
-import { pickShowUrl } from "./ai";
+import { pickShowUrl, writeShowBlurb } from "./ai";
 import { rehostImage } from "./images";
 
 /**
@@ -253,21 +253,53 @@ async function fetchHtml(url: string): Promise<string | null> {
   }
 }
 
+/** The page's visible text (scripts/styles/tags stripped), for the AI blurb. */
+function visibleText(html: string): string {
+  return decodeEntities(
+    html
+      .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<[^>]+>/g, " "),
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Pull blurb/age/image straight from one already-known show page URL. */
 async function researchFromShowUrl(
   showUrl: string,
   guid: string,
+  showTitle: string | null,
 ): Promise<ShowResearchResult> {
   const html = await fetchHtml(showUrl);
   if (!html) return { ...EMPTY_RESEARCH, showUrl };
   const meta = extractShowMeta(html, showUrl);
+
+  // The scraped meta description is often the company's site-wide tagline
+  // rather than the show, which is exactly what we don't want. Ask the model
+  // for a blurb strictly about the show; if it can confirm the page is about
+  // the show, use its blurb (and age range), otherwise leave the blurb blank
+  // rather than fall back to a company description.
+  let showBlurb = meta.blurb;
+  let showAgeRange = meta.ageRange;
+  try {
+    const written = await writeShowBlurb(showTitle, visibleText(html));
+    if (written.aboutThisShow) {
+      showBlurb = written.blurb;
+      if (written.ageRange) showAgeRange = written.ageRange;
+    } else {
+      showBlurb = null;
+    }
+  } catch (err) {
+    console.error(`Show blurb AI failed for ${showUrl}:`, err);
+  }
+
   const showImageUrl = meta.imageUrl
     ? await rehostImage(meta.imageUrl, `${guid}-show`)
     : null;
   return {
     showUrl,
-    showBlurb: meta.blurb,
-    showAgeRange: meta.ageRange,
+    showBlurb,
+    showAgeRange,
     showImageUrl,
   };
 }
@@ -280,7 +312,7 @@ async function researchItemInner(
 ): Promise<ShowResearchResult> {
   // A pasted show page URL is the manual override: scrape it directly and
   // skip the discovery step on the company's shows page(s).
-  if (directUrl) return researchFromShowUrl(directUrl, guid);
+  if (directUrl) return researchFromShowUrl(directUrl, guid, showTitle);
 
   if (!showTitle || showsPageUrls.length === 0) return EMPTY_RESEARCH;
 
@@ -305,7 +337,7 @@ async function researchItemInner(
   }
   if (!showUrl) return EMPTY_RESEARCH;
 
-  return researchFromShowUrl(showUrl, guid);
+  return researchFromShowUrl(showUrl, guid, showTitle);
 }
 
 /**
