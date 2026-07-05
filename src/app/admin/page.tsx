@@ -172,11 +172,36 @@ export default async function AdminPage({
           alt="The Children's Theatre Alliance"
           width={139}
           height={44}
-          style={{ height: 44, width: "auto" }}
+          className="admin-nav-logo"
           priority
         />
         <h1 className="admin-app-name">Newsletter Admin</h1>
+        {/* On narrow screens the links collapse behind a burger, like the
+            website: the hidden checkbox drives a full-screen mint overlay,
+            no JavaScript involved. */}
+        <input
+          type="checkbox"
+          id="admin-menu"
+          className="admin-menu-toggle"
+          aria-label="Open the menu"
+        />
+        <label
+          htmlFor="admin-menu"
+          className="admin-menu-button"
+          aria-hidden="true"
+        >
+          <span />
+          <span />
+          <span />
+        </label>
         <nav className="admin-nav-links">
+          <label
+            htmlFor="admin-menu"
+            className="admin-menu-close"
+            aria-hidden="true"
+          >
+            ✕
+          </label>
           {TABS.map((t) => (
             <Link
               prefetch={false}

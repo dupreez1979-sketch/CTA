@@ -15,6 +15,9 @@
   --cta-cream-warm: #fff8e7;
   --cta-cream-deep: #ffecca;
   --cta-white: #ffffff;
+  /* The saturated violet the website's mobile menu uses for the current
+     page (the pastel brand purple is too faint on mint). */
+  --cta-violet: #6c4bf4;
   --text-body: #2c2c2b;
   --text-muted: #5a5a57;
 
@@ -332,6 +335,11 @@ body {
   margin: 0 0 34px;
 }
 
+.admin-nav-logo {
+  height: 44px;
+  width: auto;
+}
+
 .admin-app-name {
   font-family: var(--font-display);
   text-transform: uppercase;
@@ -367,6 +375,98 @@ body {
   text-decoration: underline;
   text-underline-offset: 6px;
   text-decoration-thickness: 2px;
+}
+
+.admin-nav-links form {
+  display: contents;
+}
+
+/* Burger menu: on narrow screens the links live in a full-screen mint
+   overlay, like the website's mobile navigation. A hidden checkbox
+   toggles it, so it works without JavaScript. */
+.admin-menu-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.admin-menu-button {
+  display: none;
+  margin-left: auto;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 2px;
+  cursor: pointer;
+}
+
+.admin-menu-button span {
+  display: block;
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--cta-ink);
+}
+
+.admin-menu-close {
+  display: none;
+}
+
+@media (max-width: 1019px) {
+  .admin-menu-button {
+    display: flex;
+  }
+
+  .admin-nav-links {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    margin: 0;
+    background: var(--cta-mint);
+    flex-direction: column;
+    align-items: center;
+    gap: 36px;
+    padding: 100px 24px 48px;
+    overflow-y: auto;
+  }
+
+  .admin-menu-toggle:checked ~ .admin-nav-links {
+    display: flex;
+  }
+
+  /* The page behind the open menu shouldn't scroll. */
+  body:has(.admin-menu-toggle:checked) {
+    overflow: hidden;
+  }
+
+  .admin-menu-close {
+    display: block;
+    position: absolute;
+    top: 20px;
+    right: 26px;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--cta-ink);
+    cursor: pointer;
+    padding: 6px;
+  }
+
+  .admin-nav-links .admin-nav-link {
+    font-size: 24px;
+    font-weight: 500;
+  }
+
+  /* The website's mobile menu marks the current page in violet
+     rather than with an underline. */
+  .admin-nav-links .admin-nav-link[aria-current="true"] {
+    color: var(--cta-violet);
+    text-decoration: none;
+  }
+
+  .admin-nav-links .admin-nav-link:hover {
+    text-decoration: none;
+  }
 }
 
 .admin-card {
@@ -464,8 +564,12 @@ body {
     padding: 20px 12px 64px;
   }
 
+  .admin-nav-logo {
+    height: 34px;
+  }
+
   .admin-app-name {
-    font-size: 20px;
+    font-size: 18px;
     padding-left: 12px;
   }
 
