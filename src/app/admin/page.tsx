@@ -1163,6 +1163,12 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
             : sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt})`;
   const orderBy = sql`${orderExpr} ${rdr === "asc" ? sql`asc` : sql`desc`}`;
 
+  // Group by company folds the queue into collapsible per-company sections;
+  // pagination is off then and the whole queue is fetched (capped).
+  const rgroup = sp.rgroup === "company";
+  const reviewCap = rgroup ? STORY_POOL_GROUP_LIMIT : REVIEW_PAGE;
+  const reviewOffset = rgroup ? 0 : (pg - 1) * REVIEW_PAGE;
+
   const params = parseShowcaseListParams(sp);
   const [companyList, rows, statusCounts, pool, usedDates, feedRows, drafts] =
     await Promise.all([
@@ -1172,8 +1178,8 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         .from(feedItems)
         .where(and(...conditions))
         .orderBy(orderBy)
-        .limit(REVIEW_PAGE + 1)
-        .offset((pg - 1) * REVIEW_PAGE),
+        .limit(reviewCap + 1)
+        .offset(reviewOffset),
       db()
         .select({
           status: feedItems.reviewStatus,
@@ -1196,8 +1202,8 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     ]);
   const nameByKey = new Map(companyList.map((c) => [c.key, c.name]));
   const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
-  const hasMore = rows.length > REVIEW_PAGE;
-  const pageRows = rows.slice(0, REVIEW_PAGE);
+  const hasMore = rows.length > reviewCap;
+  const pageRows = rows.slice(0, reviewCap);
   const countBy = Object.fromEntries(statusCounts.map((c) => [c.status, c.count]));
   const highIdsOnPage = pageRows
     .filter((r) => r.aiMatchConfidence === "high")
@@ -1213,6 +1219,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     if (pg > 1) params.set("rpg", String(pg));
     if (rso !== "added") params.set("rso", rso);
     if (sp.rdr === "asc" || sp.rdr === "desc") params.set("rdr", rdr);
+    if (rgroup) params.set("rgroup", "company");
     for (const [k, v] of Object.entries(overrides)) {
       if (v) params.set(k, v);
       else params.delete(k);
@@ -1270,6 +1277,158 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     rejected: "Rejected",
     approved: "Approved",
   };
+
+  const reviewHead = (
+    <tr>
+      <th style={th}></th>
+      <th style={th}>{reviewSortLink("added", "Added")}</th>
+      <th style={th}>{reviewSortLink("published", "Published")}</th>
+      <th style={th}>{reviewSortLink("story", "Story")}</th>
+      <th style={th}>{reviewSortLink("source", "Source")}</th>
+      <th style={th}>{reviewSortLink("confidence", "Suggested match")}</th>
+      <th style={th}>Decide</th>
+    </tr>
+  );
+
+  const reviewRow = (it: FeedItem) => (
+    <tr key={it.id}>
+      <td style={td}>
+        <input
+          type="checkbox"
+          name="ids"
+          value={it.id}
+          form="review-bulk"
+          style={{ width: 18, height: 18 }}
+        />
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        {auDate(it.reviewedAt ?? it.createdAt)}
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>{auDate(it.publishedAt)}</td>
+      <td style={{ ...td, minWidth: 280, maxWidth: 460 }}>
+        <form
+          id={`rv-${it.id}`}
+          action="/api/admin/review"
+          method="post"
+          style={{ display: "none" }}
+        >
+          {filterHidden}
+          <input type="hidden" name="ids" value={it.id} />
+        </form>
+        <a
+          href={it.postUrl}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            fontWeight: 700,
+            fontSize: 13.5,
+            color: "var(--cta-ink)",
+            textDecoration: "none",
+          }}
+        >
+          {it.rawTitle || it.aiHeading} ↗
+        </a>
+        {it.aiMatchReason && (
+          <div
+            className="story-summary"
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              marginTop: 4,
+            }}
+          >
+            {it.aiMatchReason}
+          </div>
+        )}
+      </td>
+      <td style={{ ...td, maxWidth: 160 }}>{sourceOf(it)}</td>
+      <td style={td}>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <select
+            form={`rv-${it.id}`}
+            name="company"
+            defaultValue={it.companyKey}
+            style={{ ...smallInput, maxWidth: 190 }}
+          >
+            {companyOptions.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {it.aiMatchConfidence && (
+            <HelpTip title="AI match confidence">
+              <span
+                style={{
+                  ...badge(
+                    CONFIDENCE_COLOURS[it.aiMatchConfidence] ??
+                      "var(--cta-white)",
+                  ),
+                }}
+              >
+                {it.aiMatchConfidence}
+              </span>
+              <p style={{ margin: "12px 0 0" }}>
+                How sure the AI is that this article is about the suggested
+                company. <strong>High</strong> the article clearly names and
+                describes that Australian company; <strong>medium</strong>{" "}
+                probably, but the evidence is thin; <strong>low</strong> a name
+                mention that may be a different organisation. Always your call.
+              </p>
+            </HelpTip>
+          )}
+        </div>
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        {status !== "approved" && (
+          <button
+            form={`rv-${it.id}`}
+            type="submit"
+            name="op"
+            value="approve"
+            title="Approve: add to the story pool"
+            aria-label="Approve"
+            style={{ ...smallButton, marginRight: 6 }}
+          >
+            + Approve
+          </button>
+        )}
+        {status !== "rejected" && (
+          <button
+            form={`rv-${it.id}`}
+            type="submit"
+            name="op"
+            value="reject"
+            title="Reject: keep out for good"
+            aria-label="Reject"
+            style={dangerButton}
+          >
+            ✕
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+
+  // Grouped view: bucket the queue by the suggested company, ordered
+  // alphabetically by company name; each is a collapsible section.
+  const reviewGroups = (() => {
+    if (!rgroup) return [];
+    const byKey = new Map<string, FeedItem[]>();
+    for (const it of pageRows) {
+      const key = it.suggestedCompanyKey ?? it.companyKey;
+      const list = byKey.get(key) ?? [];
+      list.push(it);
+      byKey.set(key, list);
+    }
+    return [...byKey.entries()]
+      .map(([key, list]) => ({
+        key,
+        name: nameByKey.get(key) ?? "Around the Alliance (no match)",
+        list,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
 
   return (
     <>
@@ -1445,12 +1604,64 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         }
       />
 
+      {(pageRows.length > 0 || rgroup) && (
+        <div style={{ marginBottom: 14 }}>
+          <Link
+            prefetch={false}
+            href={`/admin?${filterParams({
+              rgroup: rgroup ? "" : "company",
+              rpg: "",
+            })}`}
+            scroll={false}
+            style={{
+              ...smallButton,
+              textDecoration: "none",
+              background: rgroup ? "var(--cta-purple)" : "var(--cta-white)",
+            }}
+          >
+            {rgroup ? "Grouped by company ✓" : "Group by company"}
+          </Link>
+        </div>
+      )}
+
       {pageRows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
           {status === "pending" && !hasFilters
             ? "Nothing waiting for review. Stories from manual review feeds land here after the next refresh."
             : "No stories match these filters."}
         </p>
+      ) : rgroup ? (
+        <>
+          {reviewGroups.map((g) => (
+            <details key={g.key} style={{ marginBottom: 12 }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  padding: "8px 0",
+                  fontSize: 14,
+                }}
+              >
+                {g.name}{" "}
+                <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                  ({g.list.length})
+                </span>
+              </summary>
+              <div className="table-scroll">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>{reviewHead}</thead>
+                  <tbody>{g.list.map(reviewRow)}</tbody>
+                </table>
+              </div>
+            </details>
+          ))}
+          {hasMore && (
+            <p style={{ ...muted, marginTop: 10 }}>
+              Showing the first {STORY_POOL_GROUP_LIMIT} stories. Narrow with a
+              filter to see the rest.
+            </p>
+          )}
+        </>
       ) : (
         <>
           <div className="table-scroll">
