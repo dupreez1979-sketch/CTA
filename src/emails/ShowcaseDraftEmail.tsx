@@ -30,6 +30,8 @@ export interface ShowcaseDraftEmailProps {
   baseUrl: string;
   newItems: ShowcaseDraftItem[];
   draftCount: number;
+  /** Pairs of recent pool stories with near-identical headings. */
+  possibleDuplicates?: { a: string; b: string; company: string }[];
 }
 
 const INK = COLORS.ink;
@@ -45,6 +47,7 @@ export default function ShowcaseDraftEmail({
   baseUrl,
   newItems,
   draftCount,
+  possibleDuplicates = [],
 }: ShowcaseDraftEmailProps) {
   const row: React.CSSProperties = {
     fontFamily: FONT_BODY,
@@ -176,6 +179,76 @@ export default function ShowcaseDraftEmail({
                 </tr>
               </tbody>
             </table>
+
+            {possibleDuplicates.length > 0 && (
+              <>
+                <Text style={{ ...display(20, 0.94), margin: "26px 0 6px" }}>
+                  Possible duplicates
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONT_BODY,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: COLORS.textBody,
+                    margin: "0 0 12px",
+                  }}
+                >
+                  These stories from the last 7 days have near-identical
+                  headings. A feed sometimes carries the same story twice, so
+                  check the pool and delete whichever one you don&#39;t want
+                  before the next edition.
+                </Text>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellPadding={0}
+                  cellSpacing={0}
+                  style={{
+                    borderCollapse: "separate",
+                    backgroundColor: COLORS.white,
+                    border: `2px solid ${INK}`,
+                    borderRadius: 14,
+                    boxShadow: `4px 4px 0 ${INK}`,
+                  }}
+                >
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: "14px 20px" }}>
+                        {possibleDuplicates.map((d, i) => (
+                          <Text
+                            key={`${d.a}|${d.b}`}
+                            style={{
+                              ...row,
+                              margin: 0,
+                              borderBottom:
+                                i === possibleDuplicates.length - 1
+                                  ? "none"
+                                  : row.borderBottom,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontFamily: FONT_BODY,
+                                fontWeight: 700,
+                                color: INK,
+                              }}
+                            >
+                              {d.company}:
+                            </span>{" "}
+                            &ldquo;{d.a}&rdquo;
+                            <br />
+                            <span style={{ fontSize: 12, color: COLORS.textMuted }}>
+                              looks like &ldquo;{d.b}&rdquo;
+                            </span>
+                          </Text>
+                        ))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </>
+            )}
           </Section>
 
           <Cloud baseUrl={baseUrl} pair="cream-purple" />

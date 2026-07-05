@@ -17,6 +17,12 @@ import {
 import { loadCompanies } from "@/lib/company-store";
 import { loadFeeds } from "@/lib/feed-store";
 import { getBlockedSources } from "@/lib/blocked-sources";
+import {
+  recentPoolStories,
+  duplicateMap,
+  similarInPool,
+  type DupStory,
+} from "@/lib/duplicates";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
 import {
@@ -1300,7 +1306,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
   const reviewOffset = rgroup ? 0 : (pg - 1) * REVIEW_PAGE;
 
   const params = parseShowcaseListParams(sp);
-  const [companyList, rows, statusCounts, pool, usedDates, feedRows, drafts] =
+  const [companyList, rows, statusCounts, pool, usedDates, feedRows, drafts, recentStories] =
     await Promise.all([
       loadCompanies(),
       db()
@@ -1329,11 +1335,30 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         .from(showcaseEditions)
         .where(sql`${showcaseEditions.status} in ('draft', 'failed')`)
         .orderBy(desc(showcaseEditions.createdAt)),
+      recentPoolStories(),
     ]);
   const nameByKey = new Map(companyList.map((c) => [c.key, c.name]));
   const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
   const hasMore = rows.length > reviewCap;
   const pageRows = rows.slice(0, reviewCap);
+  // Potential duplicates among recent pool stories (feeds sometimes carry the
+  // same story twice); both members of a pair are flagged in the pool.
+  const poolDuplicates = duplicateMap(recentStories);
+  // Warn on review-queue items that echo a story already in the pool.
+  const reviewDupWarnings = new Map<number, DupStory[]>();
+  for (const it of pageRows) {
+    const matches = similarInPool(
+      {
+        id: it.id,
+        heading: it.aiHeading,
+        rawTitle: it.rawTitle,
+        companyKey: it.companyKey,
+        date: it.reviewedAt ?? it.createdAt,
+      },
+      recentStories,
+    );
+    if (matches.length > 0) reviewDupWarnings.set(it.id, matches);
+  }
   const countBy = Object.fromEntries(statusCounts.map((c) => [c.status, c.count]));
   const highIdsOnPage = pageRows
     .filter((r) => r.aiMatchConfidence === "high")
@@ -1408,6 +1433,27 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     approved: "Approved",
   };
 
+  // Warn on a review item that echoes a story already in the pool (last 7
+  // days). Non-blocking: the admin sees it and decides whether to approve.
+  const reviewDupRowStyle = (id: number): React.CSSProperties =>
+    reviewDupWarnings.has(id) ? { background: "rgba(245, 197, 66, 0.16)" } : {};
+  const reviewDupNote = (it: FeedItem) => {
+    const matches = reviewDupWarnings.get(it.id);
+    if (!matches || matches.length === 0) return null;
+    return (
+      <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--cta-ink)" }}>
+        <span style={{ ...badge("var(--cta-yellow)"), fontSize: 10, marginRight: 6 }}>
+          ⚠ Possible duplicate
+        </span>
+        A similar story is already in the pool:{" "}
+        {matches
+          .map((m) => `"${m.heading.slice(0, 70)}${m.heading.length > 70 ? "…" : ""}"`)
+          .join(", ")}
+        . Approve only if this is genuinely different.
+      </div>
+    );
+  };
+
   const reviewHead = (
     <tr>
       <th style={th}></th>
@@ -1421,7 +1467,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
   );
 
   const reviewRow = (it: FeedItem) => (
-    <tr key={it.id}>
+    <tr key={it.id} style={reviewDupRowStyle(it.id)}>
       <td style={td}>
         <input
           type="checkbox"
@@ -1470,6 +1516,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
             {it.aiMatchReason}
           </div>
         )}
+        {reviewDupNote(it)}
       </td>
       <td
         style={{
@@ -1602,7 +1649,10 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
           automatically; stories approved from the review queue below join
           this pool too, but are only ever added to a Showcase by hand. Tick
           stories to add them to a draft Showcase in one go, or change a
-          rating to promote a missed story or keep one out for good.
+          rating to promote a missed story or keep one out for good. Rows
+          shaded yellow are possible duplicates (a feed sometimes carries the
+          same story twice): both are flagged, so delete whichever one you
+          don&#39;t want before the edition goes out.
         </HelpTip>
       </h2>
       <StoryPoolTable
@@ -1614,6 +1664,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         params={params}
         anchor="story-pool"
         drafts={drafts}
+        duplicates={poolDuplicates}
       />
     </section>
 
@@ -1821,7 +1872,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
               </thead>
               <tbody>
                 {pageRows.map((it) => (
-                  <tr key={it.id}>
+                  <tr key={it.id} style={reviewDupRowStyle(it.id)}>
                     <td style={td}>
                       <input
                         type="checkbox"
@@ -1872,6 +1923,7 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
                           {it.aiMatchReason}
                         </div>
                       )}
+                      {reviewDupNote(it)}
                     </td>
                     <td
         style={{
@@ -3514,6 +3566,7 @@ function StoryPoolTable({
   params,
   anchor,
   drafts,
+  duplicates,
 }: {
   pool: StoryPoolPage;
   usedDates: Map<number, Date | null>;
@@ -3527,12 +3580,38 @@ function StoryPoolTable({
   /** Draft Showcases for the bulk "add selected" bar; when given, each row
    * gets a tick box and selected stories can be sent to a draft at once. */
   drafts?: { id: number; createdAt: Date }[];
+  /** Story id → other recent stories it may duplicate; both rows are flagged. */
+  duplicates?: Map<number, DupStory[]>;
 }) {
   const { rows, hasMore } = pool;
   const draftOptions = (drafts ?? []).map((d) => ({
     id: d.id,
     label: `Draft #${d.id} · ${auDate(d.createdAt)}`,
   }));
+  // Potential-duplicate flagging: a soft highlight on the row plus a note
+  // naming the story it looks like, so the admin can delete one and keep
+  // the other before the next edition goes out.
+  const dupOf = (id: number) => duplicates?.get(id) ?? [];
+  const dupRowStyle = (id: number): React.CSSProperties =>
+    dupOf(id).length > 0
+      ? { background: "rgba(245, 197, 66, 0.16)" }
+      : {};
+  const dupNote = (p: FeedItem) => {
+    const matches = dupOf(p.id);
+    if (matches.length === 0) return null;
+    return (
+      <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--cta-ink)" }}>
+        <span style={{ ...badge("var(--cta-yellow)"), fontSize: 10, marginRight: 6 }}>
+          ⚠ Possible duplicate
+        </span>
+        Looks like{" "}
+        {matches
+          .map((m) => `"${m.heading.slice(0, 70)}${m.heading.length > 70 ? "…" : ""}"`)
+          .join(", ")}
+        . Delete whichever one you don&#39;t want.
+      </div>
+    );
+  };
   const href = (over: Partial<ShowcaseListParams>) => {
     // Changing sort or filters implicitly resets to page 1 unless the
     // override sets pg itself.
@@ -3595,7 +3674,7 @@ function StoryPoolTable({
   );
 
   const bodyRow = (p: FeedItem) => (
-    <tr key={p.id}>
+    <tr key={p.id} style={dupRowStyle(p.id)}>
       {drafts && (
         <td style={td}>
           <input
@@ -3654,6 +3733,7 @@ function StoryPoolTable({
             {p.aiSummary}
           </div>
         )}
+        {dupNote(p)}
       </td>
       <td style={{ ...td, maxWidth: 200 }}>
         {feedOriginBadge(p, feedNameById)}
@@ -3924,7 +4004,7 @@ function StoryPoolTable({
               </thead>
               <tbody>
                 {rows.map((p) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} style={dupRowStyle(p.id)}>
                     {drafts && (
                       <td style={td}>
                         <input
@@ -3987,6 +4067,7 @@ function StoryPoolTable({
                           {p.aiSummary}
                         </div>
                       )}
+                      {dupNote(p)}
                     </td>
                     <td style={{ ...td, maxWidth: 200 }}>
                       {feedOriginBadge(p, feedNameById)}

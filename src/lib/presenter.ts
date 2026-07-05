@@ -17,6 +17,7 @@ import {
   type ShowcaseEdition,
 } from "./db";
 import { ensureNewsletterSchema, isMissingSchema } from "./db-errors";
+import { recentPoolStories, isPotentialDuplicate } from "./duplicates";
 import { getSetting, setSetting } from "./settings";
 import { companyNameMap } from "./company-store";
 import { companyNameFrom, sectionStyle, FEATURED_STYLE } from "./companies";
@@ -671,14 +672,30 @@ async function notifyNewStories(): Promise<number> {
     .orderBy(desc(feedItems.publishedAt));
   if (fresh.length === 0) return 0;
 
-  const [to, nameByKey, available] = await Promise.all([
+  const [to, nameByKey, available, recent] = await Promise.all([
     getPresenterRecipients(),
     companyNameMap(),
     db()
       .select({ id: feedItems.id })
       .from(feedItems)
       .where(and(highOrSocialHigh(), notInSentEdition(), usableStory())),
+    recentPoolStories(),
   ]);
+
+  // Potential duplicates among recent pool stories, as unique pairs, so the
+  // admin can clear them before the next edition goes out.
+  const possibleDuplicates: { a: string; b: string; company: string }[] = [];
+  for (let i = 0; i < recent.length; i++) {
+    for (let j = i + 1; j < recent.length; j++) {
+      if (isPotentialDuplicate(recent[i], recent[j])) {
+        possibleDuplicates.push({
+          a: recent[i].heading,
+          b: recent[j].heading,
+          company: companyNameFrom(nameByKey, recent[i].companyKey),
+        });
+      }
+    }
+  }
 
   const baseUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
   const html = await render(
@@ -690,6 +707,7 @@ async function notifyNewStories(): Promise<number> {
         reason: it.presenterReason ?? "",
       })),
       draftCount: available.length,
+      possibleDuplicates,
     }),
   );
 
