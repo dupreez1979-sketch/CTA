@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import {
   db,
   deliveries,
@@ -272,6 +272,27 @@ function AdminFooter({ tab }: { tab: Tab }) {
 
 const SENDS_PAGE = 15;
 
+/** One big-number tile on the Overview dashboard. */
+function StatCard({
+  label,
+  value,
+  sub,
+  bg,
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+  bg: string;
+}) {
+  return (
+    <div className="stat-card" style={{ background: bg }}>
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value.toLocaleString("en-AU")}</div>
+      {sub && <div className="stat-sub">{sub}</div>}
+    </div>
+  );
+}
+
 async function OverviewTab({
   sp,
 }: {
@@ -281,7 +302,39 @@ async function OverviewTab({
   const opg = Number.isInteger(opgRaw) && opgRaw > 0 ? opgRaw : 1;
   // Fetch enough of each source to fill the requested page after merging.
   const fetchCount = opg * SENDS_PAGE + 1;
-  const [counts, showcaseCount, recentIssues, sentEditions] = await Promise.all([
+  const count = sql<number>`count(*)::int`;
+  const dayAgo = new Date(Date.now() - 864e5);
+  const weekAgo = new Date(Date.now() - 7 * 864e5);
+  const fortnightAgo = new Date(Date.now() - 14 * 864e5);
+  // Companies that had at least one feed story since the cutoff.
+  const companiesPostingSince = (cutoff: Date) =>
+    db()
+      .select({ count: sql<number>`count(distinct ${companies.key})::int` })
+      .from(companies)
+      .innerJoin(feedItems, eq(feedItems.companyKey, companies.key))
+      .where(
+        and(eq(feedItems.source, "feed"), gte(feedItems.publishedAt, cutoff)),
+      );
+  const storiesSince = (cutoff: Date) =>
+    db()
+      .select({ count })
+      .from(feedItems)
+      .where(
+        and(eq(feedItems.source, "feed"), gte(feedItems.publishedAt, cutoff)),
+      );
+  const [
+    counts,
+    showcaseCount,
+    recentIssues,
+    sentEditions,
+    [storiesWeek],
+    [storiesDay],
+    [companyTotal],
+    [postingFortnight],
+    [postingWeek],
+    [newSubsWeek],
+    [sentWeek],
+  ] = await Promise.all([
     db()
       .select({
         cadence: subscribers.cadence,
@@ -298,10 +351,30 @@ async function OverviewTab({
       .where(eq(showcaseEditions.status, "sent"))
       .orderBy(desc(showcaseEditions.sentAt))
       .limit(fetchCount),
+    storiesSince(weekAgo),
+    storiesSince(dayAgo),
+    db().select({ count }).from(companies),
+    companiesPostingSince(fortnightAgo),
+    companiesPostingSince(weekAgo),
+    db()
+      .select({ count })
+      .from(subscribers)
+      .where(
+        and(
+          eq(subscribers.status, "active"),
+          gte(subscribers.createdAt, weekAgo),
+        ),
+      ),
+    db()
+      .select({ count })
+      .from(deliveries)
+      .where(gte(deliveries.sentAt, weekAgo)),
   ]);
   const countByCadence = Object.fromEntries(
     counts.map((c) => [c.cadence, c.count]),
   );
+  const activeTotal = counts.reduce((sum, c) => sum + c.count, 0);
+  const quietCompanies = companyTotal.count - postingFortnight.count;
 
   // One send log: cadence issues and live Showcase sends, newest first.
   const allSends = [
@@ -338,6 +411,58 @@ async function OverviewTab({
 
   return (
     <>
+      {/* At-a-glance dashboard: big-number ticker cards. */}
+      <section className="stat-grid">
+        <StatCard
+          label="Stories this week"
+          value={storiesWeek.count}
+          sub="new in the last 7 days"
+          bg="var(--cta-purple)"
+        />
+        <StatCard
+          label="Stories today"
+          value={storiesDay.count}
+          sub="new in the last 24 hours"
+          bg="var(--cta-yellow)"
+        />
+        <StatCard
+          label="Quiet companies"
+          value={quietCompanies}
+          sub="no stories for 14 days"
+          bg={quietCompanies > 0 ? "var(--cta-pink)" : "var(--cta-emerald)"}
+        />
+        <StatCard
+          label="Companies posting"
+          value={postingWeek.count}
+          sub={`of ${companyTotal.count} in the last 7 days`}
+          bg="var(--cta-teal)"
+        />
+        <StatCard
+          label="Active subscribers"
+          value={activeTotal}
+          sub={`daily ${countByCadence.daily ?? 0} · weekly ${countByCadence.weekly ?? 0} · fortnightly ${countByCadence.fortnightly ?? 0} · Showcase only ${countByCadence.none ?? 0}`}
+          bg="var(--cta-mint)"
+        />
+        <StatCard
+          label="New subscribers"
+          value={newSubsWeek.count}
+          sub="joined in the last 7 days"
+          bg="var(--cta-sky)"
+        />
+        <StatCard
+          label="Showcase list"
+          value={showcaseCount}
+          sub="receive The Showcase Edition"
+          bg="var(--cta-cream-warm)"
+        />
+        <StatCard
+          label="Emails sent"
+          value={sentWeek.count}
+          sub="in the last 7 days"
+          bg="var(--cta-white)"
+        />
+      </section>
+
       <section className="admin-card">
         <h2 style={h2}>Next editions</h2>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
