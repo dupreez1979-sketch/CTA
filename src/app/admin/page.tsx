@@ -3319,6 +3319,9 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
     ? (sp.shs as ShowSort)
     : "title";
   const sdir = sp.shd === "desc" ? "desc" : "asc";
+  // Filters (shared by the table and the card grid below it).
+  const shco = (sp.shco ?? "").trim();
+  const shst = sp.shst === "active" || sp.shst === "archived" ? sp.shst : "all";
   const [registry, companyRows] = await Promise.all([
     db().select().from(shows).orderBy(asc(shows.title)),
     db().select().from(companies).orderBy(asc(companies.name)),
@@ -3326,7 +3329,11 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
   const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
   const companyName = (key: string) =>
     nameByKey.get(key) ?? "Around the Alliance";
-  const sorted = [...registry].sort((a, b) => {
+  const filtered = registry.filter(
+    (s) =>
+      (!shco || s.companyKey === shco) && (shst === "all" || s.status === shst),
+  );
+  const sorted = [...filtered].sort((a, b) => {
     const cmp =
       ssort === "company"
         ? companyName(a.companyKey).localeCompare(companyName(b.companyKey))
@@ -3335,13 +3342,26 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
           : a.title.localeCompare(b.title);
     return sdir === "asc" ? cmp : -cmp;
   });
+  // Keep the active filters on the sort links so sorting doesn't clear them.
+  const showParams = (over: Record<string, string> = {}) => {
+    const p = new URLSearchParams({ tab: "shows" });
+    if (ssort !== "title") p.set("shs", ssort);
+    if (sdir !== "asc") p.set("shd", sdir);
+    if (shco) p.set("shco", shco);
+    if (shst !== "all") p.set("shst", shst);
+    for (const [k, v] of Object.entries(over)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    return p.toString();
+  };
   const sortLink = (key: ShowSort, label: string) => {
     const nextDir = ssort === key && sdir === "asc" ? "desc" : "asc";
     return (
       <Link
         prefetch={false}
         scroll={false}
-        href={`/admin?tab=shows&shs=${key}&shd=${nextDir}`}
+        href={`/admin?${showParams({ shs: key, shd: nextDir })}#registry`}
         style={{ color: "inherit", textDecoration: "none" }}
       >
         {label}
@@ -3349,6 +3369,16 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
       </Link>
     );
   };
+  // Accent colours cycled across the Spotlight cards, mirroring the email.
+  const GRID_ACCENTS = [
+    "var(--cta-teal)",
+    "var(--cta-pink)",
+    "var(--cta-yellow)",
+    "var(--cta-sky)",
+    "var(--cta-emerald)",
+    "var(--cta-purple)",
+  ];
+  const isFiltered = shco !== "" || shst !== "all";
 
   return (
     <section className="admin-card" id="registry">
@@ -3365,6 +3395,59 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
       <div className="bulk-bar">
         <AddShowModal companyRows={companyRows} />
       </div>
+      <form
+        method="get"
+        action="/admin#registry"
+        className="filter-bar"
+        style={{ marginBottom: 14 }}
+      >
+        <input type="hidden" name="tab" value="shows" />
+        {ssort !== "title" && <input type="hidden" name="shs" value={ssort} />}
+        {sdir !== "asc" && <input type="hidden" name="shd" value={sdir} />}
+        <div className="filter-field">
+          <label style={fieldLabel}>Company</label>
+          <AutoSubmitSelect name="shco" defaultValue={shco} style={smallInput}>
+            <option value="">All companies</option>
+            {companyRows.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.name}
+              </option>
+            ))}
+          </AutoSubmitSelect>
+        </div>
+        <div className="filter-field">
+          <label style={fieldLabel}>Status</label>
+          <AutoSubmitSelect name="shst" defaultValue={shst} style={smallInput}>
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+          </AutoSubmitSelect>
+        </div>
+        {isFiltered && (
+          <Link
+            prefetch={false}
+            href="/admin?tab=shows#registry"
+            style={{
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: "var(--cta-ink)",
+              alignSelf: "center",
+            }}
+          >
+            Clear
+          </Link>
+        )}
+        <span
+          style={{
+            fontSize: 12.5,
+            color: "var(--text-muted)",
+            alignSelf: "center",
+            marginLeft: "auto",
+          }}
+        >
+          {sorted.length} show{sorted.length === 1 ? "" : "s"}
+        </span>
+      </form>
       <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -3481,13 +3564,180 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
               {sorted.length === 0 && (
                 <tr>
                   <td style={td} colSpan={8}>
-                    No shows listed yet. Press New show to add the first one.
+                    {isFiltered
+                      ? "No shows match these filters."
+                      : "No shows listed yet. Press New show to add the first one."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Spotlight preview: the same list above, as the branded cards that
+            appear in the Showcase email. Honours the filter and sort. */}
+        <h3
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 20,
+            textTransform: "uppercase",
+            letterSpacing: "0.01em",
+            margin: "30px 0 4px",
+          }}
+        >
+          Spotlight preview
+        </h3>
+        <p style={{ ...muted, fontSize: 12.5, margin: "0 0 16px" }}>
+          How these shows look as cards in the Showcase email. Filtered and
+          sorted with the table above.
+        </p>
+        {sorted.length === 0 ? (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            {isFiltered
+              ? "No shows match these filters."
+              : "No shows to preview yet."}
+          </p>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {sorted.map((s, i) => {
+              const accent = GRID_ACCENTS[i % GRID_ACCENTS.length];
+              return (
+                <div
+                  key={s.id}
+                  style={{
+                    border: "2px solid var(--cta-ink)",
+                    borderRadius: 14,
+                    background: "var(--cta-white)",
+                    boxShadow: "4px 4px 0 var(--cta-ink)",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    opacity: s.status === "archived" ? 0.55 : 1,
+                  }}
+                >
+                  {s.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={s.imageUrl}
+                      alt={s.title}
+                      loading="lazy"
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        height: 150,
+                        objectFit: "cover",
+                        borderBottom: "2px solid var(--cta-ink)",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        height: 150,
+                        background: accent,
+                        borderBottom: "2px solid var(--cta-ink)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontFamily: "var(--font-display)",
+                        fontSize: 40,
+                        color: "var(--cta-ink)",
+                      }}
+                    >
+                      {s.title.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      padding: "12px 14px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      flex: 1,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: 17,
+                        lineHeight: 1.15,
+                        color: "var(--cta-ink)",
+                      }}
+                    >
+                      {s.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      {companyName(s.companyKey)}
+                    </div>
+                    {s.blurb && (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "var(--text-body)",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {s.blurb}
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        marginTop: "auto",
+                        paddingTop: 4,
+                      }}
+                    >
+                      {s.ageRange && (
+                        <span style={{ ...badge("var(--cta-mint)"), fontSize: 10 }}>
+                          {s.ageRange}
+                        </span>
+                      )}
+                      {s.status === "archived" && (
+                        <span style={{ ...badge("var(--cta-white)"), fontSize: 10 }}>
+                          archived
+                        </span>
+                      )}
+                      {s.url && (
+                        <a
+                          href={s.url}
+                          target="_blank"
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 12.5,
+                            color: "var(--cta-ink)",
+                            textDecoration: "none",
+                            borderBottom: `2px solid ${accent}`,
+                            paddingBottom: 1,
+                            marginLeft: "auto",
+                          }}
+                        >
+                          Show page →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
   );
 }
