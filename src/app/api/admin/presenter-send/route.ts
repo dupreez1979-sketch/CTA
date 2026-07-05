@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendEditionLive, sendEditionTest } from "@/lib/presenter";
+import {
+  sendEditionLive,
+  sendEditionTest,
+  setPresenterRecipients,
+} from "@/lib/presenter";
 import { showcaseRedirectUrl } from "@/lib/showcase-admin";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +43,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // The test popup submits the addresses to send to; they become the
+    // remembered list (shared with the newsletter test popup) before the
+    // send, which reads it back.
+    if (form.has("to")) {
+      const valid = String(form.get("to") ?? "")
+        .split(/[,;\s\n]+/)
+        .map((s) => s.trim())
+        .filter((s) => EMAIL_RE.test(s));
+      if (valid.length === 0)
+        return redirect("Enter at least one valid email address", id);
+      await setPresenterRecipients(valid.join(", "));
+    }
     const result = await sendEditionTest(id);
     if (result.status === "blocked")
       return redirect(result.reason ?? "Send blocked", id);

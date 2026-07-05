@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { issueWindow } from "@/lib/cadence";
 import { sendTest } from "@/lib/send";
+import { setPresenterRecipients } from "@/lib/presenter";
 import type { Cadence } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -35,13 +36,16 @@ export async function POST(request: NextRequest) {
   if (!["daily", "weekly", "fortnightly"].includes(cadence) || recipients.length === 0) {
     return redirect("Enter at least one valid email address");
   }
+  // Remember the addresses: every test popup prefills with the last-used
+  // list, shared across the newsletters and The Showcase.
+  await setPresenterRecipients(recipients.join(", "));
   try {
     const window = issueWindow(cadence as Cadence, new Date());
     let sent = 0;
     for (const to of recipients) {
       const result = await sendTest(window, to);
       if (result === "no-items") {
-        return redirect(`No items in the ${cadence} window — nothing to send`);
+        return redirect(`No items in the ${cadence} window, nothing to send`);
       }
       sent++;
     }

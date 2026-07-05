@@ -45,6 +45,7 @@ import AdminNav from "@/components/AdminNav";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import HelpTip from "@/components/HelpTip";
+import TestSendButton from "@/components/TestSendButton";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
@@ -808,142 +809,238 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   if (Number.isInteger(issueId) && issueId > 0) {
     return <IssueRecipientsView issueId={issueId} sp={sp} />;
   }
-  // What exactly would "Send now" dispatch? Show the window and audience
-  // next to the button, so the click is never a mystery.
-  const [cadenceCounts, showcaseCount] = await Promise.all([
-    db()
-      .select({
-        cadence: subscribers.cadence,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(subscribers)
-      .where(eq(subscribers.status, "active"))
-      .groupBy(subscribers.cadence),
-    getShowcaseSubscriberCount(),
-  ]);
+  const HISTORY_PAGE = 15;
+  const hpgRaw = Number(sp.hpg);
+  const hpg = Number.isInteger(hpgRaw) && hpgRaw > 0 ? hpgRaw : 1;
+  const [cadenceCounts, lastSentRows, history, testRecipients] =
+    await Promise.all([
+      db()
+        .select({
+          cadence: subscribers.cadence,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(subscribers)
+        .where(eq(subscribers.status, "active"))
+        .groupBy(subscribers.cadence),
+      db()
+        .select({
+          cadence: issues.cadence,
+          last: sql<string | null>`max(${issues.sentAt})`,
+        })
+        .from(issues)
+        .where(eq(issues.status, "sent"))
+        .groupBy(issues.cadence),
+      db()
+        .select()
+        .from(issues)
+        .orderBy(desc(issues.id))
+        .limit(HISTORY_PAGE + 1)
+        .offset((hpg - 1) * HISTORY_PAGE),
+      getPresenterRecipients(),
+    ]);
   const subsByCadence = Object.fromEntries(
     cadenceCounts.map((c) => [c.cadence, c.count]),
   );
+  const lastByCadence = Object.fromEntries(
+    lastSentRows.map((r) => [r.cadence, r.last]),
+  );
+  const historyPage = history.slice(0, HISTORY_PAGE);
+  const hasMoreHistory = history.length > HISTORY_PAGE;
   const now = new Date();
+  const defaultTo = testRecipients.join(", ");
+
   return (
     <>
-      <NextEditionsCard
-        countByCadence={subsByCadence}
-        showcaseCount={showcaseCount}
-      />
-
       <section className="admin-card">
         <h2 style={h2}>
-          Preview the next newsletter
-          <HelpTip title="Preview">
-            Opens the newsletter exactly as it would send right now, using
-            the posts currently in each window. Nothing is sent.
+          Next editions
+          <HelpTip title="Next editions">
+            Newsletters go out with the morning pipeline run: 7:00 am Sydney
+            time during winter (AEST) and 8:00 am during daylight saving
+            (AEDT). A quiet window is skipped, never sent empty. Preview
+            opens the newsletter exactly as it would send right now; Send
+            test emails it to addresses you choose, marked [TEST]; Send now
+            dispatches the current window to every subscriber of that
+            newsletter at once (an already-sent window is never re-sent).
           </HelpTip>
         </h2>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {CADENCES.map((c) => (
-            <a
-              key={c}
-              href={`/admin/preview/${c}`}
-              target="_blank"
-              style={{
-                ...buttonStyle,
-                textDecoration: "none",
-                background: "var(--cta-white)",
-              }}
-            >
-              {c[0].toUpperCase() + c.slice(1)} preview ↗
-            </a>
-          ))}
+        <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>Edition</th>
+                <th style={th}>Last sent</th>
+                <th style={th}>Next send</th>
+                <th style={th}>Subscribers</th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {CADENCES.map((c) => {
+                const w = issueWindow(c, now);
+                const n = subsByCadence[c] ?? 0;
+                const last = lastByCadence[c];
+                return (
+                  <tr key={c}>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      <div style={{ fontWeight: 700, textTransform: "capitalize" }}>
+                        {c}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                        {SCHEDULE_DESCRIPTION[c]}
+                      </div>
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {last ? new Date(last).toISOString().slice(0, 10) : "Not yet"}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {formatSydneyDateTime(
+                        nextSendAt(c, now, process.env.FORTNIGHT_ANCHOR ?? "2026-07-06"),
+                      )}
+                    </td>
+                    <td style={td}>{n}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      <a
+                        href={`/admin/preview/${c}`}
+                        target="_blank"
+                        style={{
+                          ...smallButton,
+                          display: "inline-block",
+                          textDecoration: "none",
+                          background: "var(--cta-white)",
+                          marginRight: 6,
+                        }}
+                      >
+                        Preview ↗
+                      </a>
+                      <TestSendButton
+                        action="/api/admin/send-test"
+                        hidden={{ cadence: c }}
+                        defaultTo={defaultTo}
+                        intro={`The current ${c} newsletter goes to these addresses only, marked [TEST].`}
+                        style={{
+                          ...smallButton,
+                          background: "var(--cta-yellow)",
+                          marginRight: 6,
+                        }}
+                      />
+                      <form
+                        action="/api/admin/send-now"
+                        method="post"
+                        style={{ display: "inline" }}
+                      >
+                        <input type="hidden" name="cadence" value={c} />
+                        <ConfirmSubmit
+                          title="Sending for real"
+                          message={`Send the ${c} newsletter (${w.dateRange}) to ${n} subscriber${n === 1 ? "" : "s"} now? This can't be undone.`}
+                          confirmLabel="Yes, send it now"
+                          danger
+                          style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                        >
+                          Send now
+                        </ConfirmSubmit>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </section>
 
       <section className="admin-card">
         <h2 style={h2}>
-          Send a test
-          <HelpTip title="Send a test">
-            Emails the chosen newsletter to these addresses only, marked
-            [TEST]. Separate several with commas.
+          History
+          <HelpTip title="History">
+            Every past newsletter send, newest first. Click a recipient
+            count to see exactly who received that edition. The Showcase has
+            its own history on The Showcase page.
           </HelpTip>
         </h2>
-        <form
-          action="/api/admin/send-test"
-          method="post"
-          style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}
-        >
-          <div style={{ flex: "1 1 220px" }}>
-            <label style={fieldLabel}>Send to</label>
-            <input
-              type="text"
-              name="to"
-              required
-              placeholder="you@example.org, colleague@example.org"
-              style={{ ...inputStyle, width: "100%" }}
-            />
+        {historyPage.length === 0 ? (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            {hpg > 1 ? "No sends this far back." : "Nothing sent yet."}
+          </p>
+        ) : (
+          <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Edition</th>
+                  <th style={th}>Sent</th>
+                  <th style={th}>Subscribers</th>
+                  <th style={th}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyPage.map((i) => (
+                  <tr key={i.id}>
+                    <td style={{ ...td, whiteSpace: "nowrap", textTransform: "capitalize" }}>
+                      {i.cadence}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {(i.sentAt ?? i.windowEnd).toISOString().slice(0, 10)}
+                    </td>
+                    <td style={td}>
+                      {i.recipientCount > 0 ? (
+                        <Link
+                          prefetch={false}
+                          href={`/admin?tab=editions&issue=${i.id}`}
+                          style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                        >
+                          {i.recipientCount}
+                        </Link>
+                      ) : (
+                        i.recipientCount
+                      )}
+                    </td>
+                    <td style={td}>
+                      <span
+                        style={badge(
+                          i.status === "sent"
+                            ? "var(--cta-emerald)"
+                            : i.status === "failed"
+                              ? "var(--cta-pink)"
+                              : "var(--cta-white)",
+                        )}
+                      >
+                        {i.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div>
-            <label style={fieldLabel}>Newsletter</label>
-            <select name="cadence" style={inputStyle}>
-              {CADENCES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
-          >
-            Send test
-          </button>
-        </form>
-      </section>
-
-      <section className="admin-card">
-        <h2 style={h2}>
-          Send now
-          <HelpTip title="Send now">
-            Sends the current window&#39;s newsletter to every active
-            subscriber of that cadence. A window with no posts is reported
-            as &quot;skipped&quot; and nothing goes out; an already-sent
-            window is never re-sent, so the buttons are safe to click twice.
-          </HelpTip>
-        </h2>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {CADENCES.map((c) => {
-            const w = issueWindow(c, now);
-            const n = subsByCadence[c] ?? 0;
-            return (
-              <form
-                key={c}
-                action="/api/admin/send-now"
-                method="post"
-                style={{ ...tile, flex: "1 1 200px" }}
+        )}
+        {(hpg > 1 || hasMoreHistory) && (
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
+            {hpg > 1 && (
+              <Link
+                prefetch={false}
+                scroll={false}
+                href={`/admin?tab=editions&hpg=${hpg - 1}`}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
-                <input type="hidden" name="cadence" value={c} />
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    marginBottom: 8,
-                  }}
-                >
-                  {w.dateRange} · {n} subscriber{n === 1 ? "" : "s"}
-                </div>
-                <ConfirmSubmit
-                  title="Sending for real"
-                  message={`Send the ${c} newsletter (${w.dateRange}) to ${n} subscriber${n === 1 ? "" : "s"} now? This can't be undone.`}
-                  confirmLabel="Yes, send it now"
-                  danger
-                  style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
-                >
-                  Send {c} now
-                </ConfirmSubmit>
-              </form>
-            );
-          })}
-        </div>
+                ← Previous
+              </Link>
+            )}
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)" }}>
+              Page {hpg}
+            </span>
+            {hasMoreHistory && (
+              <Link
+                prefetch={false}
+                scroll={false}
+                href={`/admin?tab=editions&hpg=${hpg + 1}`}
+                style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+              >
+                Next →
+              </Link>
+            )}
+          </div>
+        )}
       </section>
     </>
   );
@@ -2449,57 +2546,36 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     e.status === "sent" ? e.profileCount : (counts.get(e.id)?.profiles ?? 0);
   const stampOf = (e: ShowcaseEdition) => (e.sentAt ?? e.createdAt).getTime();
 
-  const esort = ["date", "status", "stories"].includes(sp.esort ?? "")
-    ? (sp.esort as "date" | "status" | "stories")
-    : "date";
-  const edir = sp.edir === "asc" ? "asc" : "desc";
   const epgRaw = Number(sp.epg);
   const epg = Number.isInteger(epgRaw) && epgRaw > 0 ? epgRaw : 1;
   const EDITIONS_PAGE = 15;
-  const sorted = [...editions].sort((a, b) => {
-    const cmp =
-      esort === "status"
-        ? a.status.localeCompare(b.status)
-        : esort === "stories"
-          ? itemsOf(a) - itemsOf(b)
-          : stampOf(a) - stampOf(b);
-    return edir === "asc" ? cmp : -cmp;
-  });
-  const pageEditions = sorted.slice(
+  // Two sections, same shape as Regular Editions: what's in progress on
+  // top, everything sent below.
+  const drafts = editions
+    .filter((e) => e.status !== "sent")
+    .sort((a, b) => stampOf(b) - stampOf(a));
+  const sentEditions = editions
+    .filter((e) => e.status === "sent")
+    .sort((a, b) => stampOf(b) - stampOf(a));
+  const pageSent = sentEditions.slice(
     (epg - 1) * EDITIONS_PAGE,
     epg * EDITIONS_PAGE,
   );
-  const hasMoreEditions = sorted.length > epg * EDITIONS_PAGE;
-
-  const eSortLink = (key: string, label: string) => {
-    const firstDir = key === "status" ? "asc" : "desc";
-    const nextDir =
-      esort === key ? (edir === "asc" ? "desc" : "asc") : firstDir;
-    return (
-      <Link
-            prefetch={false}
-        scroll={false}
-        href={`/admin?tab=presenters&esort=${key}&edir=${nextDir}`}
-        style={{ color: "inherit", textDecoration: "none" }}
-      >
-        {label}
-        {esort === key ? (edir === "asc" ? " ↑" : " ↓") : ""}
-      </Link>
-    );
-  };
+  const hasMoreSent = sentEditions.length > epg * EDITIONS_PAGE;
+  const defaultTo = recipients.join(", ");
 
   return (
     <>
       <section className="admin-card">
         <h2 style={h2}>
-          Editions
-          <HelpTip title="Editions">
+          Drafts
+          <HelpTip title="Drafts">
             The Showcase is built one edition at a time. New Showcase starts
             a draft pre-filled with the latest high-relevance stories and
             the current Shows in the Spotlight list; edit it, preview it,
             send a test, then send it live to the {subscriberCount}{" "}
             subscriber{subscriberCount === 1 ? "" : "s"} who receive The
-            Showcase Edition. Sent editions stay here as history.
+            Showcase Edition. Sent editions move to the history below.
           </HelpTip>
         </h2>
         <form
@@ -2512,60 +2588,165 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
             New Showcase
           </button>
         </form>
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={th}>{eSortLink("date", "Date")}</th>
-                <th style={th}>{eSortLink("status", "Status")}</th>
-                <th style={th}>{eSortLink("stories", "Stories")}</th>
-                <th style={th}>Profiles</th>
-                <th style={th}>Recipients</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageEditions.map((e) => {
-                const editable = e.status === "draft" || e.status === "failed";
-                return (
-                  <tr key={e.id}>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {(e.sentAt ?? e.createdAt).toISOString().slice(0, 10)}
-                    </td>
-                    <td style={td}>
-                      <StatusBadge status={e.status} />
-                    </td>
-                    <td style={td}>{itemsOf(e)}</td>
-                    <td style={td}>{profilesOf(e)}</td>
-                    <td style={td}>
-                      {e.recipients ??
-                        (e.status === "sent" ? (
+        {drafts.length === 0 ? (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            No drafts right now. Press New Showcase to start one.
+          </p>
+        ) : (
+          <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Created</th>
+                  <th style={th}>Stories</th>
+                  <th style={th}>Profiles</th>
+                  <th style={th}>Status</th>
+                  <th style={th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {drafts.map((e) => {
+                  const editable = e.status === "draft" || e.status === "failed";
+                  return (
+                    <tr key={e.id}>
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>
+                        {e.createdAt.toISOString().slice(0, 10)}
+                      </td>
+                      <td style={td}>{itemsOf(e)}</td>
+                      <td style={td}>{profilesOf(e)}</td>
+                      <td style={td}>
+                        <StatusBadge status={e.status} />
+                      </td>
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>
+                        {editable && (
                           <Link
                             prefetch={false}
                             href={`/admin?tab=presenters&edition=${e.id}`}
-                            style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                            style={{
+                              ...smallButton,
+                              display: "inline-block",
+                              textDecoration: "none",
+                              marginRight: 6,
+                            }}
                           >
-                            {`${e.recipientCount} recipient${e.recipientCount === 1 ? "" : "s"}`}
+                            Edit
                           </Link>
-                        ) : (
-                          ""
-                        ))}
-                    </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {editable && (
-                        <Link
-            prefetch={false}
-                          href={`/admin?tab=presenters&edition=${e.id}`}
+                        )}
+                        <a
+                          href={`/admin/preview/presenter?edition=${e.id}`}
+                          target="_blank"
                           style={{
                             ...smallButton,
                             display: "inline-block",
                             textDecoration: "none",
+                            background: "var(--cta-white)",
                             marginRight: 6,
                           }}
                         >
-                          Edit
+                          Preview ↗
+                        </a>
+                        {editable && (
+                          <>
+                            <TestSendButton
+                              action="/api/admin/presenter-send"
+                              hidden={{ edition: String(e.id), mode: "test" }}
+                              defaultTo={defaultTo}
+                              intro="This Showcase draft goes to these addresses only. The draft stays a draft."
+                              style={{
+                                ...smallButton,
+                                background: "var(--cta-yellow)",
+                                marginRight: 6,
+                              }}
+                            />
+                            <form
+                              action="/api/admin/presenter-send"
+                              method="post"
+                              style={{ display: "inline", marginRight: 6 }}
+                            >
+                              <input type="hidden" name="edition" value={e.id} />
+                              <input type="hidden" name="mode" value="live" />
+                              <ConfirmSubmit
+                                title="Sending for real"
+                                message={`Send this Showcase to all ${subscriberCount} subscriber${subscriberCount === 1 ? "" : "s"} who receive The Showcase Edition? This can't be undone.`}
+                                confirmLabel="Yes, send it live"
+                                danger
+                                style={{ ...smallButton, background: "var(--cta-yellow)" }}
+                              >
+                                Send live
+                              </ConfirmSubmit>
+                            </form>
+                          </>
+                        )}
+                        <form
+                          action="/api/admin/showcase-edition"
+                          method="post"
+                          style={{ display: "inline" }}
+                        >
+                          <input type="hidden" name="action" value="delete" />
+                          <input type="hidden" name="id" value={e.id} />
+                          <ConfirmSubmit
+                            message="Delete this Showcase draft?"
+                            danger
+                            style={dangerButton}
+                          >
+                            Delete
+                          </ConfirmSubmit>
+                        </form>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="admin-card">
+        <h2 style={h2}>
+          History
+          <HelpTip title="History">
+            Every Showcase that has been sent live, newest first. Click a
+            recipient count to see exactly who received it; Duplicate copies
+            an edition into a fresh draft to reuse it.
+          </HelpTip>
+        </h2>
+        {pageSent.length === 0 ? (
+          <p style={{ ...muted, marginBottom: 0 }}>
+            {epg > 1 ? "No Showcases this far back." : "Nothing sent yet."}
+          </p>
+        ) : (
+          <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Sent</th>
+                  <th style={th}>Stories</th>
+                  <th style={th}>Profiles</th>
+                  <th style={th}>Recipients</th>
+                  <th style={th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageSent.map((e) => (
+                  <tr key={e.id}>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {(e.sentAt ?? e.createdAt).toISOString().slice(0, 10)}
+                    </td>
+                    <td style={td}>{itemsOf(e)}</td>
+                    <td style={td}>{profilesOf(e)}</td>
+                    <td style={td}>
+                      {e.recipients ?? (
+                        <Link
+                          prefetch={false}
+                          href={`/admin?tab=presenters&edition=${e.id}`}
+                          style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                        >
+                          {`${e.recipientCount} recipient${e.recipientCount === 1 ? "" : "s"}`}
                         </Link>
                       )}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
                       <a
                         href={`/admin/preview/presenter?edition=${e.id}`}
                         target="_blank"
@@ -2593,41 +2774,6 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                           Duplicate
                         </button>
                       </form>
-                      {editable && (
-                        <>
-                          <form
-                            action="/api/admin/presenter-send"
-                            method="post"
-                            style={{ display: "inline", marginRight: 6 }}
-                          >
-                            <input type="hidden" name="edition" value={e.id} />
-                            <input type="hidden" name="mode" value="test" />
-                            <ConfirmSubmit
-                              message={`Send a test of this Showcase to ${recipients.join(", ")}? The draft stays a draft.`}
-                              style={{ ...smallButton, background: "var(--cta-yellow)" }}
-                            >
-                              Send test
-                            </ConfirmSubmit>
-                          </form>
-                          <form
-                            action="/api/admin/presenter-send"
-                            method="post"
-                            style={{ display: "inline", marginRight: 6 }}
-                          >
-                            <input type="hidden" name="edition" value={e.id} />
-                            <input type="hidden" name="mode" value="live" />
-                            <ConfirmSubmit
-                              title="Sending for real"
-                              message={`Send this Showcase to all ${subscriberCount} subscriber${subscriberCount === 1 ? "" : "s"} who receive The Showcase Edition? This can't be undone.`}
-                              confirmLabel="Yes, send it live"
-                              danger
-                              style={{ ...smallButton, background: "var(--cta-yellow)" }}
-                            >
-                              Send live
-                            </ConfirmSubmit>
-                          </form>
-                        </>
-                      )}
                       <form
                         action="/api/admin/showcase-edition"
                         method="post"
@@ -2636,34 +2782,21 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                         <input type="hidden" name="action" value="delete" />
                         <input type="hidden" name="id" value={e.id} />
                         <ConfirmSubmit
-                          message={
-                            e.status === "sent"
-                              ? "Delete this sent Showcase from the history? Its stories become available to future editions again."
-                              : "Delete this Showcase draft?"
-                          }
+                          message="Delete this sent Showcase from the history? Its stories become available to future editions again."
                           danger
-                      style={dangerButton}
+                          style={dangerButton}
                         >
                           Delete
                         </ConfirmSubmit>
                       </form>
                     </td>
                   </tr>
-                );
-              })}
-              {pageEditions.length === 0 && (
-                <tr>
-                  <td style={td} colSpan={6}>
-                    {epg > 1
-                      ? "No Showcases this far back."
-                      : "No Showcases yet. Press New Showcase to build the first one."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {(epg > 1 || hasMoreEditions) && (
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {(epg > 1 || hasMoreSent) && (
           <div
             style={{
               display: "flex",
@@ -2676,7 +2809,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg - 1}`}
+                href={`/admin?tab=presenters&epg=${epg - 1}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 ← Previous
@@ -2685,11 +2818,11 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
             <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)" }}>
               Page {epg}
             </span>
-            {hasMoreEditions && (
+            {hasMoreSent && (
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=presenters&esort=${esort}&edir=${edir}&epg=${epg + 1}`}
+                href={`/admin?tab=presenters&epg=${epg + 1}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 Next →
@@ -2697,36 +2830,6 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
             )}
           </div>
         )}
-      </section>
-
-      <section className="admin-card" id="test-recipients">
-        <h2 style={h2}>
-          Test recipients
-          <HelpTip title="Test recipients">
-            Send test delivers a draft to this list only, and new-story
-            notifications go here too. Live sends go to every subscriber who
-            receives The Showcase Edition (see the Subscribers tab).
-          </HelpTip>
-        </h2>
-        <form
-          action="/api/admin/presenter-recipients"
-          method="post"
-          style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
-        >
-          <div style={{ flex: "1 1 280px" }}>
-            <label style={fieldLabel}>Test addresses</label>
-            <input
-              type="text"
-              name="emails"
-              defaultValue={recipients.join(", ")}
-              placeholder="kevin@monkeybaa.com.au"
-              style={{ ...inputStyle, width: "100%" }}
-            />
-          </div>
-          <button type="submit" style={buttonStyle}>
-            Save test list
-          </button>
-        </form>
       </section>
 
       <section className="admin-card" id="registry">
@@ -3370,16 +3473,13 @@ async function EditionBuilder({
           </a>
           {editable && (
             <>
-              <form action="/api/admin/presenter-send" method="post">
-                <input type="hidden" name="edition" value={edition.id} />
-                <input type="hidden" name="mode" value="test" />
-                <ConfirmSubmit
-                  message={`Send a test of this Showcase to ${recipients.join(", ")}? The draft stays a draft.`}
-                  style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
-                >
-                  Send test
-                </ConfirmSubmit>
-              </form>
+              <TestSendButton
+                action="/api/admin/presenter-send"
+                hidden={{ edition: String(edition.id), mode: "test" }}
+                defaultTo={recipients.join(", ")}
+                intro="This Showcase draft goes to these addresses only. The draft stays a draft."
+                style={{ ...buttonStyle, background: "var(--cta-yellow)" }}
+              />
               <form action="/api/admin/presenter-send" method="post">
                 <input type="hidden" name="edition" value={edition.id} />
                 <input type="hidden" name="mode" value="live" />
@@ -3420,15 +3520,7 @@ async function EditionBuilder({
         </div>
         {editable && (
           <p style={{ ...muted, margin: "12px 0 0" }}>
-            Send test goes to {recipients.join(", ")} ·{" "}
-            <Link
-              prefetch={false}
-              href="/admin?tab=presenters#test-recipients"
-              style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-            >
-              change the test list
-            </Link>
-            . Send live goes to every subscriber opted in to The Showcase
+            Send live goes to every subscriber opted in to The Showcase
             Edition.
           </p>
         )}

@@ -87,7 +87,7 @@ export default function AdminModal({
         >
           {title}
         </h2>
-        <p
+        <div
           style={{
             fontFamily: "var(--font-body)",
             fontSize: 14.5,
@@ -99,7 +99,7 @@ export default function AdminModal({
           }}
         >
           {message}
-        </p>
+        </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
           {onConfirm && (
             <button
