@@ -19,7 +19,7 @@ export default function AdminModal({
 }: {
   open: boolean;
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmLabel?: string;
   danger?: boolean;
   onConfirm?: () => void;

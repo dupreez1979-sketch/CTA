@@ -44,6 +44,7 @@ import { CLOUD_PATH } from "@/lib/clouds";
 import AdminNav from "@/components/AdminNav";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
+import HelpTip from "@/components/HelpTip";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
@@ -479,7 +480,14 @@ async function OverviewTab({
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Next editions</h2>
+        <h2 style={h2}>
+          Next editions
+          <HelpTip title="Next editions">
+            Newsletters go out with the morning pipeline run: 7:00 am Sydney
+            time during winter (AEST) and 8:00 am during daylight saving
+            (AEDT). A quiet window is skipped, never sent empty.
+          </HelpTip>
+        </h2>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           {CADENCES.map((c) => {
             const next = nextSendAt(
@@ -544,20 +552,17 @@ async function OverviewTab({
             </div>
           </div>
         </div>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "14px 0 0" }}>
-          Newsletters go out with the morning pipeline run: 7:00 am Sydney
-          time during winter (AEST) and 8:00 am during daylight saving
-          (AEDT). A quiet window is skipped, never sent empty.
-        </p>
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Recent sends</h2>
-        <p style={muted}>
-          Every dispatched edition: the daily, weekly and fortnightly
-          newsletters and each live Showcase send. Click a recipient count to
-          see exactly who received it.
-        </p>
+        <h2 style={h2}>
+          Recent sends
+          <HelpTip title="Recent sends">
+            Every dispatched edition: the daily, weekly and fortnightly
+            newsletters and each live Showcase send. Click a recipient count
+            to see exactly who received it.
+          </HelpTip>
+        </h2>
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -692,13 +697,15 @@ async function AiCreditsCard() {
 
   return (
     <section className="admin-card">
-      <h2 style={h2}>AI credits (estimated)</h2>
-      <p style={muted}>
-        Estimated Anthropic API spend on headlines and summaries, measured
-        from this app&#39;s own usage ({spend.totalCalls.toLocaleString()} AI
-        calls so far). Anthropic doesn&#39;t provide a balance API, so check
-        the console for the authoritative figure.
-      </p>
+      <h2 style={h2}>
+        AI credits (estimated)
+        <HelpTip title="AI credits">
+          Estimated Anthropic API spend on headlines and summaries, measured
+          from this app&#39;s own usage ({spend.totalCalls.toLocaleString()} AI
+          calls so far). Anthropic doesn&#39;t provide a balance API, so check
+          the console for the authoritative figure.
+        </HelpTip>
+      </h2>
       <div
         style={{
           border: "2px solid var(--cta-ink)",
@@ -798,11 +805,13 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>Preview the next newsletter</h2>
-        <p style={muted}>
-          Opens the newsletter exactly as it would send right now, using the
-          posts currently in each window. Nothing is sent.
-        </p>
+        <h2 style={h2}>
+          Preview the next newsletter
+          <HelpTip title="Preview">
+            Opens the newsletter exactly as it would send right now, using
+            the posts currently in each window. Nothing is sent.
+          </HelpTip>
+        </h2>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {CADENCES.map((c) => (
             <a
@@ -822,11 +831,13 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Send a test</h2>
-        <p style={muted}>
-          Emails the chosen newsletter to these addresses only, marked
-          [TEST]. Separate several with commas.
-        </p>
+        <h2 style={h2}>
+          Send a test
+          <HelpTip title="Send a test">
+            Emails the chosen newsletter to these addresses only, marked
+            [TEST]. Separate several with commas.
+          </HelpTip>
+        </h2>
         <form
           action="/api/admin/send-test"
           method="post"
@@ -862,13 +873,15 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
       </section>
 
       <section className="admin-card">
-        <h2 style={h2}>Send now</h2>
-        <p style={muted}>
-          Sends the current window&#39;s newsletter to every active subscriber
-          of that cadence. A window with no posts is reported as
-          &quot;skipped&quot; and nothing goes out; an already-sent window is
-          never re-sent, so the buttons are safe to click twice.
-        </p>
+        <h2 style={h2}>
+          Send now
+          <HelpTip title="Send now">
+            Sends the current window&#39;s newsletter to every active
+            subscriber of that cadence. A window with no posts is reported
+            as &quot;skipped&quot; and nothing goes out; an already-sent
+            window is never re-sent, so the buttons are safe to click twice.
+          </HelpTip>
+        </h2>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {CADENCES.map((c) => {
             const w = issueWindow(c, now);
@@ -1064,19 +1077,22 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     </div>
 
     <section className="admin-card" id="story-pool">
-      <h2 style={h2}>Story pool</h2>
-      <p style={muted}>
-        Every story that has come in, rated by the AI twice: once for show
-        relevance and once for Social Theatre (theatre in health, access
-        and community settings, not education or fundraising). Stories
-        rated <strong>High</strong> on either scale are what this list
-        shows by default; switch the rating filter to see medium and low
-        rated stories. Social feed stories rated High are offered to each
-        New Showcase automatically; stories approved from the review queue
-        below join this pool too, but are only ever added to a Showcase by
-        hand. Tick stories to add them to a draft Showcase in one go, or
-        change a rating to promote a missed story or keep one out for good.
-      </p>
+      <h2 style={h2}>
+        Story pool
+        <HelpTip title="Story pool">
+          Every story that has come in, rated by the AI twice: once for show
+          relevance and once for Social Theatre (theatre in health, access
+          and community settings, not education or fundraising). Stories
+          rated <strong>High</strong> on either scale are what this list
+          shows by default; switch the rating filter to see medium and low
+          rated stories. Social feed stories rated High are offered to each
+          New Showcase automatically; stories approved from the review queue
+          below join this pool too, but are only ever added to a Showcase by
+          hand. Tick stories to add them to a draft Showcase in one go, or
+          change a rating to promote a missed story or keep one out for
+          good.
+        </HelpTip>
+      </h2>
       <StoryPoolTable
         pool={pool}
         usedDates={usedDates}
@@ -1090,17 +1106,21 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
     </section>
 
     <section className="admin-card">
-      <h2 style={h2}>Review queue</h2>
-      <p style={muted}>
-        Stories from manual review feeds wait here until you decide.
-        Approved stories become available in the Showcase builder, where
-        you add them by hand (they never enter the daily or weekly
-        newsletters automatically); rejected stories are kept out for good
-        (and never resurface, even if the feed repeats them). The AI match
-        is only a guide: check the article before approving, and change the
-        company if it guessed wrong. Everything is reversible from the
-        status filter.
-      </p>
+      <h2 style={h2}>
+        Review queue
+        <HelpTip title="Review queue">
+          Stories from manual review feeds wait here until you decide.
+          Approved stories become available in the Showcase builder, where
+          you add them by hand (they never enter the daily or weekly
+          newsletters automatically); rejected stories are kept out for good
+          (and never resurface, even if the feed repeats them). The AI match
+          is only a guide: check the article before approving, and change
+          the company if it guessed wrong. Everything is reversible from the
+          status filter. Feeds are managed under Settings; approved stories
+          keep a record of the feed they came from and when they were
+          approved.
+        </HelpTip>
+      </h2>
       <p style={{ ...muted, marginBottom: 16 }}>
         Waiting: <strong>{countBy.pending ?? 0} pending</strong>
         {" · "}
@@ -1423,10 +1443,6 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
           )}
         </>
       )}
-      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "14px 0 0" }}>
-        Feeds are managed under Settings. Approved stories keep a record of
-        the feed they came from and when they were approved.
-      </p>
     </section>
     </>
   );
@@ -1520,7 +1536,14 @@ async function SubscribersTab({
   return (
     <>
     <section className="admin-card">
-      <h2 style={h2}>Audience list</h2>
+      <h2 style={h2}>
+        Audience list
+        <HelpTip title="Audience list">
+          Everyone signed up, with what they receive. Click a name for
+          everything that person has received. Setting someone to
+          &quot;Showcase only&quot; always includes The Showcase Edition.
+        </HelpTip>
+      </h2>
       <div
         style={{
           display: "flex",
@@ -1748,20 +1771,18 @@ async function SubscribersTab({
           </tbody>
         </table>
       </div>
-      <p style={{ ...muted, margin: "12px 0 0", fontSize: 12.5 }}>
-        Click a name for everything that person has received. Setting someone
-        to &quot;Showcase only&quot; always includes The Showcase Edition.
-      </p>
     </section>
 
     <section className="admin-card">
-      <h2 style={h2}>New audience</h2>
-      <p style={muted}>
-        Adds someone directly, exactly as if they signed up themselves. If
-        the address is already subscribed, their details and choices are
-        updated instead. Choosing &quot;Showcase only&quot; always includes
-        The Showcase Edition.
-      </p>
+      <h2 style={h2}>
+        New audience
+        <HelpTip title="New audience">
+          Adds someone directly, exactly as if they signed up themselves. If
+          the address is already subscribed, their details and choices are
+          updated instead. Choosing &quot;Showcase only&quot; always
+          includes The Showcase Edition.
+        </HelpTip>
+      </h2>
       <form
         action="/api/admin/add-subscriber"
         method="post"
@@ -1852,15 +1873,18 @@ async function SettingsTab() {
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>Introductions</h2>
-        <p style={muted}>
-          Two one-off branded emails for funders, presenters and friends
-          (including international). <strong>Introduce the Alliance</strong>{" "}
-          leads with who we are; <strong>Introduce the newsletter</strong>{" "}
-          leads with the editions and how to sign up, with the Alliance as
-          the secondary story. Paste addresses separated by commas or new
-          lines. Recipients are emailed once and <strong>never stored</strong>.
-        </p>
+        <h2 style={h2}>
+          Introductions
+          <HelpTip title="Introductions">
+            Two one-off branded emails for funders, presenters and friends
+            (including international). <strong>Introduce the Alliance</strong>{" "}
+            leads with who we are; <strong>Introduce the newsletter</strong>{" "}
+            leads with the editions and how to sign up, with the Alliance as
+            the secondary story. Paste addresses separated by commas or new
+            lines. Recipients are emailed once and{" "}
+            <strong>never stored</strong>.
+          </HelpTip>
+        </h2>
         <div
           style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}
         >
@@ -1934,13 +1958,15 @@ async function SettingsTab() {
       <AiCreditsCard />
 
     <section className="admin-card">
-      <h2 style={h2}>Notifications</h2>
-      <p style={muted}>
-        These addresses get a short branded email every time someone new
-        subscribes. Separate several with commas. Leave empty to turn
-        notifications off. Cadence changes and re-subscribes do not trigger
-        one.
-      </p>
+      <h2 style={h2}>
+        Notifications
+        <HelpTip title="Notifications">
+          These addresses get a short branded email every time someone new
+          subscribes. Separate several with commas. Leave empty to turn
+          notifications off. Cadence changes and re-subscribes do not
+          trigger one.
+        </HelpTip>
+      </h2>
       <form
         action="/api/admin/notify-emails"
         method="post"
@@ -1968,15 +1994,17 @@ async function SettingsTab() {
     </section>
 
     <section className="admin-card">
-      <h2 style={h2}>RSS feeds</h2>
-      <p style={muted}>
-        Where stories come from. <strong>Automatic</strong> feeds are
-        trusted (the companies&#39; own social posts): their stories join
-        the stream straight away. <strong>Manual review</strong> feeds
-        (media and news coverage) park every story on the Review page
-        until you approve it, because articles can mention the wrong
-        company. Unticking Active pauses a feed without deleting it.
-      </p>
+      <h2 style={h2}>
+        RSS feeds
+        <HelpTip title="RSS feeds">
+          Where stories come from. <strong>Automatic</strong> feeds are
+          trusted (the companies&#39; own social posts): their stories join
+          the stream straight away. <strong>Manual review</strong> feeds
+          (media and news coverage) park every story on the Stories page
+          until you approve it, because articles can mention the wrong
+          company. Unticking Active pauses a feed without deleting it.
+        </HelpTip>
+      </h2>
       <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -2113,14 +2141,16 @@ async function SettingsTab() {
     </section>
 
     <section className="admin-card">
-      <h2 style={h2}>Alliance companies</h2>
-      <p style={muted}>
-        Posts are matched to a company when its page name, post title or link
-        contains one of the <strong>match words</strong> (separate several
-        with commas). Unmatched posts appear under &quot;Around the
-        Alliance&quot; — if you spot one there, add the company here. Changes
-        apply to posts fetched from then on.
-      </p>
+      <h2 style={h2}>
+        Alliance companies
+        <HelpTip title="Alliance companies">
+          Posts are matched to a company when its page name, post title or
+          link contains one of the <strong>match words</strong> (separate
+          several with commas). Unmatched posts appear under &quot;Around
+          the Alliance&quot;: if you spot one there, add the company here.
+          Changes apply to posts fetched from then on.
+        </HelpTip>
+      </h2>
       <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -2235,17 +2265,19 @@ async function SettingsTab() {
     </section>
 
     <section className="admin-card">
-      <h2 style={h2}>Unfiled posts</h2>
-      <p style={muted}>
-        Recent posts that couldn&#39;t be matched to a company (they appear
-        under &quot;Around the Alliance&quot; in issues). The page name and
-        text below are what the feed provided — if you can tell who posted
-        it, add a match word to that company above (show titles work well),
-        then click re-file.
-      </p>
+      <h2 style={h2}>
+        Unfiled posts
+        <HelpTip title="Unfiled posts">
+          Recent posts that couldn&#39;t be matched to a company (they
+          appear under &quot;Around the Alliance&quot; in issues). The page
+          name and text shown are what the feed provided: if you can tell
+          who posted it, add a match word to that company above (show
+          titles work well), then click re-file.
+        </HelpTip>
+      </h2>
       {unfiled.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
-          Nothing unfiled — every post is matched to a company.
+          Nothing unfiled: every post is matched to a company.
         </p>
       ) : (
         <>
@@ -2431,15 +2463,17 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   return (
     <>
       <section className="admin-card">
-        <h2 style={h2}>Editions</h2>
-        <p style={muted}>
-          The Showcase is built one edition at a time. New Showcase starts a
-          draft pre-filled with the latest high-relevance stories and the
-          current Shows in the Spotlight list; edit it, preview it, send a
-          test, then send it live to the {subscriberCount} subscriber
-          {subscriberCount === 1 ? "" : "s"} who receive The Showcase
-          Edition. Sent editions stay here as history.
-        </p>
+        <h2 style={h2}>
+          Editions
+          <HelpTip title="Editions">
+            The Showcase is built one edition at a time. New Showcase starts
+            a draft pre-filled with the latest high-relevance stories and
+            the current Shows in the Spotlight list; edit it, preview it,
+            send a test, then send it live to the {subscriberCount}{" "}
+            subscriber{subscriberCount === 1 ? "" : "s"} who receive The
+            Showcase Edition. Sent editions stay here as history.
+          </HelpTip>
+        </h2>
         <form
           action="/api/admin/showcase-edition"
           method="post"
@@ -2638,12 +2672,14 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
       </section>
 
       <section className="admin-card" id="test-recipients">
-        <h2 style={h2}>Test recipients</h2>
-        <p style={muted}>
-          Send test delivers a draft to this list only, and new-story
-          notifications go here too. Live sends go to every subscriber who
-          receives The Showcase Edition (see the Subscribers tab).
-        </p>
+        <h2 style={h2}>
+          Test recipients
+          <HelpTip title="Test recipients">
+            Send test delivers a draft to this list only, and new-story
+            notifications go here too. Live sends go to every subscriber who
+            receives The Showcase Edition (see the Subscribers tab).
+          </HelpTip>
+        </h2>
         <form
           action="/api/admin/presenter-recipients"
           method="post"
@@ -2666,12 +2702,15 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
       </section>
 
       <section className="admin-card" id="registry">
-        <h2 style={h2}>Shows in the Spotlight</h2>
-        <p style={muted}>
-          The registry of shows available now. New Showcases start with all
-          active shows; each edition can then drop or re-add them. Archive a
-          show to keep it on file without offering it to new editions.
-        </p>
+        <h2 style={h2}>
+          Shows in the Spotlight
+          <HelpTip title="Shows in the Spotlight">
+            The registry of shows available now. New Showcases start with
+            all active shows; each edition can then drop or re-add them.
+            Archive a show to keep it on file without offering it to new
+            editions.
+          </HelpTip>
+        </h2>
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -3234,13 +3273,22 @@ async function EditionBuilder({
         >
           <h2 style={{ ...h2, margin: 0 }}>
             {edition.status === "sent" ? "Showcase (sent)" : "Showcase builder"}
+            <HelpTip
+              title={
+                edition.status === "sent" ? "Showcase (sent)" : "Showcase builder"
+              }
+            >
+              {edition.status === "sent"
+                ? "Sent editions are read-only; duplicate to reuse one."
+                : "New Showcases start pre-filled with every unused story rated high on either scale, plus the active Spotlight shows. The numbered sections walk through the edition top to bottom."}
+            </HelpTip>
           </h2>
           <StatusBadge status={edition.status} />
         </div>
         <p style={muted}>
           {edition.status === "sent"
-            ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? `${edition.recipientCount} subscriber${edition.recipientCount === 1 ? "" : "s"}`}. Sent editions are read-only; duplicate to reuse it.`
-            : `Started ${edition.createdAt.toISOString().slice(0, 10)}. New Showcases start pre-filled with every unused story rated high on either scale, plus the active Spotlight shows; the numbered sections below walk through the edition top to bottom.`}
+            ? `Sent ${edition.sentAt?.toISOString().slice(0, 10) ?? ""} to ${edition.recipients ?? `${edition.recipientCount} subscriber${edition.recipientCount === 1 ? "" : "s"}`}.`
+            : `Started ${edition.createdAt.toISOString().slice(0, 10)}.`}
         </p>
         {editable && (
           <div
@@ -3380,17 +3428,18 @@ async function EditionBuilder({
       )}
 
       <section className="admin-card" id="news-stories">
-        <h2 style={h2}>{editable ? "1 · " : ""}Show stories</h2>
-        {editable ? (
-          <p style={muted}>
-            Listed in the order they will appear in the email: use the ▲ ▼
-            arrows to reorder, and tap a card to open it for editing. Pick up
-            to two stories as <strong>profiles</strong> (the big cards at the
-            top).
-          </p>
-        ) : (
-          <p style={muted}>As sent, in order.</p>
-        )}
+        <h2 style={h2}>
+          {editable ? "1 · " : ""}Show stories
+          {editable && (
+            <HelpTip title="Show stories">
+              Listed in the order they will appear in the email: use the ▲ ▼
+              arrows to reorder, and tap a card to open it for editing. Pick
+              up to two stories as <strong>profiles</strong> (the big cards
+              at the top).
+            </HelpTip>
+          )}
+        </h2>
+        {!editable && <p style={muted}>As sent, in order.</p>}
         {newsEntries.length === 0 && (
           <p style={{ ...muted, marginBottom: 0 }}>
             No news stories yet. Add some from the Stories tab.
@@ -3443,13 +3492,15 @@ async function EditionBuilder({
 
       {editable && (
         <section className="admin-card" id="social-stories">
-          <h2 style={h2}>2 · Social stories</h2>
-          <p style={muted}>
-            Stories told through the social lens. They appear in the mint
-            Social Theatre band of the email, without a show card, in the
-            order below. Use Move to Social Theatre on a news story to bring
-            it here.
-          </p>
+          <h2 style={h2}>
+            2 · Social stories
+            <HelpTip title="Social stories">
+              Stories told through the social lens. They appear in the mint
+              Social Theatre band of the email, without a show card, in the
+              order below. Use Move to Social Theatre on a news story to
+              bring it here.
+            </HelpTip>
+          </h2>
           {socialEntries.length === 0 && (
             <p style={{ ...muted, marginBottom: 0 }}>
               No Social Theatre stories in this Showcase yet. The section
@@ -3481,13 +3532,13 @@ async function EditionBuilder({
       <section className="admin-card" id="edition-shows">
         <h2 style={h2}>
           {editable ? "3 · " : ""}Spotlight shows in this Showcase
+          <HelpTip title="Spotlight shows">
+            The show grid at the bottom of this edition, two cards per row,
+            in the order shown.
+            {editable &&
+              " Use the ▲ ▼ arrows to reorder and Remove to take a show out of this edition."}
+          </HelpTip>
         </h2>
-        <p style={muted}>
-          The show grid at the bottom of this edition, two cards per row, in
-          the order below.
-          {editable &&
-            " Use the ▲ ▼ arrows to reorder and Remove to take a show out of this edition."}
-        </p>
         {editable && (
           <p style={{ marginTop: 0, marginBottom: 14 }}>
             <Link
@@ -4363,11 +4414,13 @@ async function IssueRecipientsView({
         </p>
       </section>
       <section className="admin-card">
-        <h2 style={h2}>Who received it</h2>
-        <p style={muted}>
-          Everyone this newsletter was delivered to. Click a name for
-          everything that person has received.
-        </p>
+        <h2 style={h2}>
+          Who received it
+          <HelpTip title="Who received it">
+            Everyone this newsletter was delivered to. Click a name for
+            everything that person has received.
+          </HelpTip>
+        </h2>
         <RecipientTable
           rows={rows}
           sp={sp}
@@ -4394,11 +4447,13 @@ async function EditionRecipientsCard({
     .limit(2000);
   return (
     <section className="admin-card">
-      <h2 style={h2}>Who received it</h2>
-      <p style={muted}>
-        Everyone this Showcase went to when it was sent live. Test sends are
-        not listed here.
-      </p>
+      <h2 style={h2}>
+        Who received it
+        <HelpTip title="Who received it">
+          Everyone this Showcase went to when it was sent live. Test sends
+          are not listed here.
+        </HelpTip>
+      </h2>
       <RecipientTable
         rows={rows}
         sp={sp}
