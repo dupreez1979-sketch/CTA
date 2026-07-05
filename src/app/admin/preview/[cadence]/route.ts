@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * currently in the database. Behind admin basic auth (middleware).
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ cadence: string }> },
 ) {
   const { cadence } = await params;
@@ -29,7 +29,9 @@ export async function GET(
     );
   }
   const window = issueWindow(cadence as Cadence, new Date());
-  const assembled = await assembleIssue(window);
+  // Render the preview against whatever origin the admin is viewing it on,
+  // so it works even if APP_URL is unset or stale after a domain change.
+  const assembled = await assembleIssue(window, new URL(request.url).origin);
   if (!assembled) {
     return new NextResponse(
       messagePageHtml(

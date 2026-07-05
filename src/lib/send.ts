@@ -42,9 +42,83 @@ function env(name: string): string {
   return v;
 }
 
+/** The live site, used as a last resort so an unset APP_URL never hard-fails. */
+const DEFAULT_APP_URL = "https://news.childrenstheatrealliance.com.au";
+
+/**
+ * The base URL for absolute links and images. Prefers an explicit override
+ * (e.g. the request's own origin, used for previews), then the APP_URL
+ * environment variable, then the known production address. This means a
+ * missing or stale APP_URL degrades gracefully instead of throwing a 500 —
+ * important for the live preview and the scheduled sends.
+ */
+function resolveBaseUrl(override?: string): string {
+  const candidate = (override ?? process.env.APP_URL ?? DEFAULT_APP_URL).trim();
+  const url = /^https?:\/\//i.test(candidate) ? candidate : DEFAULT_APP_URL;
+  return url.replace(/\/+$/, "");
+}
+
 export interface AssembledIssue {
   props: Omit<AllianceEmailProps, "unsubscribeUrl">;
   itemCount: number;
+}
+
+/**
+ * True when a database error is "this column/table does not exist" — the
+ * signature of a migration that has not been applied to this environment
+ * yet. Postgres codes: 42703 = undefined_column, 42P01 = undefined_table.
+ */
+function isMissingSchema(err: unknown): boolean {
+  const code = (err as { code?: string })?.code;
+  if (code === "42703" || code === "42P01") return true;
+  const msg = err instanceof Error ? err.message.toLowerCase() : "";
+  return (
+    /column .*ignored.* does not exist/.test(msg) ||
+    /relation .*newsletter_inclusions.* does not exist/.test(msg)
+  );
+}
+
+/**
+ * Select the feed items for a cadence window. Uses the full logic (hide
+ * "ignored" stories, force in stories explicitly pushed to this cadence via
+ * newsletter_inclusions). If the newsletter-inclusions schema (migration
+ * 0016) has not reached this environment yet, fall back to the plain
+ * window query so preview and the scheduled send never hard-fail: they
+ * degrade to the pre-0016 behaviour instead of returning a 500.
+ */
+async function selectWindowItems(window: IssueWindow): Promise<FeedItem[]> {
+  // "Our" date: when the story entered the system (a media story's
+  // approval date, otherwise the feed-ingest date), not the article's
+  // original publish date. This is what the newsletter window uses.
+  const ourDate = sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt})`;
+  const inWindow = and(
+    gte(ourDate, window.start),
+    lt(ourDate, window.end),
+    // Trusted automatic-feed stories only. Hand-written and review-feed
+    // stories never enter on their own; they arrive only when forced in.
+    eq(feedItems.source, "feed"),
+    eq(feedItems.reviewStatus, "auto"),
+  );
+  try {
+    // Stories explicitly pushed into this cadence via the pool's Regular "+"
+    // are included regardless of their publishing window.
+    const forced = db()
+      .select({ id: newsletterInclusions.feedItemId })
+      .from(newsletterInclusions)
+      .where(eq(newsletterInclusions.cadence, window.cadence));
+    return await db()
+      .select()
+      .from(feedItems)
+      .where(and(eq(feedItems.ignored, false), or(inWindow, inArray(feedItems.id, forced))))
+      .orderBy(ourDate);
+  } catch (err) {
+    if (!isMissingSchema(err)) throw err;
+    console.error(
+      "assembleIssue: newsletter-inclusions schema missing (migration 0016 not applied); falling back to window query:",
+      err,
+    );
+    return await db().select().from(feedItems).where(inWindow).orderBy(ourDate);
+  }
 }
 
 /**
@@ -63,40 +137,11 @@ export function absolutizeImage(url: string | null, baseUrl: string): string | n
 /** Group window items into the email's data shape (featured, sections). */
 export async function assembleIssue(
   window: IssueWindow,
+  baseUrlOverride?: string,
 ): Promise<AssembledIssue | null> {
-  const baseUrl = env("APP_URL").replace(/\/$/, "");
+  const baseUrl = resolveBaseUrl(baseUrlOverride);
   const nameByKey = await companyNameMap();
-  // Stories explicitly pushed into this cadence via the pool's Regular "+"
-  // are included regardless of their publishing window.
-  const forced = db()
-    .select({ id: newsletterInclusions.feedItemId })
-    .from(newsletterInclusions)
-    .where(eq(newsletterInclusions.cadence, window.cadence));
-  // "Our" date: when the story entered the system (a media story's
-  // approval date, otherwise the feed-ingest date), not the article's
-  // original publish date. This is what the newsletter window uses.
-  const ourDate = sql`coalesce(${feedItems.reviewedAt}, ${feedItems.createdAt})`;
-  const items = await db()
-    .select()
-    .from(feedItems)
-    .where(
-      and(
-        eq(feedItems.ignored, false),
-        or(
-          // Trusted automatic-feed stories within the window (the default).
-          // Hand-written and review-feed stories never enter here on their
-          // own; they arrive only when explicitly forced in (below).
-          and(
-            gte(ourDate, window.start),
-            lt(ourDate, window.end),
-            eq(feedItems.source, "feed"),
-            eq(feedItems.reviewStatus, "auto"),
-          ),
-          inArray(feedItems.id, forced),
-        ),
-      ),
-    )
-    .orderBy(ourDate);
+  const items = await selectWindowItems(window);
   if (items.length === 0) return null;
 
   // Newest first within the window
@@ -251,11 +296,18 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
       .where(eq(issues.id, issueId));
     // Forced stories are "for the next send" of this cadence: once it has
     // actually gone out, clear them so they appear once then drop off. A
-    // skipped send keeps them waiting for the next real one.
+    // skipped send keeps them waiting for the next real one. The emails are
+    // already out by the time this runs, so a missing newsletter_inclusions
+    // table (migration 0016 not yet applied) must never fail the send.
     if (status === "sent") {
-      await db()
-        .delete(newsletterInclusions)
-        .where(eq(newsletterInclusions.cadence, window.cadence));
+      try {
+        await db()
+          .delete(newsletterInclusions)
+          .where(eq(newsletterInclusions.cadence, window.cadence));
+      } catch (err) {
+        if (!isMissingSchema(err)) throw err;
+        console.error("Clearing newsletter inclusions failed (schema missing):", err);
+      }
     }
   };
 
@@ -282,7 +334,7 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
 
     const html = await renderIssueHtml(assembled);
     const subject = `${SUBJECT[window.cadence]} — ${window.dateRange}`;
-    const appUrl = env("APP_URL").replace(/\/$/, "");
+    const appUrl = resolveBaseUrl();
     const from = env("EMAIL_FROM");
 
     if (process.env.SEND_DRY_RUN === "1") {
@@ -355,7 +407,7 @@ const MAX_INTRO_RECIPIENTS = 200;
 export async function renderIntroHtml(
   kind: IntroKind = "alliance",
 ): Promise<string> {
-  const baseUrl = env("APP_URL").replace(/\/$/, "");
+  const baseUrl = resolveBaseUrl();
   return render(
     React.createElement(
       kind === "newsletter" ? IntroNewsletterEmail : IntroEmail,
@@ -424,7 +476,7 @@ export async function sendTest(
 ): Promise<"sent" | "no-items"> {
   const assembled = await assembleIssue(window);
   if (!assembled) return "no-items";
-  const appUrl = env("APP_URL").replace(/\/$/, "");
+  const appUrl = resolveBaseUrl();
   const [existing] = await db()
     .select()
     .from(subscribers)
