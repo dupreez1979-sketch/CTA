@@ -594,6 +594,53 @@ body {
   background: rgba(172, 158, 252, 0.12);
 }
 
+/* One consistent toolbar above every admin table: labelled filters in a
+   row that stack to full width on phones. */
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 130px;
+}
+
+.filter-field-grow {
+  flex: 1 1 200px;
+}
+
+/* Bulk actions row: select-all plus its buttons, wrapping cleanly. */
+.bulk-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 640px) {
+  .filter-bar {
+    align-items: stretch;
+  }
+
+  .filter-field,
+  .filter-field-grow {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .filter-field select,
+  .filter-field input,
+  .filter-field-grow input {
+    width: 100%;
+  }
+}
+
 /* Tables scroll sideways inside their card instead of squashing */
 .table-scroll {
   overflow-x: auto;

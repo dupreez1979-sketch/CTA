@@ -1060,10 +1060,14 @@ export async function sendEditionLive(
 // ----------------------------------------------------------------- registry
 
 /**
- * Copy a story's show details into the "Shows in the Spotlight" registry.
- * Returns the show's id (existing or new), or null when the story is gone.
+ * Copy a story's show details into the show registry (the Shows tab).
+ * Deduped: the same company and title (ignoring case) is never added
+ * twice. Returns the show's id and whether it was newly created, or null
+ * when the story is gone.
  */
-export async function addShowFromItem(itemId: number): Promise<number | null> {
+export async function addShowFromItem(
+  itemId: number,
+): Promise<{ id: number; created: boolean } | null> {
   const [item] = await db()
     .select()
     .from(feedItems)
@@ -1071,6 +1075,14 @@ export async function addShowFromItem(itemId: number): Promise<number | null> {
     .limit(1);
   if (!item) return null;
   const title = item.showTitle ?? item.aiHeading;
+  const [existing] = await db()
+    .select({ id: shows.id })
+    .from(shows)
+    .where(
+      sql`${shows.companyKey} = ${item.companyKey} and lower(${shows.title}) = ${title.toLowerCase()}`,
+    )
+    .limit(1);
+  if (existing) return { id: existing.id, created: false };
   const inserted = await db()
     .insert(shows)
     .values({
@@ -1083,13 +1095,14 @@ export async function addShowFromItem(itemId: number): Promise<number | null> {
     })
     .onConflictDoNothing()
     .returning({ id: shows.id });
-  if (inserted.length > 0) return inserted[0].id;
-  const [existing] = await db()
+  if (inserted.length > 0) return { id: inserted[0].id, created: true };
+  // Lost a race with a concurrent insert: fetch the winner.
+  const [winner] = await db()
     .select({ id: shows.id })
     .from(shows)
     .where(and(eq(shows.companyKey, item.companyKey), eq(shows.title, title)))
     .limit(1);
-  return existing?.id ?? null;
+  return winner ? { id: winner.id, created: false } : null;
 }
 
 // ---------------------------------------------------------------- list view

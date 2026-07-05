@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { canonicalBase } from "@/lib/canonical";
 import { eq } from "drizzle-orm";
 import { db, companies, feedItems } from "@/lib/db";
+import { addShowFromItem } from "@/lib/presenter";
 import { researchItem } from "@/lib/show-research";
 import { showcaseRedirectUrl } from "@/lib/showcase-admin";
 
@@ -83,6 +84,15 @@ export async function POST(request: NextRequest) {
     })
     .where(eq(feedItems.id, id));
 
+  // A researched show belongs in the registry (Shows tab). Deduped there,
+  // so researching the same title twice never creates a second entry.
+  const show = await addShowFromItem(id);
+  const showNote = show
+    ? show.created
+      ? ` "${showTitle}" was added to the Shows tab.`
+      : ` "${showTitle}" is already on the Shows tab.`
+    : "";
+
   const found = [
     result.showUrl && "show page",
     result.showBlurb && "blurb",
@@ -91,7 +101,7 @@ export async function POST(request: NextRequest) {
   ].filter(Boolean);
   return redirect(
     found.length > 0
-      ? `${prefix}Research found: ${found.join(", ")}`
-      : `${prefix}Research could not find "${showTitle}" on the company's shows page — fill the fields in by hand`,
+      ? `${prefix}Research found: ${found.join(", ")}.${showNote}`
+      : `${prefix}Research could not find "${showTitle}" on the company's shows page, fill the fields in by hand.${showNote}`,
   );
 }

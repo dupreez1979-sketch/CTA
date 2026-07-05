@@ -322,11 +322,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "add-show") {
-    const showId = await addShowFromItem(id);
-    if (showId === null) return redirect("Story not found", false);
-    await addShowToEdition(editionId, showId);
+    const show = await addShowFromItem(id);
+    if (show === null) return redirect("Story not found", false);
+    await addShowToEdition(editionId, show.id);
     return redirect(
-      `"${item.showTitle ?? item.aiHeading}" is in Shows in the Spotlight and linked to this Showcase`,
+      `"${item.showTitle ?? item.aiHeading}" is ${show.created ? "in the show list" : "already in the show list"} and linked to this Showcase`,
     );
   }
 

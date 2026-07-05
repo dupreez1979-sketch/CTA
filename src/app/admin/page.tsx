@@ -46,6 +46,8 @@ import ConfirmSubmit from "@/components/ConfirmSubmit";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import HelpTip from "@/components/HelpTip";
 import TestSendButton from "@/components/TestSendButton";
+import AutoSubmitSelect from "@/components/AutoSubmitSelect";
+import AddShowModal from "@/components/AddShowModal";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
 import RatingsForm from "@/components/RatingsForm";
@@ -59,6 +61,7 @@ const TABS = [
   { id: "editions", label: "Regular Editions" },
   { id: "presenters", label: "The Showcase" },
   { id: "review", label: "Stories" },
+  { id: "shows", label: "Shows" },
   { id: "subscribers", label: "Subscribers" },
   { id: "settings", label: "Settings" },
 ] as const;
@@ -193,6 +196,7 @@ export default async function AdminPage({
       {tab === "overview" && <OverviewTab sp={sp} />}
       {tab === "editions" && <EditionsTab sp={sp} />}
       {tab === "review" && <ReviewTab sp={sp} />}
+      {tab === "shows" && <ShowsTab sp={sp} />}
       {tab === "subscribers" && <SubscribersTab sp={sp} />}
       {tab === "settings" && <SettingsTab />}
       {tab === "presenters" && <ShowcaseTab sp={sp} />}
@@ -1255,49 +1259,39 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
       </p>
 
       {/* Filters */}
-      <form
-        method="get"
-        action="/admin"
-        style={{
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-          marginBottom: 16,
-        }}
-      >
+      <form method="get" action="/admin" className="filter-bar">
         <input type="hidden" name="tab" value="review" />
-        <div>
+        <div className="filter-field">
           <label style={fieldLabel}>Status</label>
-          <select name="rst" defaultValue={status} style={smallInput}>
+          <AutoSubmitSelect name="rst" defaultValue={status} style={smallInput}>
             {REVIEW_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {STATUS_LABEL[s]}
               </option>
             ))}
-          </select>
+          </AutoSubmitSelect>
         </div>
-        <div>
+        <div className="filter-field">
           <label style={fieldLabel}>Confidence</label>
-          <select name="rcf" defaultValue={conf} style={smallInput}>
+          <AutoSubmitSelect name="rcf" defaultValue={conf} style={smallInput}>
             <option value="all">All</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
-          </select>
+          </AutoSubmitSelect>
         </div>
-        <div>
-          <label style={fieldLabel}>Suggested company</label>
-          <select name="rco" defaultValue={co} style={smallInput}>
+        <div className="filter-field">
+          <label style={fieldLabel}>Company</label>
+          <AutoSubmitSelect name="rco" defaultValue={co} style={smallInput}>
             <option value="">All companies</option>
             {companyOptions.map((c) => (
               <option key={c.key} value={c.key}>
                 {c.name}
               </option>
             ))}
-          </select>
+          </AutoSubmitSelect>
         </div>
-        <div style={{ minWidth: 180, flex: "1 1 180px" }}>
+        <div className="filter-field filter-field-grow">
           <label style={fieldLabel}>Search</label>
           <input
             name="rq"
@@ -1306,14 +1300,19 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
             style={{ ...smallInput, width: "100%" }}
           />
         </div>
-        <button type="submit" style={{ ...smallButton }}>
-          Apply
+        <button type="submit" style={smallButton}>
+          Search
         </button>
         {hasFilters && (
           <Link
             prefetch={false}
             href={`/admin?tab=review${status !== "pending" ? `&rst=${status}` : ""}`}
-            style={{ fontSize: 13, fontWeight: 600, color: "var(--cta-ink)" }}
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--cta-ink)",
+              alignSelf: "center",
+            }}
           >
             Clear
           </Link>
@@ -1330,61 +1329,56 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
         <>
           {/* Bulk actions. The row checkboxes attach to this form via the
               form attribute, so it doesn't wrap the table. */}
-          <form
-            id="review-bulk"
-            action="/api/admin/review"
-            method="post"
-            style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            {filterHidden}
-            <SelectAllCheckbox formId="review-bulk" />
-            <button
-              type="submit"
-              name="op"
-              value="approve"
-              style={smallButton}
-            >
-              Approve selected
-            </button>
-            <button
-              type="submit"
-              name="op"
-              value="unsure"
-              style={{ ...smallButton, background: "var(--cta-white)" }}
-            >
-              Mark unsure
-            </button>
-            <button type="submit" name="op" value="reject" style={dangerButton}>
-              Reject selected
-            </button>
-          </form>
-          {highIdsOnPage.length > 0 && status === "pending" && (
+          <div className="bulk-bar">
             <form
+              id="review-bulk"
               action="/api/admin/review"
               method="post"
-              style={{ marginBottom: 12 }}
+              style={{ display: "contents" }}
             >
               {filterHidden}
-              {highIdsOnPage.map((id) => (
-                <input key={id} type="hidden" name="ids" value={id} />
-              ))}
+              <SelectAllCheckbox formId="review-bulk" />
               <button
                 type="submit"
                 name="op"
                 value="approve"
                 style={smallButton}
               >
-                Approve all {highIdsOnPage.length} high-confidence stories on
-                this page
+                Approve selected
+              </button>
+              <button
+                type="submit"
+                name="op"
+                value="unsure"
+                style={{ ...smallButton, background: "var(--cta-white)" }}
+              >
+                Mark unsure
+              </button>
+              <button type="submit" name="op" value="reject" style={dangerButton}>
+                Reject selected
               </button>
             </form>
-          )}
+            {highIdsOnPage.length > 0 && status === "pending" && (
+              <form
+                action="/api/admin/review"
+                method="post"
+                style={{ display: "contents" }}
+              >
+                {filterHidden}
+                {highIdsOnPage.map((id) => (
+                  <input key={id} type="hidden" name="ids" value={id} />
+                ))}
+                <button
+                  type="submit"
+                  name="op"
+                  value="approve"
+                  style={smallButton}
+                >
+                  Approve all {highIdsOnPage.length} high confidence
+                </button>
+              </form>
+            )}
+          </div>
 
           <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -2523,22 +2517,12 @@ async function ShowcaseTab({ sp }: { sp: ShowcaseParams }) {
  * and the "Shows in the Spotlight" registry.
  */
 async function EditionListView({ sp }: { sp: ShowcaseParams }) {
-  const [
-    editions,
-    counts,
-    recipients,
-    subscriberCount,
-    companyRows,
-    registry,
-  ] = await Promise.all([
+  const [editions, counts, recipients, subscriberCount] = await Promise.all([
     db().select().from(showcaseEditions),
     getEditionCounts(),
     getPresenterRecipients(),
     getShowcaseSubscriberCount(),
-    db().select().from(companies).orderBy(asc(companies.name)),
-    db().select().from(shows).orderBy(asc(shows.title)),
   ]);
-  const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
 
   const itemsOf = (e: ShowcaseEdition) =>
     e.status === "sent" ? e.itemCount : (counts.get(e.id)?.items ?? 0);
@@ -2832,31 +2816,83 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
         )}
       </section>
 
-      <section className="admin-card" id="registry">
-        <h2 style={h2}>
-          Shows in the Spotlight
-          <HelpTip title="Shows in the Spotlight">
-            The registry of shows available now. New Showcases start with
-            all active shows; each edition can then drop or re-add them.
-            Archive a show to keep it on file without offering it to new
-            editions.
-          </HelpTip>
-        </h2>
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={th}>Show</th>
-                <th style={th}>Company</th>
-                <th style={th}>Show page URL</th>
-                <th style={th}>Blurb</th>
-                <th style={th}>Image URL</th>
-                <th style={th}>Ages</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
+    </>
+  );
+}
+
+const SHOW_SORTS = ["title", "company", "status"] as const;
+type ShowSort = (typeof SHOW_SORTS)[number];
+
+/** The Shows tab: the sortable show registry, with adding in a popup. */
+async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
+  const ssort: ShowSort = (SHOW_SORTS as readonly string[]).includes(
+    sp.shs ?? "",
+  )
+    ? (sp.shs as ShowSort)
+    : "title";
+  const sdir = sp.shd === "desc" ? "desc" : "asc";
+  const [registry, companyRows] = await Promise.all([
+    db().select().from(shows).orderBy(asc(shows.title)),
+    db().select().from(companies).orderBy(asc(companies.name)),
+  ]);
+  const nameByKey = new Map(companyRows.map((c) => [c.key, c.name]));
+  const companyName = (key: string) =>
+    nameByKey.get(key) ?? "Around the Alliance";
+  const sorted = [...registry].sort((a, b) => {
+    const cmp =
+      ssort === "company"
+        ? companyName(a.companyKey).localeCompare(companyName(b.companyKey))
+        : ssort === "status"
+          ? a.status.localeCompare(b.status)
+          : a.title.localeCompare(b.title);
+    return sdir === "asc" ? cmp : -cmp;
+  });
+  const sortLink = (key: ShowSort, label: string) => {
+    const nextDir = ssort === key && sdir === "asc" ? "desc" : "asc";
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?tab=shows&shs=${key}&shd=${nextDir}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {ssort === key ? (sdir === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
+
+  return (
+    <section className="admin-card" id="registry">
+      <h2 style={h2}>
+        Shows in the Spotlight
+        <HelpTip title="Shows in the Spotlight">
+          The registry of every show, current and past. New Showcases start
+          with all active shows; each edition can then drop or re-add them.
+          Archive a show to keep it on file without offering it to new
+          editions. Shows are added here automatically when you research a
+          story in the Showcase builder, or by hand with New show.
+        </HelpTip>
+      </h2>
+      <div className="bulk-bar">
+        <AddShowModal companyRows={companyRows} />
+      </div>
+      <div className="table-scroll">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={th}>{sortLink("title", "Show")}</th>
+              <th style={th}>{sortLink("company", "Company")}</th>
+              <th style={th}>Show page URL</th>
+              <th style={th}>Blurb</th>
+              <th style={th}>Image URL</th>
+              <th style={th}>Ages</th>
+              <th style={th}>{sortLink("status", "Status")}</th>
+              <th style={th}></th>
+            </tr>
+          </thead>
             <tbody>
-              {registry.map((s) => (
+              {sorted.map((s) => (
                 <tr key={s.id} style={s.status === "archived" ? { opacity: 0.55 } : undefined}>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
                     <form action="/api/admin/shows" method="post" id={`show-${s.id}`}>
@@ -2908,6 +2944,17 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                       style={{ ...smallInput, width: 90 }}
                     />
                   </td>
+                  <td style={td}>
+                    <span
+                      style={badge(
+                        s.status === "archived"
+                          ? "var(--cta-white)"
+                          : "var(--cta-emerald)",
+                      )}
+                    >
+                      {s.status}
+                    </span>
+                  </td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
                     <button
                       form={`show-${s.id}`}
@@ -2943,63 +2990,17 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
                   </td>
                 </tr>
               ))}
-              {registry.length === 0 && (
+              {sorted.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={7}>
-                    No shows listed yet.
+                  <td style={td} colSpan={8}>
+                    No shows listed yet. Press New show to add the first one.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <form
-          action="/api/admin/shows"
-          method="post"
-          style={{
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-            alignItems: "center",
-            marginTop: 18,
-            paddingTop: 16,
-            borderTop: "2px dashed rgba(30,30,29,0.25)",
-          }}
-        >
-          <input type="hidden" name="anchor" value="registry" />
-          <input type="hidden" name="action" value="add" />
-          <div style={{ minWidth: 180, flex: "1 1 180px" }}>
-            <label style={fieldLabel}>Show title</label>
-            <input name="title" required style={{ ...inputStyle, width: "100%" }} />
-          </div>
-          <div>
-            <label style={fieldLabel}>Company</label>
-            <select name="companyKey" style={inputStyle}>
-              {companyRows.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ minWidth: 180, flex: "1 1 180px" }}>
-            <label style={fieldLabel}>Show page URL (optional)</label>
-            <input name="url" type="url" style={{ ...inputStyle, width: "100%" }} />
-          </div>
-          <div style={{ minWidth: 160, flex: "1 1 160px" }}>
-            <label style={fieldLabel}>Image URL (optional)</label>
-            <input name="imageUrl" style={{ ...inputStyle, width: "100%" }} />
-          </div>
-          <div style={{ width: 130 }}>
-            <label style={fieldLabel}>Ages (optional)</label>
-            <input name="ageRange" style={{ ...inputStyle, width: "100%" }} />
-          </div>
-          <button type="submit" style={buttonStyle}>
-            Add show
-          </button>
-        </form>
       </section>
-    </>
   );
 }
 
@@ -3117,51 +3118,55 @@ function StoryPoolTable({
 
   return (
     <>
-      <form
-        method="get"
-        action={`/admin#${anchor}`}
-        style={{
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          alignItems: "center",
-          marginBottom: 12,
-        }}
-      >
+      <form method="get" action={`/admin#${anchor}`} className="filter-bar">
         <input type="hidden" name="tab" value="review" />
-        <select name="rel" defaultValue={params.rel} style={smallInput}>
-          <option value="highs">High: show or social</option>
-          <option value="high">Show: high</option>
-          <option value="medium">Show: medium</option>
-          <option value="low">Show: low</option>
-          <option value="s-high">Social Theatre: high</option>
-          <option value="s-medium">Social Theatre: medium</option>
-          <option value="s-low">Social Theatre: low</option>
-          <option value="all">All ratings</option>
-        </select>
-        <select name="co" defaultValue={params.co} style={smallInput}>
-          <option value="">All companies</option>
-          {companyRows.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          name="q"
-          defaultValue={params.q}
-          placeholder="Search headline or show title"
-          style={{ ...smallInput, flex: "1 1 200px", minWidth: 160 }}
-        />
+        <div className="filter-field">
+          <label style={fieldLabel}>Rating</label>
+          <AutoSubmitSelect name="rel" defaultValue={params.rel} style={smallInput}>
+            <option value="highs">High: show or social</option>
+            <option value="high">Show: high</option>
+            <option value="medium">Show: medium</option>
+            <option value="low">Show: low</option>
+            <option value="s-high">Social Theatre: high</option>
+            <option value="s-medium">Social Theatre: medium</option>
+            <option value="s-low">Social Theatre: low</option>
+            <option value="all">All ratings</option>
+          </AutoSubmitSelect>
+        </div>
+        <div className="filter-field">
+          <label style={fieldLabel}>Company</label>
+          <AutoSubmitSelect name="co" defaultValue={params.co} style={smallInput}>
+            <option value="">All companies</option>
+            {companyRows.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.name}
+              </option>
+            ))}
+          </AutoSubmitSelect>
+        </div>
+        <div className="filter-field filter-field-grow">
+          <label style={fieldLabel}>Search</label>
+          <input
+            name="q"
+            defaultValue={params.q}
+            placeholder="Headline or show title"
+            style={{ ...smallInput, width: "100%" }}
+          />
+        </div>
         <button type="submit" style={smallButton}>
-          Filter
+          Search
         </button>
         {isFiltered && (
           <Link
             prefetch={false}
             href="/admin?tab=review#story-pool"
             scroll={false}
-            style={{ fontSize: 12.5, fontWeight: 600, color: "var(--cta-ink)" }}
+            style={{
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: "var(--cta-ink)",
+              alignSelf: "center",
+            }}
           >
             Clear
           </Link>
@@ -3189,13 +3194,7 @@ function StoryPoolTable({
               id="pool-bulk"
               action="/api/admin/presenter-item"
               method="post"
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
+              className="bulk-bar"
             >
               <input type="hidden" name="action" value="add-many" />
               <SelectAllCheckbox formId="pool-bulk" />
@@ -3221,10 +3220,10 @@ function StoryPoolTable({
               <thead>
                 <tr>
                   {drafts && <th style={th}></th>}
-                  <th style={th}>{sortLink("date", "Date")}</th>
+                  <th style={th}>{sortLink("date", "Published")}</th>
+                  <th style={th}>{sortLink("headline", "Story")}</th>
                   <th style={th}>{sortLink("company", "Company")}</th>
-                  <th style={th}>{sortLink("headline", "Headline")}</th>
-                  <th style={th}>{sortLink("relevance", "Relevance")}</th>
+                  <th style={th}>{sortLink("relevance", "Rating")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -3244,10 +3243,7 @@ function StoryPoolTable({
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {p.publishedAt.toISOString().slice(0, 10)}
                     </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
-                    </td>
-                    <td style={td}>
+                    <td style={{ ...td, minWidth: 220 }}>
                       {p.aiHeading.slice(0, 70)}
                       {p.aiHeading.length > 70 ? "…" : ""}
                       {p.postUrl && (
@@ -3278,6 +3274,9 @@ function StoryPoolTable({
                             : ""}
                         </span>
                       )}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3392,6 +3391,15 @@ async function EditionBuilder({
 
   return (
     <>
+      {/* Show title fields suggest from the registry while still allowing
+          new titles; a researched or added show lands on the Shows tab. */}
+      {editable && (
+        <datalist id="show-titles">
+          {registry.map((s) => (
+            <option key={s.id} value={s.title} />
+          ))}
+        </datalist>
+      )}
       <section className="admin-card">
         <div
           style={{
@@ -3663,7 +3671,7 @@ async function EditionBuilder({
           <p style={{ marginTop: 0, marginBottom: 14 }}>
             <Link
               prefetch={false}
-              href="/admin?tab=presenters#registry"
+              href="/admin?tab=shows"
               style={{
                 ...smallButton,
                 display: "inline-block",
@@ -3671,7 +3679,7 @@ async function EditionBuilder({
                 background: "var(--cta-white)",
               }}
             >
-              Edit show details in Shows in the Spotlight →
+              Edit show details on the Shows tab →
             </Link>
           </p>
         )}
@@ -3909,6 +3917,7 @@ function BuilderStoryCard({
                         <input
                           form={`sc-${it.id}`}
                           name="showTitle"
+                          list="show-titles"
                           defaultValue={it.showTitle ?? ""}
                           placeholder="e.g. The Peasant Prince"
                           style={
@@ -4669,7 +4678,12 @@ function ManualStoryForm({
           <>
             <div>
               <label style={fieldLabel}>Show title (optional)</label>
-              <input type="text" name="showTitle" style={field} />
+              <input
+                type="text"
+                name="showTitle"
+                list="show-titles"
+                style={field}
+              />
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 140px" }}>

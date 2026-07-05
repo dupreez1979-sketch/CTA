@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canonicalBase } from "@/lib/canonical";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, shows } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Admin: manage the "Shows in the Spotlight" registry that appears at the
- * bottom of The Showcase. Archived shows stay on file but leave the email.
+ * Admin: manage the show registry on the Shows tab (it renders as "Shows
+ * in the Spotlight" in The Showcase). Archived shows stay on file but
+ * leave the email. Adding refuses duplicates: same company, same title
+ * (ignoring case).
  */
 export async function POST(request: NextRequest) {
   const form = await request.formData();
@@ -17,7 +19,7 @@ export async function POST(request: NextRequest) {
   const redirect = (message: string) =>
     NextResponse.redirect(
       new URL(
-        `/admin?tab=presenters&message=${encodeURIComponent(message)}${hash}`,
+        `/admin?tab=shows&message=${encodeURIComponent(message)}${hash}`,
         canonicalBase(request.url),
       ),
       { status: 303 },
@@ -29,6 +31,18 @@ export async function POST(request: NextRequest) {
     const val = (name: string) => String(form.get(name) ?? "").trim() || null;
     if (!title || !companyKey)
       return redirect("Please enter a show title and pick a company");
+    const [duplicate] = await db()
+      .select({ id: shows.id, title: shows.title })
+      .from(shows)
+      .where(
+        sql`${shows.companyKey} = ${companyKey} and lower(${shows.title}) = ${title.toLowerCase()}`,
+      )
+      .limit(1);
+    if (duplicate) {
+      return redirect(
+        `That company already has "${duplicate.title}" in the list`,
+      );
+    }
     const inserted = await db()
       .insert(shows)
       .values({
@@ -43,7 +57,7 @@ export async function POST(request: NextRequest) {
       .returning({ id: shows.id });
     return redirect(
       inserted.length > 0
-        ? `Added ${title} to Shows in the Spotlight`
+        ? `Added ${title} to the show list`
         : "That company already has a show with this title",
     );
   }
