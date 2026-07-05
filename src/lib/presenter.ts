@@ -1111,7 +1111,7 @@ export const STORY_POOL_PAGE_SIZES = [10, 20, 50] as const;
 export type StoryPoolPageSize = (typeof STORY_POOL_PAGE_SIZES)[number];
 
 export interface ShowcaseListParams {
-  sort: "date" | "company" | "headline" | "relevance";
+  sort: "date" | "company" | "headline" | "relevance" | "source";
   dir: "asc" | "desc";
   /** "all" (the default) shows everything; "high" = rated high for shows,
    * "s-high" = rated high for Social Theatre, "other" = neither. */
@@ -1128,7 +1128,7 @@ export interface ShowcaseListParams {
 export function parseShowcaseListParams(
   sp: Record<string, string | undefined>,
 ): ShowcaseListParams {
-  const sorts = ["date", "company", "headline", "relevance"] as const;
+  const sorts = ["date", "company", "headline", "relevance", "source"] as const;
   const rels = ["all", "high", "s-high", "other"] as const;
   const pg = Number(sp.pg);
   const ps = Number(sp.ps);
@@ -1194,6 +1194,9 @@ export async function queryStoryPool(
   }
 
   const relevanceRank = sql`case ${feedItems.presenterRelevance} when 'high' then 0 when 'medium' then 1 else 2 end`;
+  // Feed name via a subquery so the row shape stays a plain FeedItem;
+  // hand-written stories (no feed) sort together at the end.
+  const feedName = sql`coalesce((select f.name from feeds f where f.id = ${feedItems.feedId}), 'zzz-manual')`;
   const orderCol =
     p.sort === "company"
       ? feedItems.companyKey
@@ -1201,7 +1204,9 @@ export async function queryStoryPool(
         ? feedItems.aiHeading
         : p.sort === "relevance"
           ? relevanceRank
-          : feedItems.publishedAt;
+          : p.sort === "source"
+            ? feedName
+            : feedItems.publishedAt;
 
   // Fetch one extra row to know whether a further page exists.
   const rows = await db()

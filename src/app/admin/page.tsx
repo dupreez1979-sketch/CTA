@@ -3008,11 +3008,14 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
 function feedOriginBadge(
   it: FeedItem,
   feedNameById: Map<number, string>,
+  /** True when the badge follows text (adds a left margin). */
+  inline = false,
 ): React.ReactNode {
+  const marginLeft = inline ? 8 : 0;
   if (it.source === "manual") {
     return (
       <span
-        style={{ ...badge("var(--cta-white)"), marginLeft: 8, fontSize: 10 }}
+        style={{ ...badge("var(--cta-white)"), marginLeft, fontSize: 10 }}
         title="Written by hand in the Showcase builder"
       >
         Manual
@@ -3026,7 +3029,7 @@ function feedOriginBadge(
     <span
       style={{
         ...badge(fromReview ? "var(--cta-yellow)" : "var(--cta-white)"),
-        marginLeft: 8,
+        marginLeft,
         fontSize: 10,
       }}
       title={
@@ -3222,6 +3225,7 @@ function StoryPoolTable({
                   {drafts && <th style={th}></th>}
                   <th style={th}>{sortLink("date", "Published")}</th>
                   <th style={th}>{sortLink("headline", "Story")}</th>
+                  <th style={th}>{sortLink("source", "Source")}</th>
                   <th style={th}>{sortLink("company", "Company")}</th>
                   <th style={th}>{sortLink("relevance", "Rating")}</th>
                 </tr>
@@ -3258,7 +3262,6 @@ function StoryPoolTable({
                           </a>
                         </>
                       )}
-                      {feedOriginBadge(p, feedNameById)}
                       {usedDates.has(p.id) && (
                         <span
                           style={{
@@ -3274,6 +3277,9 @@ function StoryPoolTable({
                             : ""}
                         </span>
                       )}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {feedOriginBadge(p, feedNameById)}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
@@ -3626,7 +3632,7 @@ async function EditionBuilder({
               editionId={edition.id}
               company={companyName(e.item.companyKey)}
               showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
-              origin={feedOriginBadge(e.item, feedNameById)}
+              origin={feedOriginBadge(e.item, feedNameById, true)}
             />
           ))}
         {editable && (
@@ -3666,7 +3672,7 @@ async function EditionBuilder({
               editionId={edition.id}
               company={companyName(e.item.companyKey)}
               showsPageUrl={showsPageByKey.get(e.item.companyKey) ?? null}
-              origin={feedOriginBadge(e.item, feedNameById)}
+              origin={feedOriginBadge(e.item, feedNameById, true)}
             />
           ))}
           <ManualStoryForm
