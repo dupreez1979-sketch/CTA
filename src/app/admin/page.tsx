@@ -44,7 +44,7 @@ import {
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
-  formatSydneyStamp,
+  formatWindowLabel,
   issueWindow,
   nextSendAt,
 } from "@/lib/cadence";
@@ -518,7 +518,7 @@ function HistoryTable({
                 )}
               </td>
               <td style={{ ...td, whiteSpace: "nowrap" }}>
-                {r.sentAt ? formatSydneyStamp(r.sentAt) : "—"}
+                {r.sentAt ? formatSydneyDateTime(r.sentAt) : "—"}
               </td>
               <td style={{ ...td, whiteSpace: "nowrap" }}>
                 <a
@@ -721,7 +721,9 @@ async function OverviewTab({
 
   return (
     <>
-      {/* At-a-glance dashboard: big-number ticker cards. */}
+      {/* At-a-glance dashboard: big-number ticker cards, colour-coded by
+          group so related numbers read together — Stories (purple),
+          Companies (teal), Subscribers (sky), Sending (mint). */}
       <section className="stat-grid">
         <StatCard
           label="Stories this week"
@@ -733,13 +735,13 @@ async function OverviewTab({
           label="Stories today"
           value={storiesDay.count}
           sub="new in the last 24 hours"
-          bg="var(--cta-yellow)"
+          bg="var(--cta-purple)"
         />
         <StatCard
           label="Quiet companies"
           value={quietCompanies}
           sub="no stories for 14 days"
-          bg={quietCompanies > 0 ? "var(--cta-pink)" : "var(--cta-emerald)"}
+          bg="var(--cta-teal)"
         />
         <StatCard
           label="Companies posting"
@@ -751,7 +753,7 @@ async function OverviewTab({
           label="Active subscribers"
           value={activeTotal}
           sub={`daily ${countByCadence.daily ?? 0} · weekly ${countByCadence.weekly ?? 0} · fortnightly ${countByCadence.fortnightly ?? 0} · Showcase only ${countByCadence.none ?? 0}`}
-          bg="var(--cta-mint)"
+          bg="var(--cta-sky)"
         />
         <StatCard
           label="New subscribers"
@@ -763,13 +765,13 @@ async function OverviewTab({
           label="Showcase list"
           value={showcaseCount}
           sub="receive The Showcase Edition"
-          bg="var(--cta-cream-warm)"
+          bg="var(--cta-sky)"
         />
         <StatCard
           label="Emails sent"
           value={sentWeek.count}
           sub="in the last 7 days"
-          bg="var(--cta-white)"
+          bg="var(--cta-mint)"
         />
       </section>
 
@@ -792,7 +794,7 @@ async function OverviewTab({
             key: r.key,
             typeLabel: r.type,
             showcase: r.showcase,
-            window: r.label,
+            window: formatWindowLabel(r.label),
             status: r.status,
             stories: r.items,
             recipients: r.recipients,
@@ -1159,7 +1161,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
             key: `issue-${i.id}`,
             typeLabel: i.cadence,
             showcase: false,
-            window: i.windowKey,
+            window: formatWindowLabel(i.windowKey),
             status: i.status,
             stories: i.itemCount,
             recipients: i.recipientCount,
@@ -3222,7 +3224,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
             key: `edition-${e.id}`,
             typeLabel: "The Showcase",
             showcase: true,
-            window: auDate(e.sentAt ?? e.createdAt),
+            window: formatWindowLabel(auDate(e.sentAt ?? e.createdAt)),
             status: e.status,
             stories: itemsOf(e),
             recipients: e.recipientCount,

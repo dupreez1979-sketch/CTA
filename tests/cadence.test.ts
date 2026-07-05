@@ -2,11 +2,40 @@ import { describe, expect, it } from "vitest";
 import {
   cadencesDueNow,
   formatSydneyDateTime,
+  formatWindowLabel,
   isFortnightlySendDay,
   isWeeklySendDay,
   issueWindow,
   nextSendAt,
 } from "@/lib/cadence";
+
+describe("formatWindowLabel", () => {
+  it("adds a weekday to a daily key, keeping the yyyy-mm-dd date", () => {
+    expect(formatWindowLabel("2026-07-06")).toBe("Mon, 2026-07-06");
+  });
+
+  it("formats a same-month range compactly with weekdays", () => {
+    expect(formatWindowLabel("2026-07-01_2026-07-07")).toBe(
+      "Wed 1 to Tue 7 Jul 2026",
+    );
+  });
+
+  it("shows both months for a cross-month range", () => {
+    expect(formatWindowLabel("2026-06-29_2026-07-05")).toBe(
+      "Mon 29 Jun to Sun 5 Jul 2026",
+    );
+  });
+
+  it("shows both years for a cross-year range", () => {
+    expect(formatWindowLabel("2026-12-28_2027-01-03")).toBe(
+      "Mon 28 Dec 2026 to Sun 3 Jan 2027",
+    );
+  });
+
+  it("passes through anything it can't parse", () => {
+    expect(formatWindowLabel("whenever")).toBe("whenever");
+  });
+});
 
 // 21:00 UTC = 07:00 next day in Sydney (AEST, UTC+10)
 const MONDAY_7AM_SYD = new Date("2026-07-05T21:00:00Z"); // Mon 6 Jul 07:00 Sydney

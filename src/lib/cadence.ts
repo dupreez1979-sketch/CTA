@@ -210,16 +210,60 @@ export function formatSydneyStamp(date: Date): string {
   return `${get("year")}-${get("month")}-${get("day")} ${hour}:${get("minute")} ${get("timeZoneName")}`;
 }
 
-/** e.g. "Fri, 3 Jul 2026, 7:00 am AEST". */
+/** e.g. "Fri, 3 July 2026, 7:00 am AEST". */
 export function formatSydneyDateTime(date: Date): string {
   return new Intl.DateTimeFormat("en-AU", {
     timeZone: TIMEZONE,
     weekday: "short",
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
     timeZoneName: "short",
   }).format(date);
+}
+
+const WINDOW_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+const WINDOW_DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function parseYmd(s: string): { y: number; m: number; d: number; dow: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!match) return null;
+  const y = +match[1];
+  const m = +match[2];
+  const d = +match[3];
+  // Window keys are plain calendar dates; use a UTC date purely to read the
+  // weekday, avoiding any timezone drift.
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return { y, m, d, dow };
+}
+
+/**
+ * Friendly label for an issue's window key with the weekday, for the history
+ * tables. A daily key ("2026-07-06") keeps its Australian yyyy-mm-dd date and
+ * gains a weekday ("Mon, 2026-07-06"). A weekly/fortnightly range
+ * ("2026-06-29_2026-07-05") becomes "Mon 29 Jun to Sun 5 Jul 2026", collapsing
+ * the month/year when both ends share them ("Wed 1 to Tue 7 Jul 2026").
+ */
+export function formatWindowLabel(key: string): string {
+  if (key.includes("_")) {
+    const [s, e] = key.split("_");
+    const a = parseYmd(s);
+    const b = parseYmd(e);
+    if (!a || !b) return key;
+    const start =
+      a.y === b.y && a.m === b.m
+        ? `${WINDOW_DOW[a.dow]} ${a.d}`
+        : a.y === b.y
+          ? `${WINDOW_DOW[a.dow]} ${a.d} ${WINDOW_MONTHS[a.m - 1]}`
+          : `${WINDOW_DOW[a.dow]} ${a.d} ${WINDOW_MONTHS[a.m - 1]} ${a.y}`;
+    const end = `${WINDOW_DOW[b.dow]} ${b.d} ${WINDOW_MONTHS[b.m - 1]} ${b.y}`;
+    return `${start} to ${end}`;
+  }
+  const p = parseYmd(key);
+  return p ? `${WINDOW_DOW[p.dow]}, ${key}` : key;
 }
