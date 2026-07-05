@@ -59,17 +59,14 @@ import RatingsForm from "@/components/RatingsForm";
 
 export const dynamic = "force-dynamic";
 
-/** Australian short date: dd-mm-yy (UTC, matching how the app stores days). */
+/** Australian date: yyyy-mm-dd (UTC, matching how the app stores days). */
 function auDate(d: Date): string {
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const yy = String(d.getUTCFullYear()).slice(-2);
-  return `${dd}-${mm}-${yy}`;
+  return d.toISOString().slice(0, 10);
 }
 
-/** Australian short date and time: dd-mm-yy HH:MM (UTC). */
+/** Australian date and time: yyyy-mm-dd HH:MM (UTC). */
 function auDateTime(d: Date): string {
-  return `${auDate(d)} ${d.toISOString().slice(11, 16)}`;
+  return d.toISOString().slice(0, 16).replace("T", " ");
 }
 
 const CADENCES = ["daily", "weekly", "fortnightly"] as const;
