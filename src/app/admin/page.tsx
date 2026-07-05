@@ -410,6 +410,133 @@ function NextEditionsCard({
   );
 }
 
+/**
+ * The shared "History" table used on Overview (both kinds), Editions
+ * (regular newsletters only) and The Showcase (Showcase editions only), so
+ * all three are identical. Columns: Type, Window, Status, Stories,
+ * Recipients, Sent at, Actions. Preview is always present in Actions; each
+ * caller can add extra per-row actions (e.g. Duplicate/Delete for the
+ * Showcase). Sorting is driven by the caller's sortLink so each tab keeps
+ * its own URL params while the columns and layout stay the same.
+ */
+const HISTORY_COLUMNS = [
+  { key: "type", label: "Type" },
+  { key: "window", label: "Window" },
+  { key: "status", label: "Status" },
+  { key: "stories", label: "Stories" },
+  { key: "recipients", label: "Recipients" },
+  { key: "sent", label: "Sent at" },
+] as const;
+type HistorySortKey = (typeof HISTORY_COLUMNS)[number]["key"];
+
+interface HistoryRow {
+  key: string;
+  /** e.g. "daily" or "The Showcase". */
+  typeLabel: string;
+  /** Show the teal Showcase badge instead of a plain type label. */
+  showcase: boolean;
+  /** Window key for newsletters, or the sent date for Showcase editions. */
+  window: string;
+  status: string;
+  stories: number;
+  recipients: number;
+  recipientsHref: string | null;
+  sentAt: Date | null;
+  previewHref: string;
+  /** Extra action buttons after Preview (e.g. Duplicate, Delete). */
+  extraActions?: React.ReactNode;
+}
+
+function historyStatusColor(status: string): string {
+  return status === "sent"
+    ? "var(--cta-emerald)"
+    : status === "failed"
+      ? "var(--cta-pink)"
+      : status === "sending"
+        ? "var(--cta-yellow)"
+        : "var(--cta-white)";
+}
+
+function HistoryTable({
+  rows,
+  sortLink,
+  empty,
+}: {
+  rows: HistoryRow[];
+  sortLink: (key: HistorySortKey, label: string) => React.ReactNode;
+  empty: React.ReactNode;
+}) {
+  if (rows.length === 0) {
+    return <p style={{ ...muted, marginBottom: 0 }}>{empty}</p>;
+  }
+  return (
+    <div className="table-scroll">
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            {HISTORY_COLUMNS.map((c) => (
+              <th key={c.key} style={th}>
+                {sortLink(c.key, c.label)}
+              </th>
+            ))}
+            <th style={th}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <td style={td}>
+                {r.showcase ? (
+                  <span style={badge("var(--cta-teal)")}>The Showcase</span>
+                ) : (
+                  <span style={{ textTransform: "capitalize" }}>{r.typeLabel}</span>
+                )}
+              </td>
+              <td style={{ ...td, whiteSpace: "nowrap" }}>{r.window}</td>
+              <td style={td}>
+                <span style={badge(historyStatusColor(r.status))}>{r.status}</span>
+              </td>
+              <td style={td}>{r.stories}</td>
+              <td style={td}>
+                {r.recipientsHref && r.recipients > 0 ? (
+                  <Link
+                    prefetch={false}
+                    href={r.recipientsHref}
+                    style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                  >
+                    {r.recipients}
+                  </Link>
+                ) : (
+                  r.recipients
+                )}
+              </td>
+              <td style={{ ...td, whiteSpace: "nowrap" }}>
+                {r.sentAt ? formatSydneyStamp(r.sentAt) : "—"}
+              </td>
+              <td style={{ ...td, whiteSpace: "nowrap" }}>
+                <a
+                  href={r.previewHref}
+                  target="_blank"
+                  style={{
+                    ...smallButton,
+                    display: "inline-block",
+                    textDecoration: "none",
+                    background: "var(--cta-white)",
+                    marginRight: 6,
+                  }}
+                >
+                  Preview ↗
+                </a>
+                {r.extraActions}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 async function OverviewTab({
   sp,
 }: {
@@ -520,6 +647,7 @@ async function OverviewTab({
       sentAt: i.sentAt,
       stamp: (i.sentAt ?? i.windowStart).getTime(),
       windowStamp: i.windowStart.getTime(),
+      previewHref: `/admin/preview/${i.cadence}`,
       href:
         i.status === "sent" && i.recipientCount > 0
           ? `/admin?tab=editions&issue=${i.id}`
@@ -536,6 +664,7 @@ async function OverviewTab({
       sentAt: e.sentAt,
       stamp: (e.sentAt ?? e.createdAt).getTime(),
       windowStamp: (e.sentAt ?? e.createdAt).getTime(),
+      previewHref: `/admin/preview/presenter?edition=${e.id}`,
       href: `/admin?tab=presenters&edition=${e.id}`,
     })),
   ];
@@ -644,94 +773,45 @@ async function OverviewTab({
 
       <section className="admin-card">
         <h2 style={h2}>
-          Recent sends
-          <HelpTip title="Recent sends">
+          History
+          <HelpTip title="History">
             Every dispatched edition: the daily, weekly and fortnightly
             newsletters and each live Showcase send. Click a recipient count
-            to see exactly who received it.
+            to see exactly who received it, or Preview to open the edition.
           </HelpTip>
         </h2>
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={th}>{oSortLink("type", "Type")}</th>
-                <th style={th}>{oSortLink("window", "Window")}</th>
-                <th style={th}>{oSortLink("status", "Status")}</th>
-                <th style={th}>{oSortLink("stories", "Stories")}</th>
-                <th style={th}>{oSortLink("recipients", "Recipients")}</th>
-                <th style={th}>{oSortLink("sent", "Sent at")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageSends.map((r) => (
-                <tr key={r.key}>
-                  <td style={td}>
-                    {r.showcase ? (
-                      <span style={badge("var(--cta-teal)")}>The Showcase</span>
-                    ) : (
-                      r.type
-                    )}
-                  </td>
-                  <td style={td}>{r.label}</td>
-                  <td style={td}>
-                    <span
-                      style={badge(
-                        r.status === "sent"
-                          ? "var(--cta-emerald)"
-                          : r.status === "failed"
-                            ? "var(--cta-pink)"
-                            : r.status === "sending"
-                              ? "var(--cta-yellow)"
-                              : "var(--cta-white)",
-                      )}
-                    >
-                      {r.status}
-                    </span>
-                  </td>
-                  <td style={td}>{r.items}</td>
-                  <td style={td}>
-                    {r.href ? (
-                      <Link
-                        prefetch={false}
-                        href={r.href}
-                        style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                      >
-                        {r.recipients}
-                      </Link>
-                    ) : (
-                      r.recipients
-                    )}
-                  </td>
-                  <td style={{ ...td, whiteSpace: "nowrap" }}>
-                    {r.sentAt ? formatSydneyStamp(r.sentAt) : "—"}
-                  </td>
-                </tr>
-              ))}
-              {pageSends.length === 0 && (
-                <tr>
-                  <td style={td} colSpan={6}>
-                    {opg > 1 ? (
-                      "No sends this far back."
-                    ) : (
-                      <>
-                        No sends yet. Fetch posts and send from the{" "}
-                        <Link
-                          prefetch={false}
-                          href="/admin?tab=editions"
-                          style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                        >
-                          Editions tab
-                        </Link>
-                        .
-                      </>
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <HistoryTable
+          rows={pageSends.map((r) => ({
+            key: r.key,
+            typeLabel: r.type,
+            showcase: r.showcase,
+            window: r.label,
+            status: r.status,
+            stories: r.items,
+            recipients: r.recipients,
+            recipientsHref: r.href,
+            sentAt: r.sentAt,
+            previewHref: r.previewHref,
+          }))}
+          sortLink={oSortLink}
+          empty={
+            opg > 1 ? (
+              "No sends this far back."
+            ) : (
+              <>
+                No sends yet. Fetch posts and send from the{" "}
+                <Link
+                  prefetch={false}
+                  href="/admin?tab=editions"
+                  style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+                >
+                  Editions tab
+                </Link>
+                .
+              </>
+            )
+          }
+        />
         {(opg > 1 || hasMoreSends) && (
           <div
             style={{
@@ -878,19 +958,23 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   const hpgRaw = Number(sp.hpg);
   const hpg = Number.isInteger(hpgRaw) && hpgRaw > 0 ? hpgRaw : 1;
   // History sort. Default: most recently sent at the top.
-  const HSORTS = ["edition", "sent", "subscribers", "status"] as const;
+  const HSORTS = ["type", "window", "status", "stories", "recipients", "sent"] as const;
   const hso = (HSORTS as readonly string[]).includes(sp.hso ?? "")
     ? (sp.hso as (typeof HSORTS)[number])
-    : "sent";
-  const hdr = sp.hdr === "asc" ? "asc" : "desc";
+    : "window";
+  const hdr = sp.hdr === "asc" ? "asc" : sp.hdr === "desc" ? "desc" : "asc";
   const hOrderCol =
-    hso === "edition"
+    hso === "type"
       ? issues.cadence
-      : hso === "subscribers"
-        ? issues.recipientCount
+      : hso === "window"
+        ? issues.windowStart
         : hso === "status"
           ? issues.status
-          : sql`coalesce(${issues.sentAt}, ${issues.windowEnd})`;
+          : hso === "stories"
+            ? issues.itemCount
+            : hso === "recipients"
+              ? issues.recipientCount
+              : sql`coalesce(${issues.sentAt}, ${issues.windowEnd})`;
   const [cadenceCounts, lastSentRows, history, testRecipients] =
     await Promise.all([
       db()
@@ -929,8 +1013,8 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   const defaultTo = testRecipients.join(", ");
   const historyParams = (over: Record<string, string> = {}) => {
     const p = new URLSearchParams({ tab: "editions" });
-    if (hso !== "sent") p.set("hso", hso);
-    if (hdr !== "desc") p.set("hdr", hdr);
+    if (hso !== "window") p.set("hso", hso);
+    if (hdr !== "asc") p.set("hdr", hdr);
     if (hpg > 1) p.set("hpg", String(hpg));
     for (const [k, v] of Object.entries(over)) {
       if (v) p.set(k, v);
@@ -939,7 +1023,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
     return p.toString();
   };
   const hSortLink = (key: (typeof HSORTS)[number], label: string) => {
-    const nextDir = hso === key ? (hdr === "asc" ? "desc" : "asc") : "desc";
+    const nextDir = hso === key ? (hdr === "asc" ? "desc" : "asc") : "asc";
     return (
       <Link
         prefetch={false}
@@ -1057,67 +1141,28 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
         <h2 style={h2}>
           History
           <HelpTip title="History">
-            Every past newsletter send, newest first. Click a recipient
-            count to see exactly who received that edition. The Showcase has
-            its own history on The Showcase page.
+            Every past newsletter send. Click any column heading to sort;
+            click a recipient count to see exactly who received that edition,
+            or Preview to open it. The Showcase has its own history on The
+            Showcase page.
           </HelpTip>
         </h2>
-        {historyPage.length === 0 ? (
-          <p style={{ ...muted, marginBottom: 0 }}>
-            {hpg > 1 ? "No sends this far back." : "Nothing sent yet."}
-          </p>
-        ) : (
-          <div className="table-scroll">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={th}>{hSortLink("edition", "Edition")}</th>
-                  <th style={th}>{hSortLink("sent", "Sent")}</th>
-                  <th style={th}>{hSortLink("subscribers", "Subscribers")}</th>
-                  <th style={th}>{hSortLink("status", "Status")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyPage.map((i) => (
-                  <tr key={i.id}>
-                    <td style={{ ...td, whiteSpace: "nowrap", textTransform: "capitalize" }}>
-                      {i.cadence}
-                    </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {formatSydneyStamp(i.sentAt ?? i.windowEnd)}
-                    </td>
-                    <td style={td}>
-                      {i.recipientCount > 0 ? (
-                        <Link
-                          prefetch={false}
-                          href={`/admin?tab=editions&issue=${i.id}`}
-                          style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                        >
-                          {i.recipientCount}
-                        </Link>
-                      ) : (
-                        i.recipientCount
-                      )}
-                    </td>
-                    <td style={td}>
-                      <span
-                        style={badge(
-                          i.status === "sent"
-                            ? "var(--cta-emerald)"
-                            : i.status === "failed"
-                              ? "var(--cta-pink)"
-                              : "var(--cta-white)",
-                        )}
-                      >
-                        {i.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <HistoryTable
+          rows={historyPage.map((i) => ({
+            key: `issue-${i.id}`,
+            typeLabel: i.cadence,
+            showcase: false,
+            window: i.windowKey,
+            status: i.status,
+            stories: i.itemCount,
+            recipients: i.recipientCount,
+            recipientsHref: `/admin?tab=editions&issue=${i.id}`,
+            sentAt: i.sentAt,
+            previewHref: `/admin/preview/${i.cadence}`,
+          }))}
+          sortLink={hSortLink}
+          empty={hpg > 1 ? "No sends this far back." : "Nothing sent yet."}
+        />
         {(hpg > 1 || hasMoreHistory) && (
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
             {hpg > 1 && (
@@ -2953,22 +2998,25 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const epg = Number.isInteger(epgRaw) && epgRaw > 0 ? epgRaw : 1;
   const EDITIONS_PAGE = 15;
   // History sort. Default: most recently sent at the top.
-  const ESORTS = ["sent", "stories", "profiles", "recipients"] as const;
+  const ESORTS = ["type", "window", "status", "stories", "recipients", "sent"] as const;
   const eso = (ESORTS as readonly string[]).includes(sp.eso ?? "")
     ? (sp.eso as (typeof ESORTS)[number])
-    : "sent";
-  const edr = sp.edr === "asc" ? "asc" : "desc";
+    : "window";
+  const edr = sp.edr === "asc" ? "asc" : sp.edr === "desc" ? "desc" : "asc";
   const sentCmp = (a: ShowcaseEdition, b: ShowcaseEdition) => {
     let d: number;
     switch (eso) {
       case "stories":
         d = itemsOf(a) - itemsOf(b);
         break;
-      case "profiles":
-        d = profilesOf(a) - profilesOf(b);
-        break;
       case "recipients":
         d = a.recipientCount - b.recipientCount;
+        break;
+      // Type and Status are the same for every Showcase; fall through to the
+      // sent date (which is also what Window shows here).
+      case "type":
+      case "status":
+        d = 0;
         break;
       default:
         d = stampOf(a) - stampOf(b);
@@ -2990,8 +3038,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const defaultTo = recipients.join(", ");
   const sentParams = (over: Record<string, string> = {}) => {
     const p = new URLSearchParams({ tab: "presenters" });
-    if (eso !== "sent") p.set("eso", eso);
-    if (edr !== "desc") p.set("edr", edr);
+    if (eso !== "window") p.set("eso", eso);
+    if (edr !== "asc") p.set("edr", edr);
     if (epg > 1) p.set("epg", String(epg));
     for (const [k, v] of Object.entries(over)) {
       if (v) p.set(k, v);
@@ -3000,7 +3048,7 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     return p.toString();
   };
   const eSortLink = (key: (typeof ESORTS)[number], label: string) => {
-    const nextDir = eso === key ? (edr === "asc" ? "desc" : "asc") : "desc";
+    const nextDir = eso === key ? (edr === "asc" ? "desc" : "asc") : "asc";
     return (
       <Link
         prefetch={false}
@@ -3156,96 +3204,61 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
         <h2 style={h2}>
           History
           <HelpTip title="History">
-            Every Showcase that has been sent live, newest first. Click a
-            recipient count to see exactly who received it; Duplicate copies
-            an edition into a fresh draft to reuse it.
+            Every Showcase that has been sent live. Click any column heading
+            to sort; click a recipient count to see exactly who received it,
+            Preview to open it, or Duplicate to copy an edition into a fresh
+            draft to reuse it.
           </HelpTip>
         </h2>
-        {pageSent.length === 0 ? (
-          <p style={{ ...muted, marginBottom: 0 }}>
-            {epg > 1 ? "No Showcases this far back." : "Nothing sent yet."}
-          </p>
-        ) : (
-          <div className="table-scroll">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={th}>{eSortLink("sent", "Sent")}</th>
-                  <th style={th}>{eSortLink("stories", "Stories")}</th>
-                  <th style={th}>{eSortLink("profiles", "Profiles")}</th>
-                  <th style={th}>{eSortLink("recipients", "Recipients")}</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageSent.map((e) => (
-                  <tr key={e.id}>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {formatSydneyStamp(e.sentAt ?? e.createdAt)}
-                    </td>
-                    <td style={td}>{itemsOf(e)}</td>
-                    <td style={td}>{profilesOf(e)}</td>
-                    <td style={td}>
-                      {e.recipients ?? (
-                        <Link
-                          prefetch={false}
-                          href={`/admin?tab=presenters&edition=${e.id}`}
-                          style={{ color: "var(--cta-ink)", fontWeight: 600 }}
-                        >
-                          {`${e.recipientCount} recipient${e.recipientCount === 1 ? "" : "s"}`}
-                        </Link>
-                      )}
-                    </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <a
-                        href={`/admin/preview/presenter?edition=${e.id}`}
-                        target="_blank"
-                        style={{
-                          ...smallButton,
-                          display: "inline-block",
-                          textDecoration: "none",
-                          background: "var(--cta-white)",
-                          marginRight: 6,
-                        }}
-                      >
-                        Preview ↗
-                      </a>
-                      <form
-                        action="/api/admin/showcase-edition"
-                        method="post"
-                        style={{ display: "inline", marginRight: 6 }}
-                      >
-                        <input type="hidden" name="action" value="duplicate" />
-                        <input type="hidden" name="id" value={e.id} />
-                        <button
-                          type="submit"
-                          style={{ ...smallButton, background: "var(--cta-white)" }}
-                        >
-                          Duplicate
-                        </button>
-                      </form>
-                      <form
-                        action="/api/admin/showcase-edition"
-                        method="post"
-                        style={{ display: "inline" }}
-                      >
-                        <input type="hidden" name="action" value="delete" />
-                        <input type="hidden" name="id" value={e.id} />
-                        <ConfirmSubmit
-                          message="Delete this sent Showcase from the history? Its stories become available to future editions again."
-                          danger
-                          style={dangerButton}
-                        >
-                          Delete
-                        </ConfirmSubmit>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <HistoryTable
+          rows={pageSent.map((e) => ({
+            key: `edition-${e.id}`,
+            typeLabel: "The Showcase",
+            showcase: true,
+            window: auDate(e.sentAt ?? e.createdAt),
+            status: e.status,
+            stories: itemsOf(e),
+            recipients: e.recipientCount,
+            recipientsHref: `/admin?tab=presenters&edition=${e.id}`,
+            sentAt: e.sentAt ?? e.createdAt,
+            previewHref: `/admin/preview/presenter?edition=${e.id}`,
+            extraActions: (
+              <>
+                <form
+                  action="/api/admin/showcase-edition"
+                  method="post"
+                  style={{ display: "inline", marginRight: 6 }}
+                >
+                  <input type="hidden" name="action" value="duplicate" />
+                  <input type="hidden" name="id" value={e.id} />
+                  <button
+                    type="submit"
+                    style={{ ...smallButton, background: "var(--cta-white)" }}
+                  >
+                    Duplicate
+                  </button>
+                </form>
+                <form
+                  action="/api/admin/showcase-edition"
+                  method="post"
+                  style={{ display: "inline" }}
+                >
+                  <input type="hidden" name="action" value="delete" />
+                  <input type="hidden" name="id" value={e.id} />
+                  <ConfirmSubmit
+                    message="Delete this sent Showcase from the history? Its stories become available to future editions again."
+                    danger
+                    style={dangerButton}
+                  >
+                    Delete
+                  </ConfirmSubmit>
+                </form>
+              </>
+            ),
+          }))}
+          sortLink={eSortLink}
+          empty={epg > 1 ? "No Showcases this far back." : "Nothing sent yet."}
+        />
         {(epg > 1 || hasMoreSent) && (
           <div
             style={{
