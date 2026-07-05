@@ -30,6 +30,7 @@ import {
   hasRelativeTime,
   parseShowcaseListParams,
   queryStoryPool,
+  STORY_POOL_GROUP_LIMIT,
   STORY_POOL_PAGE_SIZES,
   type ShowcaseListParams,
   type StoryPoolPage,
@@ -3213,8 +3214,10 @@ function StoryPoolTable({
     if (merged.dir !== "desc") q.set("dir", merged.dir);
     if (merged.pg > 1) q.set("pg", String(merged.pg));
     if (merged.ps !== 10) q.set("ps", String(merged.ps));
-    return `/admin?${q.toString()}`;
+    if (merged.group === "company") q.set("group", "company");
+    return `/admin?${q.toString()}#${anchor}`;
   };
+  const grouped = params.group === "company";
   const sortLink = (key: ShowcaseListParams["sort"], label: string) => (
     <Link
             prefetch={false}
@@ -3242,6 +3245,193 @@ function StoryPoolTable({
     params.q ||
     params.sort !== "date" ||
     params.pg > 1;
+
+  const headRow = (
+    <tr>
+      {drafts && <th style={th}></th>}
+      <th style={th}>{sortLink("date", "Added")}</th>
+      <th style={th}>Published</th>
+      <th style={th}>{sortLink("headline", "Story")}</th>
+      <th style={{ ...th, maxWidth: 120 }}>{sortLink("source", "Source")}</th>
+      <th style={th}>{sortLink("company", "Company")}</th>
+      <th style={th}>
+        Rating: {sortLink("relevance", "Show")}
+        {" / "}
+        {sortLink("social", "Social")}
+      </th>
+      <th style={th}>Newsletters</th>
+    </tr>
+  );
+
+  const bodyRow = (p: FeedItem) => (
+    <tr key={p.id}>
+      {drafts && (
+        <td style={td}>
+          <input
+            type="checkbox"
+            name="ids"
+            value={p.id}
+            form="pool-bulk"
+            style={{ width: 18, height: 18 }}
+          />
+        </td>
+      )}
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        {auDate(p.reviewedAt ?? p.createdAt)}
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>{auDate(p.publishedAt)}</td>
+      <td style={{ ...td, minWidth: 220, maxWidth: 420 }}>
+        <strong style={{ fontSize: 13.5 }}>
+          {p.aiHeading.slice(0, 90)}
+          {p.aiHeading.length > 90 ? "…" : ""}
+        </strong>
+        {p.postUrl && (
+          <>
+            {" "}
+            <a
+              href={p.postUrl}
+              target="_blank"
+              style={{ color: "var(--cta-ink)", fontWeight: 600 }}
+            >
+              ↗
+            </a>
+          </>
+        )}
+        {usedDates.has(p.id) && (
+          <span
+            style={{
+              ...badge("var(--cta-mint)"),
+              marginLeft: 8,
+              fontSize: 10,
+            }}
+            title="This story has appeared in a sent Showcase"
+          >
+            Sent
+            {usedDates.get(p.id) ? ` ${auDate(usedDates.get(p.id)!)}` : ""}
+          </span>
+        )}
+        {p.aiSummary && (
+          <div
+            className="story-summary"
+            style={{
+              fontSize: 12.5,
+              color: "var(--text-body)",
+              marginTop: 4,
+              fontWeight: 400,
+            }}
+          >
+            {p.aiSummary}
+          </div>
+        )}
+      </td>
+      <td style={{ ...td, maxWidth: 120 }}>
+        {feedOriginBadge(p, feedNameById)}
+        {sourcePublication(p) && (
+          <div
+            title={sourcePublication(p)}
+            style={{
+              fontSize: 11.5,
+              color: "var(--text-muted)",
+              marginTop: 4,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {sourcePublication(p)}
+          </div>
+        )}
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        {nameByKey.get(p.companyKey) ?? "Around the Alliance"}
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        <RatingsForm
+          itemId={p.id}
+          show={p.presenterRelevance}
+          social={p.socialRelevance}
+        />
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {p.source === "feed" && p.reviewStatus === "auto" ? (
+            <span
+              title="Already in the newsletters"
+              style={{
+                ...smallButton,
+                background: "var(--cta-white)",
+                opacity: 0.4,
+                cursor: "default",
+              }}
+            >
+              Regular ✓
+            </span>
+          ) : (
+            <form
+              action="/api/admin/presenter-item"
+              method="post"
+              style={{ display: "inline" }}
+            >
+              <input type="hidden" name="action" value="force-newsletter" />
+              <input type="hidden" name="id" value={p.id} />
+              <ConfirmSubmit
+                title="Add to the newsletters"
+                message={`Add "${p.aiHeading.slice(0, 50)}" to the next daily, weekly and fortnightly newsletter? It appears once in each, then drops off.`}
+                confirmLabel="Add"
+                style={{ ...smallButton, background: "var(--cta-white)" }}
+              >
+                Regular +
+              </ConfirmSubmit>
+            </form>
+          )}
+          <ShowcaseAddModal
+            itemId={p.id}
+            drafts={draftOptions}
+            style={{ ...smallButton }}
+          >
+            Showcase +
+          </ShowcaseAddModal>
+          <form
+            action="/api/admin/presenter-item"
+            method="post"
+            style={{ display: "inline" }}
+          >
+            <input type="hidden" name="action" value="ignore" />
+            <input type="hidden" name="id" value={p.id} />
+            <ConfirmSubmit
+              danger
+              title="Remove from the story pool"
+              message={`Remove "${p.aiHeading.slice(0, 50)}" from the story pool for good? It will not come back, even if the feed lists it again.`}
+              confirmLabel="Remove for good"
+              style={{ ...smallButton, background: "var(--cta-pink)" }}
+            >
+              ✕
+            </ConfirmSubmit>
+          </form>
+        </div>
+      </td>
+    </tr>
+  );
+
+  // Grouped view: split the rows (already in sort order) into per-company
+  // buckets, then order the buckets alphabetically by company name. Each
+  // becomes a collapsible section, collapsed by default.
+  const companyGroups = (() => {
+    if (!grouped) return [];
+    const byKey = new Map<string, FeedItem[]>();
+    for (const r of rows) {
+      const list = byKey.get(r.companyKey) ?? [];
+      list.push(r);
+      byKey.set(r.companyKey, list);
+    }
+    return [...byKey.entries()]
+      .map(([key, list]) => ({
+        key,
+        name: nameByKey.get(key) ?? "Around the Alliance",
+        list,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
 
   return (
     <>
@@ -3316,6 +3506,22 @@ function StoryPoolTable({
           ) : undefined
         }
       />
+      {(rows.length > 0 || grouped) && (
+        <div style={{ marginBottom: 14 }}>
+          <Link
+            prefetch={false}
+            href={href({ group: grouped ? "none" : "company", pg: 1 })}
+            scroll={false}
+            style={{
+              ...smallButton,
+              textDecoration: "none",
+              background: grouped ? "var(--cta-purple)" : "var(--cta-white)",
+            }}
+          >
+            {grouped ? "Grouped by company ✓" : "Group by company"}
+          </Link>
+        </div>
+      )}
       {rows.length === 0 ? (
         <p style={{ ...muted, marginBottom: 0 }}>
           {params.pg > 1 ? (
@@ -3329,6 +3535,38 @@ function StoryPoolTable({
             "No stories match this view. Try All ratings or a different search."
           )}
         </p>
+      ) : grouped ? (
+        <>
+          {companyGroups.map((g) => (
+            <details key={g.key} style={{ marginBottom: 12 }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  padding: "8px 0",
+                  fontSize: 14,
+                }}
+              >
+                {g.name}{" "}
+                <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                  ({g.list.length})
+                </span>
+              </summary>
+              <div className="table-scroll">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>{headRow}</thead>
+                  <tbody>{g.list.map(bodyRow)}</tbody>
+                </table>
+              </div>
+            </details>
+          ))}
+          {hasMore && (
+            <p style={{ ...muted, marginTop: 10 }}>
+              Showing the first {STORY_POOL_GROUP_LIMIT} stories. Narrow with a
+              filter to see the rest.
+            </p>
+          )}
+        </>
       ) : (
         <>
           <div className="table-scroll">

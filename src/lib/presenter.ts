@@ -1124,7 +1124,12 @@ export interface ShowcaseListParams {
   pg: number;
   /** Stories per page. */
   ps: StoryPoolPageSize;
+  /** "company" groups the pool into collapsible per-company sections. */
+  group: "none" | "company";
 }
+
+/** How many rows a grouped view fetches (pagination is off when grouping). */
+export const STORY_POOL_GROUP_LIMIT = 1000;
 
 /** Validate/default the story-pool filter, sort and paging query params. */
 export function parseShowcaseListParams(
@@ -1149,6 +1154,7 @@ export function parseShowcaseListParams(
     q: (sp.q ?? "").trim(),
     pg: Number.isInteger(pg) && pg > 0 ? pg : 1,
     ps: STORY_POOL_PAGE_SIZES.find((s) => s === ps) ?? 10,
+    group: sp.group === "company" ? "company" : "none",
   };
 }
 
@@ -1228,7 +1234,13 @@ export async function queryStoryPool(
               ? feedName
               : ourDate;
 
-  // Fetch one extra row to know whether a further page exists.
+  // When grouping by company, pagination is off: fetch the whole pool (up
+  // to a generous cap) so every company's stories are present to group and
+  // collapse. Otherwise page normally, fetching one extra row to know
+  // whether a further page exists.
+  const grouped = p.group === "company";
+  const limit = grouped ? STORY_POOL_GROUP_LIMIT + 1 : p.ps + 1;
+  const offset = grouped ? 0 : (p.pg - 1) * p.ps;
   const rows = await db()
     .select()
     .from(feedItems)
@@ -1237,11 +1249,12 @@ export async function queryStoryPool(
       p.dir === "asc" ? asc(orderCol) : desc(orderCol),
       desc(ourDate),
     )
-    .limit(p.ps + 1)
-    .offset((p.pg - 1) * p.ps);
+    .limit(limit)
+    .offset(offset);
+  const cap = grouped ? STORY_POOL_GROUP_LIMIT : p.ps;
   return {
-    rows: rows.slice(0, p.ps),
-    hasMore: rows.length > p.ps,
+    rows: rows.slice(0, cap),
+    hasMore: rows.length > cap,
   };
 }
 

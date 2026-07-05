@@ -294,6 +294,7 @@ describe("parseShowcaseListParams", () => {
       q: "",
       pg: 1,
       ps: 10,
+      group: "none",
     });
   });
 
@@ -316,6 +317,7 @@ describe("parseShowcaseListParams", () => {
       q: "tour",
       pg: 3,
       ps: 50,
+      group: "none",
     });
     expect(
       parseShowcaseListParams({
@@ -333,6 +335,7 @@ describe("parseShowcaseListParams", () => {
       q: "",
       pg: 1,
       ps: 10,
+      group: "none",
     });
     expect(parseShowcaseListParams({ pg: "abc" }).pg).toBe(1);
     expect(parseShowcaseListParams({ rel: "s-high" }).rel).toBe("s-high");
@@ -341,6 +344,8 @@ describe("parseShowcaseListParams", () => {
     // Old bookmarked links with the retired combined value fall back.
     expect(parseShowcaseListParams({ rel: "highs" }).rel).toBe("all");
     expect(parseShowcaseListParams({ ps: "20" }).ps).toBe(20);
+    expect(parseShowcaseListParams({ group: "company" }).group).toBe("company");
+    expect(parseShowcaseListParams({ group: "bogus" }).group).toBe("none");
   });
 });
 
