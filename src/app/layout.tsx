@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   title: "The Alliance Newsletter — Children's Theatre Alliance",
   description:
     "Get the next Alliance dispatch delivered straight to your inbox.",
+  // A pink puzzle piece from the brand's shape set, like the website's motif.
+  icons: { icon: "/shapes/knobLeft-pink.png" },
 };
 
 export default function RootLayout({

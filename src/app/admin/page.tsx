@@ -38,6 +38,8 @@ import {
   nextSendAt,
 } from "@/lib/cadence";
 import Link from "next/link";
+import Image from "next/image";
+import { CLOUD_PATH } from "@/lib/clouds";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import MoveButtons from "@/components/MoveButtons";
 import QuickAction from "@/components/QuickAction";
@@ -159,40 +161,40 @@ export default async function AdminPage({
   const tab: Tab = (TABS.find((t) => t.id === rawTab)?.id ?? "overview") as Tab;
 
   return (
+    <>
     <main className="admin-main">
-      <div
-        style={{
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-        }}
-      >
-        <h1 className="admin-title">Alliance Newsletter Admin</h1>
-        <form action="/api/admin-logout" method="post">
-          <button type="submit" style={{ ...smallButton, background: "var(--cta-white)" }}>
-            Log out
-          </button>
-        </form>
-      </div>
-      <p style={{ color: "var(--text-muted)", margin: "0 0 24px" }}>
-        The pipeline runs automatically every morning (Sydney time).
-      </p>
-
-      <nav className="admin-tabs">
-        {TABS.map((t) => (
-          <Link
-            prefetch={false}
-            key={t.id}
-            href={`/admin?tab=${t.id}`}
-            className="admin-tab"
-            aria-current={tab === t.id}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </nav>
+      {/* Top navigation, styled like the Alliance website: logo on the
+          left, the app's name so it isn't confused with the website, then
+          plain text links with the active page underlined. */}
+      <header className="admin-nav">
+        <Image
+          src="/logo-full.png"
+          alt="The Children's Theatre Alliance"
+          width={139}
+          height={44}
+          style={{ height: 44, width: "auto" }}
+          priority
+        />
+        <h1 className="admin-app-name">Newsletter Admin</h1>
+        <nav className="admin-nav-links">
+          {TABS.map((t) => (
+            <Link
+              prefetch={false}
+              key={t.id}
+              href={`/admin?tab=${t.id}`}
+              className="admin-nav-link"
+              aria-current={tab === t.id}
+            >
+              {t.label}
+            </Link>
+          ))}
+          <form action="/api/admin-logout" method="post">
+            <button type="submit" className="admin-nav-link">
+              Log out
+            </button>
+          </form>
+        </nav>
+      </header>
 
       {message && (
         <div
@@ -214,6 +216,82 @@ export default async function AdminPage({
       {tab === "settings" && <SettingsTab />}
       {tab === "presenters" && <ShowcaseTab sp={sp} />}
     </main>
+    <AdminFooter tab={tab} />
+    </>
+  );
+}
+
+/**
+ * Footer styled like the Alliance website: ink clouds rise over the page,
+ * then a purple box floats on the ink band with links and the
+ * acknowledgement.
+ */
+function AdminFooter({ tab }: { tab: Tab }) {
+  return (
+    <footer>
+      <svg
+        className="admin-footer-cloud"
+        viewBox="0 0 1280 104"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d={CLOUD_PATH} fill="var(--cta-ink)" fillRule="evenodd" />
+      </svg>
+      <div className="admin-footer-band">
+        <div className="admin-footer-box">
+          <div className="admin-footer-top">
+            <div>
+              <Image
+                src="/logo-full.png"
+                alt="The Children's Theatre Alliance"
+                width={173}
+                height={55}
+                style={{ height: 55, width: "auto" }}
+              />
+              <p className="admin-footer-name">Newsletter Admin</p>
+            </div>
+            <nav className="admin-footer-links" aria-label="Admin pages">
+              {TABS.map((t) => (
+                <Link
+                  prefetch={false}
+                  key={t.id}
+                  href={`/admin?tab=${t.id}`}
+                  className="admin-footer-link"
+                  aria-current={tab === t.id}
+                >
+                  {t.label}
+                </Link>
+              ))}
+            </nav>
+            <nav className="admin-footer-links" aria-label="The Alliance">
+              <a
+                href="https://www.childrenstheatrealliance.com.au/"
+                className="admin-footer-link"
+              >
+                The Alliance website
+              </a>
+              <a
+                href="https://www.childrenstheatrealliance.com.au/privacy-policy"
+                className="admin-footer-link"
+              >
+                Privacy Policy
+              </a>
+              <Link href="/" className="admin-footer-link" prefetch={false}>
+                Newsletter sign-up page
+              </Link>
+            </nav>
+          </div>
+          <p className="admin-footer-fine">
+            Administered by the National Children&#39;s Theatre Initiative.
+          </p>
+          <p className="admin-footer-fine">
+            The Alliance acknowledges the traditional custodians of the lands
+            on which we meet, gather, and work. We pay our respects to Elders
+            past and present.
+          </p>
+        </div>
+      </div>
+    </footer>
   );
 }
 
