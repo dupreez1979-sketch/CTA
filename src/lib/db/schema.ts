@@ -187,6 +187,13 @@ export const feedItems = pgTable(
     // Removed from the story pool via the "ignore" (X) action. Kept so the
     // feed's guid de-duplication stops the article ever coming back.
     ignored: boolean("ignored").notNull().default(false),
+    // Set when a media/approved story is manually pushed into the regular
+    // newsletters via the pool's Regular "+". Persistent (never cleared) so
+    // the button stays greyed and the story can't be added twice, even after
+    // the transient newsletter_inclusions rows are cleared on send.
+    forcedNewsletterAt: timestamp("forced_newsletter_at", {
+      withTimezone: true,
+    }),
   },
   (t) => [
     uniqueIndex("feed_items_guid_idx").on(t.guid),

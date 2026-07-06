@@ -73,6 +73,10 @@ export async function POST(request: NextRequest) {
     // Social/auto-feed stories are already in the newsletters.
     if (story.source === "feed" && story.reviewStatus === "auto")
       return backToPool("That story is already in the newsletters");
+    // Already added once: don't re-queue it. The marker persists after the
+    // inclusion rows are cleared on send, so it can never be added twice.
+    if (story.forcedNewsletterAt)
+      return backToPool("That story has already been added to the newsletters");
     await db()
       .insert(newsletterInclusions)
       .values(
@@ -82,6 +86,10 @@ export async function POST(request: NextRequest) {
         })),
       )
       .onConflictDoNothing();
+    await db()
+      .update(feedItems)
+      .set({ forcedNewsletterAt: new Date() })
+      .where(eq(feedItems.id, id));
     return backToPool(
       `"${story.aiHeading.slice(0, 50)}" will be in the next daily, weekly and fortnightly newsletter`,
     );

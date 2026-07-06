@@ -55,6 +55,11 @@ export function ensureNewsletterSchema(): Promise<boolean> {
       await db().execute(
         sql`CREATE UNIQUE INDEX IF NOT EXISTS "newsletter_inclusion_idx" ON "newsletter_inclusions" ("feed_item_id","cadence")`,
       );
+      // 0019: persistent marker for a story manually pushed into the
+      // newsletters (keeps the pool's Regular "+" greyed for good).
+      await db().execute(
+        sql`ALTER TABLE "feed_items" ADD COLUMN IF NOT EXISTS "forced_newsletter_at" timestamp with time zone`,
+      );
       return true;
     } catch (err) {
       // Reset so a later call can retry (e.g. transient connection issue).

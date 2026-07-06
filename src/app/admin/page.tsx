@@ -4176,9 +4176,14 @@ function StoryPoolTable({
       </td>
       <td style={{ ...td, whiteSpace: "nowrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {p.source === "feed" && p.reviewStatus === "auto" ? (
+          {(p.source === "feed" && p.reviewStatus === "auto") ||
+          p.forcedNewsletterAt ? (
             <span
-              title="Already in the newsletters"
+              title={
+                p.source === "feed" && p.reviewStatus === "auto"
+                  ? "Always in the newsletters"
+                  : "Already added to the newsletters"
+              }
               style={{
                 ...smallButton,
                 background: "var(--cta-white)",
@@ -4510,9 +4515,14 @@ function StoryPoolTable({
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {p.source === "feed" && p.reviewStatus === "auto" ? (
+                        {(p.source === "feed" && p.reviewStatus === "auto") ||
+                        p.forcedNewsletterAt ? (
                           <span
-                            title="Already in the newsletters"
+                            title={
+                              p.source === "feed" && p.reviewStatus === "auto"
+                                ? "Always in the newsletters"
+                                : "Already added to the newsletters"
+                            }
                             style={{
                               ...smallButton,
                               background: "var(--cta-white)",

@@ -134,6 +134,13 @@
       "when": 1783200561007,
       "tag": "0018_company-second-shows-page",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783200621007,
+      "tag": "0019_forced-newsletter",
+      "breakpoints": true
     }
   ]
 }
