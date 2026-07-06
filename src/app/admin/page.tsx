@@ -3322,6 +3322,12 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
   // Filters (shared by the table and the card grid below it).
   const shco = (sp.shco ?? "").trim();
   const shst = sp.shst === "active" || sp.shst === "archived" ? sp.shst : "all";
+  // Spotlight grid: group by company, page size and page.
+  const SHOW_CARD_SIZES = [25, 50, 100] as const;
+  const shg = sp.shg === "company" ? "company" : "none";
+  const shps = SHOW_CARD_SIZES.find((n) => n === Number(sp.shps)) ?? 25;
+  const shpgRaw = Number(sp.shpg);
+  const shpg = Number.isInteger(shpgRaw) && shpgRaw > 0 ? shpgRaw : 1;
   const [registry, companyRows] = await Promise.all([
     db().select().from(shows).orderBy(asc(shows.title)),
     db().select().from(companies).orderBy(asc(companies.name)),
@@ -3349,6 +3355,9 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
     if (sdir !== "asc") p.set("shd", sdir);
     if (shco) p.set("shco", shco);
     if (shst !== "all") p.set("shst", shst);
+    if (shg !== "none") p.set("shg", shg);
+    if (shps !== 25) p.set("shps", String(shps));
+    if (shpg > 1) p.set("shpg", String(shpg));
     for (const [k, v] of Object.entries(over)) {
       if (v) p.set(k, v);
       else p.delete(k);
@@ -3380,6 +3389,165 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
   ];
   const isFiltered = shco !== "" || shst !== "all";
 
+  // ---- Spotlight card grid: group / paginate / render ----
+  const cardGrouped = shg === "company";
+  const cardGroups = (() => {
+    if (!cardGrouped) return [];
+    const byKey = new Map<string, typeof sorted>();
+    for (const s of sorted) {
+      const list = byKey.get(s.companyKey);
+      if (list) list.push(s);
+      else byKey.set(s.companyKey, [s]);
+    }
+    return [...byKey.entries()]
+      .map(([key, list]) => ({ key, name: companyName(key), list }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
+  const totalCardPages = Math.max(1, Math.ceil(sorted.length / shps));
+  const cardPage = Math.min(shpg, totalCardPages);
+  const pageCards = cardGrouped
+    ? sorted
+    : sorted.slice((cardPage - 1) * shps, cardPage * shps);
+
+  const gridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gap: 16,
+  };
+  const showCard = (s: (typeof registry)[number], accent: string) => (
+    <div
+      key={s.id}
+      style={{
+        border: "2px solid var(--cta-ink)",
+        borderRadius: 14,
+        background: "var(--cta-white)",
+        boxShadow: "4px 4px 0 var(--cta-ink)",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        opacity: s.status === "archived" ? 0.55 : 1,
+      }}
+    >
+      {s.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={s.imageUrl}
+          alt={s.title}
+          loading="lazy"
+          style={{
+            display: "block",
+            width: "100%",
+            height: 150,
+            objectFit: "cover",
+            borderBottom: "2px solid var(--cta-ink)",
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            height: 150,
+            background: accent,
+            borderBottom: "2px solid var(--cta-ink)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--font-display)",
+            fontSize: 40,
+            color: "var(--cta-ink)",
+          }}
+        >
+          {s.title.slice(0, 1).toUpperCase()}
+        </div>
+      )}
+      <div
+        style={{
+          padding: "12px 14px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          flex: 1,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 17,
+            lineHeight: 1.15,
+            color: "var(--cta-ink)",
+          }}
+        >
+          {s.title}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
+          {companyName(s.companyKey)}
+        </div>
+        {s.blurb && (
+          <div
+            style={{
+              fontSize: 12.5,
+              color: "var(--text-body)",
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {s.blurb}
+          </div>
+        )}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginTop: "auto",
+            paddingTop: 4,
+          }}
+        >
+          {s.ageRange && (
+            <span style={{ ...badge("var(--cta-mint)"), fontSize: 10 }}>
+              {s.ageRange}
+            </span>
+          )}
+          {s.status === "archived" && (
+            <span style={{ ...badge("var(--cta-white)"), fontSize: 10 }}>
+              archived
+            </span>
+          )}
+          {s.url && (
+            <a
+              href={s.url}
+              target="_blank"
+              style={{
+                fontWeight: 700,
+                fontSize: 12.5,
+                color: "var(--cta-ink)",
+                textDecoration: "none",
+                borderBottom: `2px solid ${accent}`,
+                paddingBottom: 1,
+                marginLeft: "auto",
+              }}
+            >
+              Show page →
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+  const toggleStyle = (active: boolean): React.CSSProperties => ({
+    fontFamily: "var(--font-body)",
+    fontSize: 12,
+    fontWeight: 700,
+    color: "var(--cta-ink)",
+    background: active ? "var(--cta-purple)" : "var(--cta-white)",
+    border: "2px solid var(--cta-ink)",
+    borderRadius: 8,
+    padding: "6px 12px",
+    textDecoration: "none",
+  });
+
   return (
     <section className="admin-card" id="registry">
       <h2 style={h2}>
@@ -3404,6 +3572,8 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
         <input type="hidden" name="tab" value="shows" />
         {ssort !== "title" && <input type="hidden" name="shs" value={ssort} />}
         {sdir !== "asc" && <input type="hidden" name="shd" value={sdir} />}
+        {shg !== "none" && <input type="hidden" name="shg" value={shg} />}
+        {shps !== 25 && <input type="hidden" name="shps" value={shps} />}
         <div className="filter-field">
           <label style={fieldLabel}>Company</label>
           <AutoSubmitSelect name="shco" defaultValue={shco} style={smallInput}>
@@ -3587,156 +3757,145 @@ async function ShowsTab({ sp }: { sp: Record<string, string | undefined> }) {
         >
           Spotlight preview
         </h3>
-        <p style={{ ...muted, fontSize: 12.5, margin: "0 0 16px" }}>
-          How these shows look as cards in the Showcase email. Filtered and
-          sorted with the table above.
+        <p style={{ ...muted, fontSize: 12.5, margin: "0 0 14px" }}>
+          How these shows look as cards in the Showcase email. Uses the filter
+          and sort below.
         </p>
+
+        {/* Card controls: filters (also here, by the cards), group by company,
+            and page size. All drive the same URL params as the table. */}
+        <form
+          method="get"
+          action="/admin#spotlight"
+          className="filter-bar"
+          style={{ marginBottom: 14 }}
+        >
+          <input type="hidden" name="tab" value="shows" />
+          {ssort !== "title" && <input type="hidden" name="shs" value={ssort} />}
+          {sdir !== "asc" && <input type="hidden" name="shd" value={sdir} />}
+          {shg !== "none" && <input type="hidden" name="shg" value={shg} />}
+          {shps !== 25 && <input type="hidden" name="shps" value={shps} />}
+          <div className="filter-field">
+            <label style={fieldLabel}>Company</label>
+            <AutoSubmitSelect name="shco" defaultValue={shco} style={smallInput}>
+              <option value="">All companies</option>
+              {companyRows.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.name}
+                </option>
+              ))}
+            </AutoSubmitSelect>
+          </div>
+          <div className="filter-field">
+            <label style={fieldLabel}>Status</label>
+            <AutoSubmitSelect name="shst" defaultValue={shst} style={smallInput}>
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </AutoSubmitSelect>
+          </div>
+          <Link
+            prefetch={false}
+            scroll={false}
+            href={`/admin?${showParams({ shg: cardGrouped ? "" : "company", shpg: "" })}#spotlight`}
+            style={{ ...toggleStyle(cardGrouped), alignSelf: "flex-end" }}
+          >
+            {cardGrouped ? "Grouped by company ✓" : "Group by company"}
+          </Link>
+        </form>
+
+        <div id="spotlight" />
         {sorted.length === 0 ? (
           <p style={{ ...muted, marginBottom: 0 }}>
             {isFiltered
               ? "No shows match these filters."
               : "No shows to preview yet."}
           </p>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {sorted.map((s, i) => {
-              const accent = GRID_ACCENTS[i % GRID_ACCENTS.length];
-              return (
-                <div
-                  key={s.id}
+        ) : cardGrouped ? (
+          <>
+            {cardGroups.map((g) => (
+              <div key={g.key} style={{ marginBottom: 22 }}>
+                <h4
                   style={{
-                    border: "2px solid var(--cta-ink)",
-                    borderRadius: 14,
-                    background: "var(--cta-white)",
-                    boxShadow: "4px 4px 0 var(--cta-ink)",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    opacity: s.status === "archived" ? 0.55 : 1,
+                    fontFamily: "var(--font-display)",
+                    fontSize: 16,
+                    margin: "0 0 10px",
                   }}
                 >
-                  {s.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={s.imageUrl}
-                      alt={s.title}
-                      loading="lazy"
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        height: 150,
-                        objectFit: "cover",
-                        borderBottom: "2px solid var(--cta-ink)",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        height: 150,
-                        background: accent,
-                        borderBottom: "2px solid var(--cta-ink)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontFamily: "var(--font-display)",
-                        fontSize: 40,
-                        color: "var(--cta-ink)",
-                      }}
-                    >
-                      {s.title.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      padding: "12px 14px 14px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      flex: 1,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: 17,
-                        lineHeight: 1.15,
-                        color: "var(--cta-ink)",
-                      }}
-                    >
-                      {s.title}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      {companyName(s.companyKey)}
-                    </div>
-                    {s.blurb && (
-                      <div
-                        style={{
-                          fontSize: 12.5,
-                          color: "var(--text-body)",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {s.blurb}
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 8,
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        marginTop: "auto",
-                        paddingTop: 4,
-                      }}
-                    >
-                      {s.ageRange && (
-                        <span style={{ ...badge("var(--cta-mint)"), fontSize: 10 }}>
-                          {s.ageRange}
-                        </span>
-                      )}
-                      {s.status === "archived" && (
-                        <span style={{ ...badge("var(--cta-white)"), fontSize: 10 }}>
-                          archived
-                        </span>
-                      )}
-                      {s.url && (
-                        <a
-                          href={s.url}
-                          target="_blank"
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 12.5,
-                            color: "var(--cta-ink)",
-                            textDecoration: "none",
-                            borderBottom: `2px solid ${accent}`,
-                            paddingBottom: 1,
-                            marginLeft: "auto",
-                          }}
-                        >
-                          Show page →
-                        </a>
-                      )}
-                    </div>
-                  </div>
+                  {g.name}{" "}
+                  <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                    ({g.list.length})
+                  </span>
+                </h4>
+                <div style={gridStyle}>
+                  {g.list.map((s, i) => showCard(s, GRID_ACCENTS[i % GRID_ACCENTS.length]))}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <div style={gridStyle}>
+              {pageCards.map((s, i) => showCard(s, GRID_ACCENTS[i % GRID_ACCENTS.length]))}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                flexWrap: "wrap",
+                marginTop: 14,
+                fontSize: 12.5,
+                fontWeight: 600,
+              }}
+            >
+              {cardPage > 1 && (
+                <Link
+                  prefetch={false}
+                  scroll={false}
+                  href={`/admin?${showParams({ shpg: String(cardPage - 1) })}#spotlight`}
+                  style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+                >
+                  ← Previous
+                </Link>
+              )}
+              {totalCardPages > 1 && (
+                <span style={{ color: "var(--text-muted)" }}>
+                  Page {cardPage} of {totalCardPages}
+                </span>
+              )}
+              {cardPage < totalCardPages && (
+                <Link
+                  prefetch={false}
+                  scroll={false}
+                  href={`/admin?${showParams({ shpg: String(cardPage + 1) })}#spotlight`}
+                  style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+                >
+                  Next →
+                </Link>
+              )}
+              <span style={{ color: "var(--text-muted)", marginLeft: "auto" }}>
+                View{" "}
+                {SHOW_CARD_SIZES.map((size, i) => (
+                  <span key={size}>
+                    {i > 0 && " · "}
+                    {shps === size ? (
+                      <strong>{size}</strong>
+                    ) : (
+                      <Link
+                        prefetch={false}
+                        scroll={false}
+                        href={`/admin?${showParams({ shps: String(size), shpg: "" })}#spotlight`}
+                        style={{ color: "var(--cta-ink)" }}
+                      >
+                        {size}
+                      </Link>
+                    )}
+                  </span>
+                ))}
+              </span>
+            </div>
+          </>
         )}
       </section>
   );
