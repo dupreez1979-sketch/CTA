@@ -44,6 +44,7 @@ import {
 import {
   SCHEDULE_DESCRIPTION,
   formatSydneyDateTime,
+  formatSydneyStamp,
   formatWindowLabel,
   issueWindow,
   nextSendAt,
@@ -71,11 +72,6 @@ export const dynamic = "force-dynamic";
 /** Australian date: yyyy-mm-dd (UTC, matching how the app stores days). */
 function auDate(d: Date): string {
   return d.toISOString().slice(0, 10);
-}
-
-/** Australian date and time: yyyy-mm-dd HH:MM (UTC). */
-function auDateTime(d: Date): string {
-  return d.toISOString().slice(0, 16).replace("T", " ");
 }
 
 const CADENCES = ["daily", "weekly", "fortnightly"] as const;
@@ -551,12 +547,17 @@ async function OverviewTab({
 }) {
   const opgRaw = Number(sp.opg);
   const opg = Number.isInteger(opgRaw) && opgRaw > 0 ? opgRaw : 1;
-  // Sort of the Recent sends table. Default: by window, earliest at the top.
+  // Sort of the History table. Default: by sent-at, newest first.
   const OSORTS = ["type", "window", "status", "stories", "recipients", "sent"] as const;
   const osort = (OSORTS as readonly string[]).includes(sp.osort ?? "")
     ? (sp.osort as (typeof OSORTS)[number])
-    : "window";
-  const odir = sp.odir === "desc" ? "desc" : sp.odir === "asc" ? "asc" : "asc";
+    : "sent";
+  const odir = sp.odir === "asc" ? "asc" : "desc";
+  // Filter the History table by type.
+  const OTYPES = ["all", "daily", "weekly", "fortnightly", "showcase"] as const;
+  const otype = (OTYPES as readonly string[]).includes(sp.otype ?? "")
+    ? (sp.otype as (typeof OTYPES)[number])
+    : "all";
   const count = sql<number>`count(*)::int`;
   const dayAgo = new Date(Date.now() - 864e5);
   const weekAgo = new Date(Date.now() - 7 * 864e5);
@@ -652,7 +653,9 @@ async function OverviewTab({
       items: i.itemCount,
       recipients: i.recipientCount,
       sentAt: i.sentAt,
-      stamp: (i.sentAt ?? i.windowStart).getTime(),
+      // For unsent issues, fall back to the day it was meant to go out
+      // (window end) so they sort into the timeline sensibly.
+      stamp: (i.sentAt ?? i.windowEnd).getTime(),
       windowStamp: i.windowStart.getTime(),
       previewHref: `/admin/preview/${i.cadence}`,
       href:
@@ -696,21 +699,40 @@ async function OverviewTab({
       default:
         d = a.windowStamp - b.windowStamp;
     }
-    // Stable tiebreak so equal keys keep a consistent order.
-    if (d === 0) d = a.windowStamp - b.windowStamp;
+    // Stable tiebreak so equal keys keep a consistent order (newest first).
+    if (d === 0) d = a.stamp - b.stamp;
     return odir === "asc" ? d : -d;
   });
-  const pageSends = allSends.slice((opg - 1) * SENDS_PAGE, opg * SENDS_PAGE);
-  const hasMoreSends = allSends.length > opg * SENDS_PAGE;
+  const typed =
+    otype === "all"
+      ? allSends
+      : otype === "showcase"
+        ? allSends.filter((r) => r.showcase)
+        : allSends.filter((r) => !r.showcase && r.type === otype);
+  const pageSends = typed.slice((opg - 1) * SENDS_PAGE, opg * SENDS_PAGE);
+  const hasMoreSends = typed.length > opg * SENDS_PAGE;
+  // Carry sort, type filter and page across links.
+  const overviewParams = (over: Record<string, string> = {}) => {
+    const p = new URLSearchParams({ tab: "overview" });
+    if (osort !== "sent") p.set("osort", osort);
+    if (odir !== "desc") p.set("odir", odir);
+    if (otype !== "all") p.set("otype", otype);
+    if (opg > 1) p.set("opg", String(opg));
+    for (const [k, v] of Object.entries(over)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    return p.toString();
+  };
   // Header link that sorts by a column, flipping direction if already active.
   const oSortLink = (key: (typeof OSORTS)[number], label: string) => {
-    const nextDir = osort === key ? (odir === "asc" ? "desc" : "asc") : "asc";
-    const p = new URLSearchParams({ tab: "overview", osort: key, odir: nextDir });
+    const nextDir =
+      osort === key ? (odir === "asc" ? "desc" : "asc") : key === "sent" ? "desc" : "asc";
     return (
       <Link
         prefetch={false}
         scroll={false}
-        href={`/admin?${p}`}
+        href={`/admin?${overviewParams({ osort: key, odir: nextDir, opg: "" })}`}
         style={{ color: "inherit", textDecoration: "none" }}
       >
         {label}
@@ -789,6 +811,21 @@ async function OverviewTab({
             to see exactly who received it, or Preview to open the edition.
           </HelpTip>
         </h2>
+        <form method="get" action="/admin" className="filter-bar" style={{ marginBottom: 14 }}>
+          <input type="hidden" name="tab" value="overview" />
+          {osort !== "sent" && <input type="hidden" name="osort" value={osort} />}
+          {odir !== "desc" && <input type="hidden" name="odir" value={odir} />}
+          <div className="filter-field">
+            <label style={fieldLabel}>Type</label>
+            <AutoSubmitSelect name="otype" defaultValue={otype} style={smallInput}>
+              <option value="all">All types</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+              <option value="showcase">The Showcase</option>
+            </AutoSubmitSelect>
+          </div>
+        </form>
         <HistoryTable
           rows={pageSends.map((r) => ({
             key: r.key,
@@ -834,7 +871,7 @@ async function OverviewTab({
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=overview&opg=${opg - 1}&osort=${osort}&odir=${odir}`}
+                href={`/admin?${overviewParams({ opg: String(opg - 1) })}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 ← Previous
@@ -847,7 +884,7 @@ async function OverviewTab({
               <Link
                 prefetch={false}
                 scroll={false}
-                href={`/admin?tab=overview&opg=${opg + 1}&osort=${osort}&odir=${odir}`}
+                href={`/admin?${overviewParams({ opg: String(opg + 1) })}`}
                 style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
               >
                 Next →
@@ -966,12 +1003,18 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   const HISTORY_PAGE = 15;
   const hpgRaw = Number(sp.hpg);
   const hpg = Number.isInteger(hpgRaw) && hpgRaw > 0 ? hpgRaw : 1;
-  // History sort. Default: most recently sent at the top.
+  // History sort. Default: most recently sent at the top (unsent editions
+  // fall back to the day they were meant to go out — window end).
   const HSORTS = ["type", "window", "status", "stories", "recipients", "sent"] as const;
   const hso = (HSORTS as readonly string[]).includes(sp.hso ?? "")
     ? (sp.hso as (typeof HSORTS)[number])
-    : "window";
-  const hdr = sp.hdr === "asc" ? "asc" : sp.hdr === "desc" ? "desc" : "asc";
+    : "sent";
+  const hdr = sp.hdr === "asc" ? "asc" : "desc";
+  // Filter the History table by cadence type.
+  const HTYPES = ["all", "daily", "weekly", "fortnightly"] as const;
+  const htype = (HTYPES as readonly string[]).includes(sp.htype ?? "")
+    ? (sp.htype as (typeof HTYPES)[number])
+    : "all";
   const hOrderCol =
     hso === "type"
       ? issues.cadence
@@ -1005,6 +1048,7 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
       db()
         .select()
         .from(issues)
+        .where(htype === "all" ? undefined : eq(issues.cadence, htype))
         .orderBy(hdr === "asc" ? asc(hOrderCol) : desc(hOrderCol), desc(issues.id))
         .limit(HISTORY_PAGE + 1)
         .offset((hpg - 1) * HISTORY_PAGE),
@@ -1022,8 +1066,9 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
   const defaultTo = testRecipients.join(", ");
   const historyParams = (over: Record<string, string> = {}) => {
     const p = new URLSearchParams({ tab: "editions" });
-    if (hso !== "window") p.set("hso", hso);
-    if (hdr !== "asc") p.set("hdr", hdr);
+    if (hso !== "sent") p.set("hso", hso);
+    if (hdr !== "desc") p.set("hdr", hdr);
+    if (htype !== "all") p.set("htype", htype);
     if (hpg > 1) p.set("hpg", String(hpg));
     for (const [k, v] of Object.entries(over)) {
       if (v) p.set(k, v);
@@ -1032,7 +1077,8 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
     return p.toString();
   };
   const hSortLink = (key: (typeof HSORTS)[number], label: string) => {
-    const nextDir = hso === key ? (hdr === "asc" ? "desc" : "asc") : "asc";
+    const nextDir =
+      hso === key ? (hdr === "asc" ? "desc" : "asc") : key === "sent" ? "desc" : "asc";
     return (
       <Link
         prefetch={false}
@@ -1156,6 +1202,20 @@ async function EditionsTab({ sp }: { sp: Record<string, string | undefined> }) {
             Showcase page.
           </HelpTip>
         </h2>
+        <form method="get" action="/admin" className="filter-bar" style={{ marginBottom: 14 }}>
+          <input type="hidden" name="tab" value="editions" />
+          {hso !== "sent" && <input type="hidden" name="hso" value={hso} />}
+          {hdr !== "desc" && <input type="hidden" name="hdr" value={hdr} />}
+          <div className="filter-field">
+            <label style={fieldLabel}>Type</label>
+            <AutoSubmitSelect name="htype" defaultValue={htype} style={smallInput}>
+              <option value="all">All types</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+            </AutoSubmitSelect>
+          </div>
+        </form>
         <HistoryTable
           rows={historyPage.map((i) => ({
             key: `issue-${i.id}`,
@@ -3010,8 +3070,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const ESORTS = ["type", "window", "status", "stories", "recipients", "sent"] as const;
   const eso = (ESORTS as readonly string[]).includes(sp.eso ?? "")
     ? (sp.eso as (typeof ESORTS)[number])
-    : "window";
-  const edr = sp.edr === "asc" ? "asc" : sp.edr === "desc" ? "desc" : "asc";
+    : "sent";
+  const edr = sp.edr === "asc" ? "asc" : "desc";
   const sentCmp = (a: ShowcaseEdition, b: ShowcaseEdition) => {
     let d: number;
     switch (eso) {
@@ -3047,8 +3107,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
   const defaultTo = recipients.join(", ");
   const sentParams = (over: Record<string, string> = {}) => {
     const p = new URLSearchParams({ tab: "presenters" });
-    if (eso !== "window") p.set("eso", eso);
-    if (edr !== "asc") p.set("edr", edr);
+    if (eso !== "sent") p.set("eso", eso);
+    if (edr !== "desc") p.set("edr", edr);
     if (epg > 1) p.set("epg", String(epg));
     for (const [k, v] of Object.entries(over)) {
       if (v) p.set(k, v);
@@ -3057,7 +3117,8 @@ async function EditionListView({ sp }: { sp: ShowcaseParams }) {
     return p.toString();
   };
   const eSortLink = (key: (typeof ESORTS)[number], label: string) => {
-    const nextDir = eso === key ? (edr === "asc" ? "desc" : "asc") : "asc";
+    const nextDir =
+      eso === key ? (edr === "asc" ? "desc" : "asc") : key === "sent" ? "desc" : "asc";
     return (
       <Link
         prefetch={false}
@@ -5748,7 +5809,7 @@ function RecipientTable({
                 </td>
                 <td style={td}>{s?.email ?? ""}</td>
                 <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  {auDateTime(d.sentAt)}
+                  {formatSydneyStamp(d.sentAt)}
                 </td>
               </tr>
             ))}
