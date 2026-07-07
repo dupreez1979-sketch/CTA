@@ -16,9 +16,9 @@ import type { AllianceUpdate } from "./db";
 
 export const ALLIANCE_RECIPIENTS_KEY = "alliance_recipients";
 
-// The Alliance uses one group address for now; used until a real value is
-// saved in Settings.
-const DEFAULT_RECIPIENTS = ["ketan@monkeybaa.com.au"];
+// The Alliance's Gaggle group address, which fans out to everyone on the
+// internal list. Used until a different value is saved in Settings.
+const DEFAULT_RECIPIENTS = ["childrenstheatrealliance@gaggle.email"];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

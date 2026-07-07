@@ -188,8 +188,10 @@ export default function AllianceUpdateEmail({
       <Body
         className="email-bg"
         style={{
+          // Sky-blue backdrop (the newsletters float on mint) so this
+          // internal update reads as its own thing at a glance.
           margin: 0,
-          backgroundColor: COLORS.mint,
+          backgroundColor: COLORS.sky,
           fontFamily: FONT_BODY,
           color: INK,
         }}
@@ -409,8 +411,10 @@ export default function AllianceUpdateEmail({
                   maxWidth: 440,
                 }}
               >
-                An internal update for the Children&#39;s Theatre Alliance.
-                Please don&#39;t forward beyond your organisation.
+                This is an <strong>internal</strong> Alliance update. You&#39;re
+                receiving it because you&#39;re on the Alliance group
+                {groupEmail ? ` (${groupEmail})` : ""} — it is not the public
+                newsletter. Please don&#39;t forward it beyond your organisation.
               </Text>
               <Text style={{ margin: "0 0 4px", fontSize: 12 }}>
                 <Link
