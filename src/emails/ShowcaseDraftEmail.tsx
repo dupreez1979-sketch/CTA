@@ -118,7 +118,7 @@ export default function ShowcaseDraftEmail({
 
           <Section style={{ padding: "24px 40px 36px" }}>
             <Text style={{ ...display(28, 0.94), margin: "0 0 8px" }}>
-              New show news to review
+              New stories in the Showcase pool
             </Text>
             <Text
               style={{
@@ -129,7 +129,7 @@ export default function ShowcaseDraftEmail({
                 margin: "0 0 16px",
               }}
             >
-              {`The pipeline rated ${newItems.length} new stor${newItems.length === 1 ? "y" : "ies"} highly relevant to The Showcase. ${draftCount} stor${draftCount === 1 ? "y is" : "ies are"} ready for the next edition.`}
+              {`The pipeline rated ${newItems.length} new stor${newItems.length === 1 ? "y" : "ies"} highly relevant to The Showcase and added ${newItems.length === 1 ? "it" : "them"} to your story pool — ${draftCount} stor${draftCount === 1 ? "y is" : "ies are"} ready for the next edition. (These are ready to use; they don't go through the media Review queue.)`}
             </Text>
             <table
               role="presentation"

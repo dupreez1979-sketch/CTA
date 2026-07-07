@@ -720,7 +720,7 @@ async function notifyNewStories(): Promise<number> {
     const { error } = await resend.emails.send({
       from: env("EMAIL_FROM"),
       to,
-      subject: "The Showcase: new stories to review",
+      subject: "The Showcase: new stories in the pool",
       html,
     });
     if (error) throw new Error(`Resend send failed: ${error.message}`);
