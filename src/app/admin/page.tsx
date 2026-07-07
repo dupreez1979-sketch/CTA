@@ -2908,7 +2908,25 @@ async function SettingsTab({
           Changes apply to posts fetched from then on.
         </HelpTip>
       </h2>
-      <div className="table-scroll">
+      <details>
+        <summary
+          style={{
+            cursor: "pointer",
+            fontFamily: "var(--font-body)",
+            fontWeight: 700,
+            fontSize: 13,
+            color: "var(--cta-ink)",
+            padding: "8px 12px",
+            border: "2px solid var(--cta-ink)",
+            borderRadius: 10,
+            background: "var(--cta-white)",
+            display: "inline-block",
+            marginBottom: 12,
+          }}
+        >
+          Show the {companyRows.length} companies
+        </summary>
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -2986,7 +3004,8 @@ async function SettingsTab({
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      </details>
       <form
         action="/api/admin/companies"
         method="post"
