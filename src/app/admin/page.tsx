@@ -3052,7 +3052,8 @@ async function SettingsTab({
           branded email as the newsletters but in a different colour, and is
           kept entirely separate from public subscribers. Compose one with{" "}
           <strong>New update</strong>, drop your content into the big box
-          (use <strong>## Heading</strong> to start each group and{" "}
+          (use <strong>## Heading</strong> for a section,{" "}
+          <strong>### Sub heading</strong> beneath it, and{" "}
           <strong>-</strong> for bullet points), send a test to yourself,
           then send it to the group. Every update is kept here to edit,
           duplicate or delete.
@@ -3334,7 +3335,7 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
           defaultValue={update.content}
           rows={18}
           placeholder={
-            "## Children's Investment Fund\nA short note about where things are up to.\n- A point worth calling out\n- Another one\n\n## Next gatherings\nWhat's coming up.\n\n## What we need from you\n- An action to take"
+            "## Children's Investment Fund\nA short note about where things are up to.\n### Grants\n- A point worth calling out\n- Another one\n\n## Next gatherings\nWhat's coming up.\n\n## What we need from you\n- An action to take"
           }
           style={{
             ...inputStyle,
@@ -3346,9 +3347,10 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
           }}
         />
         <p style={{ ...muted, fontSize: 12, margin: "6px 0 14px" }}>
-          Start each group with <strong>## Heading</strong>. Use{" "}
-          <strong>-</strong> at the start of a line for bullet points. Leave a
-          blank line between paragraphs.
+          <strong>## Heading</strong> starts a section;{" "}
+          <strong>### Sub heading</strong> is a smaller sub heading beneath it.
+          Use <strong>-</strong> at the start of a line for bullet points, and
+          leave a blank line between paragraphs.
         </p>
         <button type="submit" style={buttonStyle}>
           Save draft

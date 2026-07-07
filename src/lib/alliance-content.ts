@@ -2,7 +2,8 @@
  * Markdown-lite parser for Alliance update content. The admin types into one
  * big box; groupings differ every time, so the format is deliberately light:
  *
- *   ## Group heading      -> a heading (1–6 leading # allowed)
+ *   ## Group heading      -> Heading 1 ( # or ## )
+ *   ### Sub heading       -> Heading 2 ( ### or deeper )
  *   - a point             -> a bullet ( -, * or • start a list item )
  *   plain text            -> a paragraph (consecutive lines join with a space)
  *   (blank line)          -> separates blocks
@@ -12,7 +13,7 @@
  */
 
 export type Block =
-  | { type: "heading"; text: string }
+  | { type: "heading"; level: 1 | 2; text: string }
   | { type: "para"; text: string }
   | { type: "list"; items: string[] };
 
@@ -45,10 +46,12 @@ export function parseAllianceContent(input: string): Block[] {
       flush();
       continue;
     }
-    const heading = line.match(/^#{1,6}\s*(.+)$/);
+    const heading = line.match(/^(#{1,6})\s*(.+)$/);
     if (heading) {
       flush();
-      blocks.push({ type: "heading", text: heading[1].trim() });
+      // # and ## are Heading 1; ### (or deeper) is a Heading 2 sub heading.
+      const level = heading[1].length >= 3 ? 2 : 1;
+      blocks.push({ type: "heading", level, text: heading[2].trim() });
       continue;
     }
     const bullet = line.match(/^[-*•]\s+(.+)$/);

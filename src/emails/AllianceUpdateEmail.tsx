@@ -49,6 +49,7 @@ const MOBILE_STYLES = `
   .ncti-logo { height: 44px !important; }
   .intro-h { font-size: 40px !important; }
   .au-h { font-size: 22px !important; }
+  .au-h2 { font-size: 17px !important; }
   .au-p { font-size: 16px !important; line-height: 1.55 !important; }
   .links-h { font-size: 28px !important; }
   .footer-p { font-size: 14px !important; }
@@ -61,15 +62,32 @@ function Blocks({ blocks }: { blocks: Block[] }) {
     <>
       {blocks.map((b, i) => {
         if (b.type === "heading") {
+          // Heading 1 (## ): big section title with an accent underline.
+          if (b.level === 1) {
+            return (
+              <Text
+                key={i}
+                className="au-h"
+                style={{
+                  ...display(23, 1),
+                  margin: i === 0 ? "0 0 12px" : "26px 0 12px",
+                  paddingBottom: 6,
+                  borderBottom: `3px solid ${ACCENT}`,
+                }}
+              >
+                {b.text}
+              </Text>
+            );
+          }
+          // Heading 2 (### ): smaller sub heading in the accent colour, no rule.
           return (
             <Text
               key={i}
-              className="au-h"
+              className="au-h2"
               style={{
-                ...display(23, 1),
-                margin: i === 0 ? "0 0 12px" : "26px 0 12px",
-                paddingBottom: 6,
-                borderBottom: `3px solid ${ACCENT}`,
+                ...display(16, 1),
+                color: ACCENT,
+                margin: i === 0 ? "0 0 8px" : "18px 0 8px",
               }}
             >
               {b.text}

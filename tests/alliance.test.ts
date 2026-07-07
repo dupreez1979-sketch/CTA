@@ -10,12 +10,18 @@ describe("parseAllianceContent", () => {
     expect(parseAllianceContent("   \n\n  ")).toEqual([]);
   });
 
-  it("reads ## headings (any level, optional space)", () => {
+  it("reads # and ## as Heading 1, ### (or deeper) as Heading 2", () => {
     expect(parseAllianceContent("## Next gatherings")).toEqual([
-      { type: "heading", text: "Next gatherings" },
+      { type: "heading", level: 1, text: "Next gatherings" },
     ]);
     expect(parseAllianceContent("#Solo")).toEqual([
-      { type: "heading", text: "Solo" },
+      { type: "heading", level: 1, text: "Solo" },
+    ]);
+    expect(parseAllianceContent("### Grants")).toEqual([
+      { type: "heading", level: 2, text: "Grants" },
+    ]);
+    expect(parseAllianceContent("#### Deeper")).toEqual([
+      { type: "heading", level: 2, text: "Deeper" },
     ]);
   });
 
@@ -36,20 +42,21 @@ describe("parseAllianceContent", () => {
 
   it("handles a mixed, grouped update", () => {
     const blocks = parseAllianceContent(
-      "## Fund\nIntro sentence.\n- point a\n- point b\n\n## Actions\nDo the thing.",
+      "## Fund\nIntro sentence.\n### Detail\n- point a\n- point b\n\n## Actions\nDo the thing.",
     );
     expect(blocks).toEqual([
-      { type: "heading", text: "Fund" },
+      { type: "heading", level: 1, text: "Fund" },
       { type: "para", text: "Intro sentence." },
+      { type: "heading", level: 2, text: "Detail" },
       { type: "list", items: ["point a", "point b"] },
-      { type: "heading", text: "Actions" },
+      { type: "heading", level: 1, text: "Actions" },
       { type: "para", text: "Do the thing." },
     ]);
   });
 
   it("tolerates CRLF line endings", () => {
     expect(parseAllianceContent("## H\r\n- a\r\n- b")).toEqual([
-      { type: "heading", text: "H" },
+      { type: "heading", level: 1, text: "H" },
       { type: "list", items: ["a", "b"] },
     ]);
   });
@@ -63,13 +70,14 @@ describe("AllianceUpdateEmail", () => {
         baseUrl: "https://example.org",
         groupEmail: "group@example.org",
         blocks: parseAllianceContent(
-          "## Children's Investment Fund\nGrants confirmed.\n- Applications open 1 August",
+          "## Children's Investment Fund\nGrants confirmed.\n### Round one\n- Applications open 1 August",
         ),
       }),
     );
     expect(html).toContain("Alliance update — July");
     expect(html).toContain("Alliance Update");
     expect(html).toContain("Investment Fund");
+    expect(html).toContain("Round one");
     expect(html).toContain("Applications open 1 August");
     // Never uses the word "member".
     expect(html.toLowerCase()).not.toContain("member");
