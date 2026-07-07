@@ -126,6 +126,9 @@ export function ensureAllianceSchema(): Promise<boolean> {
           "updated_at" timestamp with time zone DEFAULT now() NOT NULL
         )`,
       );
+      await db().execute(
+        sql`ALTER TABLE "alliance_updates" ADD COLUMN IF NOT EXISTS "sent_html" text`,
+      );
       return true;
     } catch (err) {
       allianceEnsured = null;

@@ -148,6 +148,13 @@
       "when": 1783200700000,
       "tag": "0020_alliance-updates",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1783200800000,
+      "tag": "0021_alliance-sent-html",
+      "breakpoints": true
     }
   ]
 }

@@ -65,6 +65,11 @@ export async function POST(request: NextRequest) {
   if (!update) return redirect("That Alliance update no longer exists");
 
   if (action === "save") {
+    if (update.status === "sent")
+      return redirect(
+        "A sent update can't be edited — Duplicate it to make a new version",
+        id,
+      );
     await db()
       .update(allianceUpdates)
       .set({
@@ -115,14 +120,21 @@ export async function POST(request: NextRequest) {
     const to = await getAllianceRecipients();
     if (to.length === 0)
       return redirect("No group address is set; add one first", id);
+    let sentHtml: string;
     try {
-      await sendAllianceUpdate(update, to, { test: false });
+      sentHtml = await sendAllianceUpdate(update, to, { test: false });
     } catch (err) {
       return redirect(`Send failed: ${err}`, id);
     }
+    // Freeze the exact email so history previews what recipients received.
     await db()
       .update(allianceUpdates)
-      .set({ status: "sent", sentAt: new Date(), recipients: to.join(", ") })
+      .set({
+        status: "sent",
+        sentAt: new Date(),
+        recipients: to.join(", "),
+        sentHtml,
+      })
       .where(eq(allianceUpdates.id, id));
     return redirect(`Alliance update sent to ${to.join(", ")}`);
   }

@@ -401,6 +401,9 @@ export const allianceUpdates = pgTable("alliance_updates", {
   content: text("content").notNull().default(""),
   // Comma-joined audit copy of who a sent update went to.
   recipients: text("recipients").notNull().default(""),
+  // Frozen HTML of the email as sent, so history previews exactly what
+  // recipients received (null until sent, or for rows sent before 0021).
+  sentHtml: text("sent_html"),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

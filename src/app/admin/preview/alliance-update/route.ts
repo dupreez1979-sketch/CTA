@@ -18,8 +18,9 @@ function page(title: string, body: string) {
 }
 
 /**
- * Live preview of an Alliance update (draft or sent), rendered from its
- * stored subject and content. Behind admin basic auth (middleware).
+ * Preview of an Alliance update. A sent update serves its frozen snapshot
+ * (exactly what recipients received); a draft renders live from its stored
+ * subject and content. Behind admin basic auth (middleware).
  */
 export async function GET(request: NextRequest) {
   const id = Number(request.nextUrl.searchParams.get("update"));
@@ -41,7 +42,12 @@ export async function GET(request: NextRequest) {
       "That update is gone",
       "This Alliance update no longer exists. It may have been deleted. Head back to Settings to pick another one.",
     );
-  const html = await renderAllianceUpdate(update);
+  // A sent update serves its frozen snapshot (exactly what recipients got);
+  // drafts and legacy rows without a snapshot render live from the row.
+  const html =
+    update.status === "sent" && update.sentHtml
+      ? update.sentHtml
+      : await renderAllianceUpdate(update);
   return new NextResponse(html, {
     headers: { "content-type": "text/html; charset=utf-8" },
   });

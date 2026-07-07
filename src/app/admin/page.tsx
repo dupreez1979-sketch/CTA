@@ -3306,17 +3306,74 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
     background: "var(--cta-yellow)",
   };
 
+  // A sent update is a locked archive: read-only, with Preview (the frozen
+  // copy) and Duplicate to make a new draft. Nothing here can change it.
+  if (sent) {
+    return (
+      <section className="admin-card">
+        {backLink}
+        <h2 style={h2}>Alliance update</h2>
+        <p style={{ ...muted, marginBottom: 14 }}>
+          Sent {update.sentAt ? formatSydneyDateTime(update.sentAt) : ""}
+          {update.recipients ? ` to ${update.recipients}` : ""}. This is a
+          locked record of what went out — Duplicate it to make a new version.
+        </p>
+        <label style={fieldLabel}>Subject</label>
+        <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 14px" }}>
+          {update.subject.trim() || "(no subject)"}
+        </p>
+        <label style={fieldLabel}>Content</label>
+        <pre
+          style={{
+            ...inputStyle,
+            width: "100%",
+            display: "block",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            lineHeight: 1.5,
+            background: "var(--cta-cream-warm)",
+            margin: 0,
+          }}
+        >
+          {update.content || "(empty)"}
+        </pre>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+            marginTop: 18,
+            paddingTop: 16,
+            borderTop: "2px dashed rgba(30,30,29,0.25)",
+          }}
+        >
+          <a
+            href={`/admin/preview/alliance-update?update=${update.id}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ ...buttonStyle, background: "var(--cta-white)", textDecoration: "none" }}
+          >
+            Preview ↗
+          </a>
+          <form action="/api/admin/alliance-update" method="post">
+            <input type="hidden" name="action" value="duplicate" />
+            <input type="hidden" name="id" value={update.id} />
+            <button type="submit" style={buttonStyle}>
+              Duplicate to edit
+            </button>
+          </form>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="admin-card">
       {backLink}
-      <h2 style={h2}>{sent ? "Alliance update" : "Compose Alliance update"}</h2>
-      {sent && update.sentAt && (
-        <p style={{ ...muted, marginBottom: 12 }}>
-          Sent {formatSydneyDateTime(update.sentAt)}
-          {update.recipients ? ` to ${update.recipients}` : ""}. Edits below
-          only take effect if you save and send again.
-        </p>
-      )}
+      <h2 style={h2}>Compose Alliance update</h2>
 
       <form action="/api/admin/alliance-update" method="post">
         <input type="hidden" name="action" value="save" />

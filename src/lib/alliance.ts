@@ -64,13 +64,14 @@ export async function renderAllianceUpdate(
 
 /**
  * Send an update. `test` prefixes the subject with [TEST] and changes
- * nothing else; the caller marks the row sent for a real send.
+ * nothing else; the caller marks the row sent for a real send. Returns the
+ * exact HTML that was sent so a live send can be snapshotted for history.
  */
 export async function sendAllianceUpdate(
   update: Pick<AllianceUpdate, "subject" | "content">,
   to: string[],
   opts: { test: boolean },
-): Promise<void> {
+): Promise<string> {
   const html = await renderAllianceUpdate(update);
   const subject = `${opts.test ? "[TEST] " : ""}${
     update.subject.trim() || "Alliance Update"
@@ -78,7 +79,7 @@ export async function sendAllianceUpdate(
 
   if (process.env.SEND_DRY_RUN === "1") {
     console.log(`[dry-run] would send Alliance update to ${to.join(", ")}`);
-    return;
+    return html;
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
@@ -88,4 +89,5 @@ export async function sendAllianceUpdate(
     html,
   });
   if (error) throw new Error(`Resend send failed: ${error.message}`);
+  return html;
 }
