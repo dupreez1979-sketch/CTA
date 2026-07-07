@@ -7,11 +7,13 @@ import {
   companies,
   feedItems,
   showcaseEditions,
+  allianceUpdates,
   shows,
   type Delivery,
   type FeedItem,
   type SubscriberCadence,
   type ShowcaseEdition,
+  type AllianceUpdate,
   type Subscriber,
 } from "@/lib/db";
 import { loadCompanies } from "@/lib/company-store";
@@ -25,6 +27,7 @@ import {
 } from "@/lib/duplicates";
 import { getAiSpend } from "@/lib/ai-spend";
 import { getNotifyEmails } from "@/lib/notify";
+import { getAllianceRecipients } from "@/lib/alliance";
 import {
   getEdition,
   getEditionCounts,
@@ -218,7 +221,7 @@ export default async function AdminPage({
       {tab === "review" && <ReviewTab sp={sp} />}
       {tab === "shows" && <ShowsTab sp={sp} />}
       {tab === "subscribers" && <SubscribersTab sp={sp} />}
-      {tab === "settings" && <SettingsTab />}
+      {tab === "settings" && <SettingsTab sp={sp} />}
       {tab === "presenters" && <ShowcaseTab sp={sp} />}
     </main>
     <AdminFooter tab={tab} />
@@ -2510,16 +2513,85 @@ async function SubscribersTab({
   );
 }
 
-async function SettingsTab() {
+async function SettingsTab({
+  sp,
+}: {
+  sp: Record<string, string | undefined>;
+}) {
+  // Alliance-update editor sub-view: composing/editing one internal update.
+  const updateId = Number(sp.update);
+  if (Number.isInteger(updateId) && updateId > 0) {
+    return <AllianceUpdateEditor id={updateId} />;
+  }
   // Seeds the table on first load, then read the raw rows for editing
   await loadCompanies();
-  const [companyRows, notifyEmails, feedRows, blockedSources] =
+  const [companyRows, notifyEmails, feedRows, blockedSources, allianceRows, allianceTo] =
     await Promise.all([
       db().select().from(companies).orderBy(asc(companies.name)),
       getNotifyEmails(),
       loadFeeds(),
       getBlockedSources(),
+      db().select().from(allianceUpdates),
+      getAllianceRecipients(),
     ]);
+
+  // Alliance updates history: sort (aso/adr, default sent newest-first with
+  // createdAt fallback for drafts) + Status filter (astatus) + page (apg).
+  const ASORTS = ["subject", "status", "sent"] as const;
+  const aso = (ASORTS as readonly string[]).includes(sp.aso ?? "")
+    ? (sp.aso as (typeof ASORTS)[number])
+    : "sent";
+  const adr = sp.adr === "asc" ? "asc" : "desc";
+  const astatus =
+    sp.astatus === "draft" || sp.astatus === "sent" ? sp.astatus : "all";
+  const ALLIANCE_PAGE = 10;
+  const apgRaw = Number(sp.apg);
+  const apg = Number.isInteger(apgRaw) && apgRaw > 0 ? apgRaw : 1;
+  const aStamp = (u: AllianceUpdate) => (u.sentAt ?? u.createdAt).getTime();
+  const allianceFiltered = allianceRows.filter((u) =>
+    astatus === "all" ? true : u.status === astatus,
+  );
+  allianceFiltered.sort((a, b) => {
+    let d: number;
+    if (aso === "subject")
+      d = (a.subject || "").localeCompare(b.subject || "");
+    else if (aso === "status") d = a.status.localeCompare(b.status);
+    else d = aStamp(a) - aStamp(b);
+    if (d === 0) d = aStamp(a) - aStamp(b);
+    return adr === "asc" ? d : -d;
+  });
+  const alliancePage = allianceFiltered.slice(
+    (apg - 1) * ALLIANCE_PAGE,
+    apg * ALLIANCE_PAGE,
+  );
+  const allianceHasMore = allianceFiltered.length > apg * ALLIANCE_PAGE;
+  const allianceParams = (over: Record<string, string> = {}) => {
+    const p = new URLSearchParams({ tab: "settings" });
+    if (aso !== "sent") p.set("aso", aso);
+    if (adr !== "desc") p.set("adr", adr);
+    if (astatus !== "all") p.set("astatus", astatus);
+    if (apg > 1) p.set("apg", String(apg));
+    for (const [k, v] of Object.entries(over)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    return `${p.toString()}#alliance`;
+  };
+  const aSortLink = (key: (typeof ASORTS)[number], label: string) => {
+    const nextDir =
+      aso === key ? (adr === "asc" ? "desc" : "asc") : key === "sent" ? "desc" : "asc";
+    return (
+      <Link
+        prefetch={false}
+        scroll={false}
+        href={`/admin?${allianceParams({ aso: key, adr: nextDir, apg: "" })}`}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        {label}
+        {aso === key ? (adr === "asc" ? " ↑" : " ↓") : ""}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -2971,6 +3043,203 @@ async function SettingsTab() {
       </p>
     </section>
 
+    <section className="admin-card" id="alliance">
+      <h2 style={h2}>
+        Alliance updates
+        <HelpTip title="Alliance updates">
+          An internal, hand-written update sent to the Alliance member
+          companies at the one group email address below. It uses the same
+          branded email as the newsletters but in a different colour, and is
+          kept entirely separate from public subscribers. Compose one with{" "}
+          <strong>New update</strong>, drop your content into the big box
+          (use <strong>## Heading</strong> to start each group and{" "}
+          <strong>-</strong> for bullet points), send a test to yourself,
+          then send it to the group. Every update is kept here to edit,
+          duplicate or delete.
+        </HelpTip>
+      </h2>
+      <form
+        action="/api/admin/alliance-update"
+        method="post"
+        style={{ marginBottom: 16 }}
+      >
+        <input type="hidden" name="action" value="save-recipients" />
+        <label style={fieldLabel}>Group email address(es)</label>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            type="text"
+            name="recipients"
+            defaultValue={allianceTo.join(", ")}
+            style={{ ...inputStyle, minWidth: 320, flex: 1 }}
+            aria-label="Alliance group email addresses"
+          />
+          <button type="submit" style={buttonStyle}>
+            Save address
+          </button>
+        </div>
+        <p style={{ ...muted, fontSize: 12, marginTop: 6 }}>
+          Updates are sent here. Separate several addresses with commas.
+        </p>
+      </form>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "flex-end",
+          flexWrap: "wrap",
+          marginBottom: 14,
+        }}
+      >
+        <form action="/api/admin/alliance-update" method="post">
+          <input type="hidden" name="action" value="create" />
+          <button type="submit" style={buttonStyle}>
+            + New update
+          </button>
+        </form>
+        <form method="get" action="/admin" className="filter-bar">
+          <input type="hidden" name="tab" value="settings" />
+          {aso !== "sent" && <input type="hidden" name="aso" value={aso} />}
+          {adr !== "desc" && <input type="hidden" name="adr" value={adr} />}
+          <div className="filter-field">
+            <label style={fieldLabel}>Status</label>
+            <AutoSubmitSelect name="astatus" defaultValue={astatus} style={smallInput}>
+              <option value="all">All</option>
+              <option value="draft">Drafts</option>
+              <option value="sent">Sent</option>
+            </AutoSubmitSelect>
+          </div>
+        </form>
+      </div>
+
+      {alliancePage.length === 0 ? (
+        <p style={muted}>
+          {allianceFiltered.length === 0 && allianceRows.length > 0
+            ? "No updates match this filter."
+            : "No Alliance updates yet. Click + New update to write one."}
+        </p>
+      ) : (
+        <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>{aSortLink("subject", "Subject")}</th>
+                <th style={th}>{aSortLink("status", "Status")}</th>
+                <th style={th}>{aSortLink("sent", "Sent at")}</th>
+                <th style={{ ...th, textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alliancePage.map((u) => (
+                <tr key={u.id}>
+                  <td style={td}>
+                    <span style={{ fontWeight: 600 }}>
+                      {u.subject.trim() || "(no subject)"}
+                    </span>
+                  </td>
+                  <td style={td}>
+                    <span
+                      style={badge(
+                        u.status === "sent"
+                          ? "var(--cta-emerald)"
+                          : "var(--cta-yellow)",
+                      )}
+                    >
+                      {u.status === "sent" ? "Sent" : "Draft"}
+                    </span>
+                  </td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {u.status === "sent" && u.sentAt
+                      ? formatSydneyDateTime(u.sentAt)
+                      : "—"}
+                  </td>
+                  <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        gap: 8,
+                        flexWrap: "wrap",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <Link
+                        prefetch={false}
+                        href={`/admin?tab=settings&update=${u.id}`}
+                        style={{ ...smallButton, textDecoration: "none" }}
+                      >
+                        {u.status === "sent" ? "View" : "Edit"}
+                      </Link>
+                      <a
+                        href={`/admin/preview/alliance-update?update=${u.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          ...smallButton,
+                          textDecoration: "none",
+                          background: "var(--cta-white)",
+                        }}
+                      >
+                        Preview ↗
+                      </a>
+                      <form action="/api/admin/alliance-update" method="post">
+                        <input type="hidden" name="action" value="duplicate" />
+                        <input type="hidden" name="id" value={u.id} />
+                        <button
+                          type="submit"
+                          style={{ ...smallButton, background: "var(--cta-white)" }}
+                        >
+                          Duplicate
+                        </button>
+                      </form>
+                      <form action="/api/admin/alliance-update" method="post">
+                        <input type="hidden" name="action" value="delete" />
+                        <input type="hidden" name="id" value={u.id} />
+                        <ConfirmSubmit
+                          message={`Delete "${u.subject.trim() || "(no subject)"}"? This can't be undone.`}
+                          confirmLabel="Delete"
+                          danger
+                          style={dangerButton}
+                        >
+                          Delete
+                        </ConfirmSubmit>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {(apg > 1 || allianceHasMore) && (
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
+          {apg > 1 && (
+            <Link
+              prefetch={false}
+              scroll={false}
+              href={`/admin?${allianceParams({ apg: String(apg - 1) })}`}
+              style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+            >
+              ← Previous
+            </Link>
+          )}
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)" }}>
+            Page {apg}
+          </span>
+          {allianceHasMore && (
+            <Link
+              prefetch={false}
+              scroll={false}
+              href={`/admin?${allianceParams({ apg: String(apg + 1) })}`}
+              style={{ ...smallButton, textDecoration: "none", background: "var(--cta-white)" }}
+            >
+              Next →
+            </Link>
+          )}
+        </div>
+      )}
+    </section>
+
     <section className="admin-card">
       <h2 style={h2}>
         Activity log
@@ -2986,6 +3255,151 @@ async function SettingsTab() {
       <LogViewer />
     </section>
     </>
+  );
+}
+
+/**
+ * The Alliance-update editor: compose or edit one internal update. Preview
+ * and both send actions operate on the SAVED row (same model as the
+ * Showcase builder), so the box is saved first, then acted on.
+ */
+async function AllianceUpdateEditor({ id }: { id: number }) {
+  const [[update], to] = await Promise.all([
+    db().select().from(allianceUpdates).where(eq(allianceUpdates.id, id)).limit(1),
+    getAllianceRecipients(),
+  ]);
+
+  const backLink = (
+    <Link
+      prefetch={false}
+      href="/admin?tab=settings#alliance"
+      style={{
+        display: "inline-block",
+        fontFamily: "var(--font-body)",
+        fontWeight: 700,
+        fontSize: 13,
+        color: "var(--cta-ink)",
+        textDecoration: "none",
+        marginBottom: 14,
+      }}
+    >
+      ← Back to Settings
+    </Link>
+  );
+
+  if (!update) {
+    return (
+      <section className="admin-card">
+        {backLink}
+        <h2 style={h2}>That update is gone</h2>
+        <p style={muted}>
+          This Alliance update no longer exists. It may have been deleted.
+        </p>
+      </section>
+    );
+  }
+
+  const sent = update.status === "sent";
+  const yellowButton: React.CSSProperties = {
+    ...buttonStyle,
+    background: "var(--cta-yellow)",
+  };
+
+  return (
+    <section className="admin-card">
+      {backLink}
+      <h2 style={h2}>{sent ? "Alliance update" : "Compose Alliance update"}</h2>
+      {sent && update.sentAt && (
+        <p style={{ ...muted, marginBottom: 12 }}>
+          Sent {formatSydneyDateTime(update.sentAt)}
+          {update.recipients ? ` to ${update.recipients}` : ""}. Edits below
+          only take effect if you save and send again.
+        </p>
+      )}
+
+      <form action="/api/admin/alliance-update" method="post">
+        <input type="hidden" name="action" value="save" />
+        <input type="hidden" name="id" value={update.id} />
+        <label style={fieldLabel}>Subject</label>
+        <input
+          type="text"
+          name="subject"
+          defaultValue={update.subject}
+          placeholder="e.g. Alliance update — July"
+          style={{ ...inputStyle, width: "100%", maxWidth: 560, display: "block" }}
+        />
+        <label style={fieldLabel}>Content</label>
+        <textarea
+          name="content"
+          defaultValue={update.content}
+          rows={18}
+          placeholder={
+            "## Children's Investment Fund\nA short note about where things are up to.\n- A point worth calling out\n- Another one\n\n## Next gatherings\nWhat's coming up.\n\n## What we need from you\n- An action to take"
+          }
+          style={{
+            ...inputStyle,
+            width: "100%",
+            display: "block",
+            resize: "vertical",
+            lineHeight: 1.5,
+            fontFamily: "var(--font-body)",
+          }}
+        />
+        <p style={{ ...muted, fontSize: 12, margin: "6px 0 14px" }}>
+          Start each group with <strong>## Heading</strong>. Use{" "}
+          <strong>-</strong> at the start of a line for bullet points. Leave a
+          blank line between paragraphs.
+        </p>
+        <button type="submit" style={buttonStyle}>
+          Save draft
+        </button>
+      </form>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginTop: 18,
+          paddingTop: 16,
+          borderTop: "2px dashed rgba(30,30,29,0.25)",
+        }}
+      >
+        <a
+          href={`/admin/preview/alliance-update?update=${update.id}`}
+          target="_blank"
+          rel="noreferrer"
+          style={{ ...buttonStyle, background: "var(--cta-white)", textDecoration: "none" }}
+        >
+          Preview ↗
+        </a>
+        <TestSendButton
+          action="/api/admin/alliance-update"
+          hidden={{ action: "send-test", id: String(update.id) }}
+          defaultTo={to.join(", ")}
+          intro="Send yourself a test copy of this update."
+          style={yellowButton}
+        />
+        <form action="/api/admin/alliance-update" method="post">
+          <input type="hidden" name="action" value="send" />
+          <input type="hidden" name="id" value={update.id} />
+          <ConfirmSubmit
+            title="Send to the alliance?"
+            message={`This emails the saved version of this update to ${to.join(", ")}. Preview it first if you're not sure.`}
+            confirmLabel="Yes, send it"
+            danger
+            style={yellowButton}
+          >
+            Send to alliance
+          </ConfirmSubmit>
+        </form>
+      </div>
+      <p style={{ ...muted, fontSize: 12, marginTop: 10 }}>
+        Preview and both send buttons use the last saved version — save first
+        if you have unsaved changes.
+      </p>
+    </section>
   );
 }
 

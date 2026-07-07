@@ -387,6 +387,30 @@ export const settings = pgTable("settings", {
 });
 
 /**
+ * Alliance updates: an internal, manually-composed newsletter sent to a
+ * single group email address (set in Settings), kept entirely separate
+ * from public subscribers. Content is a flexible markdown-lite box. Rows
+ * are drafted, edited, duplicated, deleted, test-sent and sent by hand.
+ */
+export const allianceUpdates = pgTable("alliance_updates", {
+  id: serial("id").primaryKey(),
+  status: text("status", { enum: ["draft", "sent"] })
+    .notNull()
+    .default("draft"),
+  subject: text("subject").notNull().default(""),
+  content: text("content").notNull().default(""),
+  // Comma-joined audit copy of who a sent update went to.
+  recipients: text("recipients").notNull().default(""),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
  * A lightweight activity log for the admin: errors, warnings and subscriber
  * lifecycle events (joined, changed preferences, unsubscribed). Deliberately
  * NOT a record of sends or editions (those have their own history). Kept
@@ -420,6 +444,7 @@ export type Issue = typeof issues.$inferSelect;
 export type Show = typeof shows.$inferSelect;
 export type ShowcaseEdition = typeof showcaseEditions.$inferSelect;
 export type ShowcaseEditionItem = typeof showcaseEditionItems.$inferSelect;
+export type AllianceUpdate = typeof allianceUpdates.$inferSelect;
 export type Cadence = "daily" | "weekly" | "fortnightly";
 /** A subscriber's frequency choice: a cadence, or Showcase-only ("none"). */
 export type SubscriberCadence = Cadence | "none";

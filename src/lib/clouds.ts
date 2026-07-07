@@ -48,7 +48,8 @@ export const CLOUD_PAIRS: ReadonlyArray<{
 }> = [
   { above: "creamwarm", below: "cream" }, // under the masthead (tone on tone)
   { above: "sky", below: "cream" }, // leaving the Social Theatre band: cream clouds in a blue sky
-  { above: "cream", below: "purple" }, // before the footer
+  { above: "cream", below: "purple" }, // before the newsletter footer
+  { above: "cream", below: "blue" }, // before the Alliance-update footer
 ];
 
 export function cloudFileName(pair: {

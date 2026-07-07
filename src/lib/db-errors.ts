@@ -104,3 +104,37 @@ export function ensureLogsSchema(): Promise<boolean> {
   })();
   return logsEnsured;
 }
+
+/**
+ * Ensure the alliance-updates table (migration 0020) exists, in case the
+ * runtime database is behind the migrations. Idempotent and best-effort,
+ * run at most once per process.
+ */
+let allianceEnsured: Promise<boolean> | null = null;
+export function ensureAllianceSchema(): Promise<boolean> {
+  allianceEnsured ??= (async () => {
+    try {
+      await db().execute(
+        sql`CREATE TABLE IF NOT EXISTS "alliance_updates" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "status" text DEFAULT 'draft' NOT NULL,
+          "subject" text DEFAULT '' NOT NULL,
+          "content" text DEFAULT '' NOT NULL,
+          "recipients" text DEFAULT '' NOT NULL,
+          "sent_at" timestamp with time zone,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+        )`,
+      );
+      return true;
+    } catch (err) {
+      allianceEnsured = null;
+      console.error(
+        "ensureAllianceSchema: could not verify/create alliance_updates table:",
+        err,
+      );
+      return false;
+    }
+  })();
+  return allianceEnsured;
+}

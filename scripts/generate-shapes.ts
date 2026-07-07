@@ -33,6 +33,7 @@ const CLOUD_COLORS: Record<string, string> = {
   creamwarm: COLORS.creamWarm,
   sky: COLORS.sky,
   purple: COLORS.purple,
+  blue: COLORS.blue,
 };
 
 async function main() {

@@ -9,7 +9,11 @@ import { Img } from "@react-email/components";
  * 680px width it renders ~55px tall and scales fluidly on mobile.
  */
 
-export type CloudPair = "creamwarm-cream" | "sky-cream" | "cream-purple";
+export type CloudPair =
+  | "creamwarm-cream"
+  | "sky-cream"
+  | "cream-purple"
+  | "cream-blue";
 
 export default function Cloud({
   baseUrl,
