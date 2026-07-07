@@ -61,6 +61,7 @@ describe("AllianceUpdateEmail", () => {
       React.createElement(AllianceUpdateEmail, {
         subject: "Alliance update — July",
         baseUrl: "https://example.org",
+        groupEmail: "group@example.org",
         blocks: parseAllianceContent(
           "## Children's Investment Fund\nGrants confirmed.\n- Applications open 1 August",
         ),
@@ -70,8 +71,16 @@ describe("AllianceUpdateEmail", () => {
     expect(html).toContain("Alliance Update");
     expect(html).toContain("Investment Fund");
     expect(html).toContain("Applications open 1 August");
-    // Uses the blue-accent footer cloud, not the newsletter's purple one.
-    expect(html).toContain("cloud-cream-blue.png");
+    // Never uses the word "member".
+    expect(html.toLowerCase()).not.toContain("member");
+    // Always-on Links section with website, newsletter and the group email.
+    expect(html).toContain("Links");
+    expect(html).toContain("childrenstheatrealliance.com.au");
+    expect(html).toContain("group@example.org");
+    expect(html).toContain("Reminder");
+    // Uses the yellow Links band, flowing into the blue footer.
+    expect(html).toContain("cloud-cream-yellow.png");
+    expect(html).toContain("cloud-yellow-blue.png");
   });
 
   it("falls back to a default heading when the subject is blank", async () => {
@@ -79,6 +88,7 @@ describe("AllianceUpdateEmail", () => {
       React.createElement(AllianceUpdateEmail, {
         subject: "  ",
         baseUrl: "https://example.org",
+        groupEmail: "group@example.org",
         blocks: [],
       }),
     );

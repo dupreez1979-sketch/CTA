@@ -34,6 +34,7 @@ const CLOUD_COLORS: Record<string, string> = {
   sky: COLORS.sky,
   purple: COLORS.purple,
   blue: COLORS.blue,
+  yellow: COLORS.yellow,
 };
 
 async function main() {

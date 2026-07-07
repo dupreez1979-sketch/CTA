@@ -50,11 +50,14 @@ export async function renderAllianceUpdate(
   update: Pick<AllianceUpdate, "subject" | "content">,
 ): Promise<string> {
   const baseUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  const recipients = await getAllianceRecipients();
   return render(
     React.createElement(AllianceUpdateEmail, {
       baseUrl,
       subject: update.subject,
       blocks: parseAllianceContent(update.content),
+      // The group address for the always-on Links section.
+      groupEmail: recipients[0] ?? "",
     }),
   );
 }

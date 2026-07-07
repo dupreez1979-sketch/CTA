@@ -50,6 +50,8 @@ export const CLOUD_PAIRS: ReadonlyArray<{
   { above: "sky", below: "cream" }, // leaving the Social Theatre band: cream clouds in a blue sky
   { above: "cream", below: "purple" }, // before the newsletter footer
   { above: "cream", below: "blue" }, // before the Alliance-update footer
+  { above: "cream", below: "yellow" }, // entering the Alliance-update Links band
+  { above: "yellow", below: "blue" }, // Links band into the Alliance-update footer
 ];
 
 export function cloudFileName(pair: {

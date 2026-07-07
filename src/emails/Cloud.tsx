@@ -13,7 +13,9 @@ export type CloudPair =
   | "creamwarm-cream"
   | "sky-cream"
   | "cream-purple"
-  | "cream-blue";
+  | "cream-blue"
+  | "cream-yellow"
+  | "yellow-blue";
 
 export default function Cloud({
   baseUrl,

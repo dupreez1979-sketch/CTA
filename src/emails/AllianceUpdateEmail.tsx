@@ -20,7 +20,7 @@ import type { Block } from "../lib/alliance-content";
 
 /**
  * The internal "Alliance Update" email: a hand-composed note sent to the
- * member-company group address, not to public subscribers. Same branded
+ * Alliance group address, not to public subscribers. Same branded
  * shell as the newsletter (masthead, cloud edges, footer) but with a
  * distinct blue accent and no subscriber/unsubscribe footer language.
  * Content is a flexible list of parsed blocks (headings, paragraphs, lists).
@@ -31,7 +31,11 @@ export interface AllianceUpdateEmailProps {
   blocks: Block[];
   /** Absolute origin for assets, e.g. https://newsletter.example.org */
   baseUrl: string;
+  /** The Alliance group address, shown in the always-on Links section. */
+  groupEmail: string;
 }
+
+const WEBSITE_URL = "https://www.childrenstheatrealliance.com.au/";
 
 const INK = COLORS.ink;
 const ACCENT = COLORS.blue;
@@ -43,9 +47,10 @@ const MOBILE_STYLES = `
   .logo { height: 88px !important; }
   .footer-logo { height: 72px !important; }
   .ncti-logo { height: 44px !important; }
-  .intro-h { font-size: 30px !important; }
+  .intro-h { font-size: 40px !important; }
   .au-h { font-size: 22px !important; }
   .au-p { font-size: 16px !important; line-height: 1.55 !important; }
+  .links-h { font-size: 28px !important; }
   .footer-p { font-size: 14px !important; }
   .footer-link { font-size: 14px !important; }
 }
@@ -140,9 +145,11 @@ export default function AllianceUpdateEmail({
   subject,
   blocks,
   baseUrl,
+  groupEmail,
 }: AllianceUpdateEmailProps) {
   const logo = `${baseUrl}/logo-full.png`;
   const heading = subject.trim() || "Alliance Update";
+  const newsletterUrl = baseUrl || WEBSITE_URL;
   return (
     <Html lang="en">
       <Head>
@@ -232,7 +239,7 @@ export default function AllianceUpdateEmail({
                       paddingLeft: 11,
                     }}
                   >
-                    For member companies
+                    For the Alliance
                   </span>
                 </Column>
               </Row>
@@ -241,13 +248,107 @@ export default function AllianceUpdateEmail({
 
             {/* Subject + content */}
             <Section className="px" style={{ padding: "22px 40px 30px" }}>
-              <Text className="intro-h" style={{ ...display(28, 0.96), margin: "0 0 18px" }}>
+              <Text className="intro-h" style={{ ...display(50, 0.9), margin: "0 0 20px" }}>
                 {heading}
               </Text>
               <Blocks blocks={blocks} />
             </Section>
 
-            <Cloud baseUrl={baseUrl} pair="cream-blue" />
+            {/* Links + reminder: always shown, its own yellow band (same
+                idea as the Showcase Social Theatre band, different colour). */}
+            <Cloud baseUrl={baseUrl} pair="cream-yellow" />
+            <Section
+              className="px"
+              style={{ backgroundColor: COLORS.yellow, padding: "28px 40px 26px" }}
+            >
+              <Text className="links-h" style={{ ...display(26, 0.94), margin: "0 0 14px" }}>
+                Links
+              </Text>
+              {[
+                { label: "Website", href: WEBSITE_URL, text: "childrenstheatrealliance.com.au" },
+                { label: "Newsletter", href: newsletterUrl, text: "Sign up or read online" },
+                { label: "Group email", href: `mailto:${groupEmail}`, text: groupEmail },
+              ].map((l) => (
+                <Text
+                  key={l.label}
+                  className="au-p"
+                  style={{
+                    fontFamily: FONT_BODY,
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                    color: INK,
+                    margin: "0 0 8px",
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>{l.label}: </span>
+                  <Link
+                    href={l.href}
+                    style={{
+                      fontFamily: FONT_BODY,
+                      fontWeight: 600,
+                      color: INK,
+                      textDecoration: "none",
+                      borderBottom: `2px solid ${INK}`,
+                      paddingBottom: 1,
+                    }}
+                  >
+                    {l.text}
+                  </Link>
+                </Text>
+              ))}
+              {/* Standing reminder note. */}
+              <table
+                role="presentation"
+                width="100%"
+                cellPadding={0}
+                cellSpacing={0}
+                style={{ borderCollapse: "separate", marginTop: 14 }}
+              >
+                <tbody>
+                  <tr>
+                    <td
+                      style={{
+                        backgroundColor: COLORS.white,
+                        border: `2px solid ${INK}`,
+                        borderRadius: 12,
+                        boxShadow: `3px 3px 0 ${INK}`,
+                        padding: "12px 16px",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: FONT_BODY,
+                          fontWeight: 700,
+                          fontSize: 11,
+                          letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                          color: COLORS.textMuted,
+                          margin: "0 0 4px",
+                        }}
+                      >
+                        Reminder
+                      </Text>
+                      <Text
+                        className="au-p"
+                        style={{
+                          fontFamily: FONT_BODY,
+                          fontSize: 14,
+                          lineHeight: 1.55,
+                          color: COLORS.textBody,
+                          margin: 0,
+                        }}
+                      >
+                        Please share anything you&#39;d like included in the next
+                        update, and post your news to the group email so it reaches
+                        everyone.
+                      </Text>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+
+            <Cloud baseUrl={baseUrl} pair="yellow-blue" />
             {/* Footer: blue band, white text (internal, no unsubscribe). */}
             <Section
               className="px"
@@ -290,8 +391,8 @@ export default function AllianceUpdateEmail({
                   maxWidth: 440,
                 }}
               >
-                An internal update for the Children&#39;s Theatre Alliance member
-                companies. Please don&#39;t forward beyond your organisation.
+                An internal update for the Children&#39;s Theatre Alliance.
+                Please don&#39;t forward beyond your organisation.
               </Text>
               <Text style={{ margin: "0 0 4px", fontSize: 12 }}>
                 <Link
