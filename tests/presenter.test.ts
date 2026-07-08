@@ -296,6 +296,7 @@ describe("parseShowcaseListParams", () => {
       pg: 1,
       ps: 10,
       group: "none",
+      ignored: false,
     });
   });
 
@@ -319,6 +320,7 @@ describe("parseShowcaseListParams", () => {
       pg: 3,
       ps: 50,
       group: "none",
+      ignored: false,
     });
     expect(
       parseShowcaseListParams({
@@ -337,7 +339,9 @@ describe("parseShowcaseListParams", () => {
       pg: 1,
       ps: 10,
       group: "none",
+      ignored: false,
     });
+    expect(parseShowcaseListParams({ ig: "1" }).ignored).toBe(true);
     expect(parseShowcaseListParams({ pg: "abc" }).pg).toBe(1);
     expect(parseShowcaseListParams({ rel: "s-high" }).rel).toBe("s-high");
     expect(parseShowcaseListParams({ rel: "s-bogus" }).rel).toBe("all");

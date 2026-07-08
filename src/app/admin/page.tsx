@@ -4595,6 +4595,7 @@ function StoryPoolTable({
     if (merged.pg > 1) q.set("pg", String(merged.pg));
     if (merged.ps !== 10) q.set("ps", String(merged.ps));
     if (merged.group === "company") q.set("group", "company");
+    if (merged.ignored) q.set("ig", "1");
     return `/admin?${q.toString()}#${anchor}`;
   };
   const grouped = params.group === "company";
@@ -4625,6 +4626,89 @@ function StoryPoolTable({
     params.q ||
     params.sort !== "date" ||
     params.pg > 1;
+
+  // The per-row action buttons. In the "Show ignored" view every row instead
+  // offers a single Restore (undo the X) — the add/remove actions make no
+  // sense for a story that's been pulled from the pool.
+  const actionButtons = (p: FeedItem) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {params.ignored ? (
+        <form
+          action="/api/admin/presenter-item"
+          method="post"
+          style={{ display: "inline" }}
+        >
+          <input type="hidden" name="action" value="restore" />
+          <input type="hidden" name="id" value={p.id} />
+          <button type="submit" style={{ ...smallButton }}>
+            Restore
+          </button>
+        </form>
+      ) : (
+        <>
+          {(p.source === "feed" && p.reviewStatus === "auto") ||
+          p.forcedNewsletterAt ? (
+            <span
+              title={
+                p.source === "feed" && p.reviewStatus === "auto"
+                  ? "Always in the newsletters"
+                  : "Already added to the newsletters"
+              }
+              style={{
+                ...smallButton,
+                background: "var(--cta-white)",
+                opacity: 0.4,
+                cursor: "default",
+              }}
+            >
+              Regular ✓
+            </span>
+          ) : (
+            <form
+              action="/api/admin/presenter-item"
+              method="post"
+              style={{ display: "inline" }}
+            >
+              <input type="hidden" name="action" value="force-newsletter" />
+              <input type="hidden" name="id" value={p.id} />
+              <ConfirmSubmit
+                title="Add to the newsletters"
+                message={`Add "${p.aiHeading.slice(0, 50)}" to the next daily, weekly and fortnightly newsletter? It appears once in each, then drops off.`}
+                confirmLabel="Add"
+                style={{ ...smallButton, background: "var(--cta-white)" }}
+              >
+                Regular +
+              </ConfirmSubmit>
+            </form>
+          )}
+          <ShowcaseAddModal
+            itemId={p.id}
+            drafts={draftOptions}
+            style={{ ...smallButton }}
+          >
+            Showcase +
+          </ShowcaseAddModal>
+          <form
+            action="/api/admin/presenter-item"
+            method="post"
+            style={{ display: "inline" }}
+          >
+            <input type="hidden" name="action" value="ignore" />
+            <input type="hidden" name="id" value={p.id} />
+            <ConfirmSubmit
+              danger
+              title="Remove from the story pool"
+              message={`Remove "${p.aiHeading.slice(0, 50)}" from the story pool for good? It will not come back, even if the feed lists it again.`}
+              confirmLabel="Remove for good"
+              style={{ ...smallButton, background: "var(--cta-pink)" }}
+            >
+              ✕
+            </ConfirmSubmit>
+          </form>
+        </>
+      )}
+    </div>
+  );
 
   const headRow = (
     <tr>
@@ -4733,69 +4817,7 @@ function StoryPoolTable({
           social={p.socialRelevance}
         />
       </td>
-      <td style={{ ...td, whiteSpace: "nowrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {(p.source === "feed" && p.reviewStatus === "auto") ||
-          p.forcedNewsletterAt ? (
-            <span
-              title={
-                p.source === "feed" && p.reviewStatus === "auto"
-                  ? "Always in the newsletters"
-                  : "Already added to the newsletters"
-              }
-              style={{
-                ...smallButton,
-                background: "var(--cta-white)",
-                opacity: 0.4,
-                cursor: "default",
-              }}
-            >
-              Regular ✓
-            </span>
-          ) : (
-            <form
-              action="/api/admin/presenter-item"
-              method="post"
-              style={{ display: "inline" }}
-            >
-              <input type="hidden" name="action" value="force-newsletter" />
-              <input type="hidden" name="id" value={p.id} />
-              <ConfirmSubmit
-                title="Add to the newsletters"
-                message={`Add "${p.aiHeading.slice(0, 50)}" to the next daily, weekly and fortnightly newsletter? It appears once in each, then drops off.`}
-                confirmLabel="Add"
-                style={{ ...smallButton, background: "var(--cta-white)" }}
-              >
-                Regular +
-              </ConfirmSubmit>
-            </form>
-          )}
-          <ShowcaseAddModal
-            itemId={p.id}
-            drafts={draftOptions}
-            style={{ ...smallButton }}
-          >
-            Showcase +
-          </ShowcaseAddModal>
-          <form
-            action="/api/admin/presenter-item"
-            method="post"
-            style={{ display: "inline" }}
-          >
-            <input type="hidden" name="action" value="ignore" />
-            <input type="hidden" name="id" value={p.id} />
-            <ConfirmSubmit
-              danger
-              title="Remove from the story pool"
-              message={`Remove "${p.aiHeading.slice(0, 50)}" from the story pool for good? It will not come back, even if the feed lists it again.`}
-              confirmLabel="Remove for good"
-              style={{ ...smallButton, background: "var(--cta-pink)" }}
-            >
-              ✕
-            </ConfirmSubmit>
-          </form>
-        </div>
-      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>{actionButtons(p)}</td>
     </tr>
   );
 
@@ -4892,24 +4914,45 @@ function StoryPoolTable({
           ) : undefined
         }
         extra={
-          <Link
-            prefetch={false}
-            href={href({ group: grouped ? "none" : "company", pg: 1 })}
-            scroll={false}
-            style={{
-              fontFamily: "var(--font-body)",
-              fontSize: 12,
-              fontWeight: 700,
-              color: "var(--cta-ink)",
-              background: grouped ? "var(--cta-purple)" : "var(--cta-white)",
-              border: "2px solid var(--cta-ink)",
-              borderRadius: 8,
-              padding: "6px 12px",
-              textDecoration: "none",
-            }}
-          >
-            {grouped ? "Grouped by company ✓" : "Group by company"}
-          </Link>
+          <>
+            <Link
+              prefetch={false}
+              href={href({ group: grouped ? "none" : "company", pg: 1 })}
+              scroll={false}
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--cta-ink)",
+                background: grouped ? "var(--cta-purple)" : "var(--cta-white)",
+                border: "2px solid var(--cta-ink)",
+                borderRadius: 8,
+                padding: "6px 12px",
+                textDecoration: "none",
+              }}
+            >
+              {grouped ? "Grouped by company ✓" : "Group by company"}
+            </Link>
+            <Link
+              prefetch={false}
+              href={href({ ignored: !params.ignored, pg: 1 })}
+              scroll={false}
+              title="Stories removed with the ✕ are hidden from the pool and newsletters; view them here to restore."
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--cta-ink)",
+                background: params.ignored ? "var(--cta-pink)" : "var(--cta-white)",
+                border: "2px solid var(--cta-ink)",
+                borderRadius: 8,
+                padding: "6px 12px",
+                textDecoration: "none",
+              }}
+            >
+              {params.ignored ? "Viewing ignored ✓" : "Show ignored"}
+            </Link>
+          </>
         }
       />
       {rows.length === 0 ? (
@@ -4921,6 +4964,8 @@ function StoryPoolTable({
                 Back to the first page
               </Link>
             </>
+          ) : params.ignored ? (
+            "No ignored stories. Stories you remove with the ✕ appear here so you can restore them."
           ) : (
             "No stories match this view. Try All ratings or a different search."
           )}
@@ -5073,67 +5118,7 @@ function StoryPoolTable({
                       />
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {(p.source === "feed" && p.reviewStatus === "auto") ||
-                        p.forcedNewsletterAt ? (
-                          <span
-                            title={
-                              p.source === "feed" && p.reviewStatus === "auto"
-                                ? "Always in the newsletters"
-                                : "Already added to the newsletters"
-                            }
-                            style={{
-                              ...smallButton,
-                              background: "var(--cta-white)",
-                              opacity: 0.4,
-                              cursor: "default",
-                            }}
-                          >
-                            Regular ✓
-                          </span>
-                        ) : (
-                          <form
-                            action="/api/admin/presenter-item"
-                            method="post"
-                            style={{ display: "inline" }}
-                          >
-                            <input type="hidden" name="action" value="force-newsletter" />
-                            <input type="hidden" name="id" value={p.id} />
-                            <ConfirmSubmit
-                              title="Add to the newsletters"
-                              message={`Add "${p.aiHeading.slice(0, 50)}" to the next daily, weekly and fortnightly newsletter? It appears once in each, then drops off.`}
-                              confirmLabel="Add"
-                              style={{ ...smallButton, background: "var(--cta-white)" }}
-                            >
-                              Regular +
-                            </ConfirmSubmit>
-                          </form>
-                        )}
-                        <ShowcaseAddModal
-                          itemId={p.id}
-                          drafts={draftOptions}
-                          style={{ ...smallButton }}
-                        >
-                          Showcase +
-                        </ShowcaseAddModal>
-                        <form
-                          action="/api/admin/presenter-item"
-                          method="post"
-                          style={{ display: "inline" }}
-                        >
-                          <input type="hidden" name="action" value="ignore" />
-                          <input type="hidden" name="id" value={p.id} />
-                          <ConfirmSubmit
-                            danger
-                            title="Remove from the story pool"
-                            message={`Remove "${p.aiHeading.slice(0, 50)}" from the story pool for good? It will not come back, even if the feed lists it again.`}
-                            confirmLabel="Remove for good"
-                            style={{ ...smallButton, background: "var(--cta-pink)" }}
-                          >
-                            ✕
-                          </ConfirmSubmit>
-                        </form>
-                      </div>
+                      {actionButtons(p)}
                     </td>
                   </tr>
                 ))}

@@ -667,6 +667,9 @@ async function notifyNewStories(): Promise<number> {
         highOrSocialHigh(),
         isNull(feedItems.presenterNotifiedAt),
         usableStory(),
+        // Never announce a story that isn't actually in the pool: the pool
+        // hides ignored (X'd) stories, so match that here too.
+        eq(feedItems.ignored, false),
       ),
     )
     .orderBy(desc(feedItems.publishedAt));
@@ -678,7 +681,14 @@ async function notifyNewStories(): Promise<number> {
     db()
       .select({ id: feedItems.id })
       .from(feedItems)
-      .where(and(highOrSocialHigh(), notInSentEdition(), usableStory())),
+      .where(
+        and(
+          highOrSocialHigh(),
+          notInSentEdition(),
+          usableStory(),
+          eq(feedItems.ignored, false),
+        ),
+      ),
     recentPoolStories(),
   ]);
 
@@ -1145,6 +1155,8 @@ export interface ShowcaseListParams {
   ps: StoryPoolPageSize;
   /** "company" groups the pool into collapsible per-company sections. */
   group: "none" | "company";
+  /** When true, list the ignored (X'd) stories instead of the live pool. */
+  ignored: boolean;
 }
 
 /** How many rows a grouped view fetches (pagination is off when grouping). */
@@ -1174,6 +1186,7 @@ export function parseShowcaseListParams(
     pg: Number.isInteger(pg) && pg > 0 ? pg : 1,
     ps: STORY_POOL_PAGE_SIZES.find((s) => s === ps) ?? 10,
     group: sp.group === "company" ? "company" : "none",
+    ignored: sp.ig === "1",
   };
 }
 
@@ -1200,8 +1213,10 @@ export async function queryStoryPool(
   opts: { excludeEditionId?: number } = {},
 ): Promise<StoryPoolPage> {
   // Pending/rejected review-feed items live in the Review queue, not here;
-  // ignored stories (the X action) are dropped from the pool for good.
-  const conditions = [usableStory(), eq(feedItems.ignored, false)];
+  // ignored stories (the X action) are normally dropped from the pool, but
+  // the "Show ignored" view (p.ignored) lists exactly those so they can be
+  // found and restored.
+  const conditions = [usableStory(), eq(feedItems.ignored, p.ignored)];
   if (p.rel === "high") {
     conditions.push(eq(feedItems.presenterRelevance, "high"));
   } else if (p.rel === "medium") {

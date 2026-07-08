@@ -111,6 +111,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Story pool "Restore": bring a previously-ignored story back into the
+  // pool (undo the X). Reached from the "Show ignored" view.
+  if (action === "restore") {
+    if (!Number.isInteger(id) || id <= 0) return backToPool("Invalid input");
+    await ensureNewsletterSchema();
+    const updated = await db()
+      .update(feedItems)
+      .set({ ignored: false })
+      .where(eq(feedItems.id, id))
+      .returning({ heading: feedItems.aiHeading });
+    if (updated.length === 0) return backToPool("Story not found");
+    return backToPool(
+      `Restored "${updated[0].heading.slice(0, 50)}" to the story pool`,
+    );
+  }
+
   // Bulk add from the story pool (Stories tab): every ticked story goes
   // into a draft Showcase in one action, creating the draft first when
   // asked. Lands in the builder so the result is right in front of you.
