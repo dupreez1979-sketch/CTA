@@ -270,10 +270,26 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
     })
     .onConflictDoNothing()
     .returning({ id: issues.id });
-  if (claimed.length === 0) {
-    return { status: "already-sent", itemCount: 0, recipientCount: 0 };
+  let issueId: number;
+  if (claimed.length > 0) {
+    issueId = claimed[0].id;
+  } else {
+    // This window already has a row. A delivered edition is never re-sent;
+    // but one previously "skipped" (empty at the time / no subscribers) or
+    // "failed" was never delivered, so allow a retry now that it may have
+    // content — this is what lets the cron or "Send now" recover it.
+    const [existing] = await db()
+      .select({ id: issues.id, status: issues.status })
+      .from(issues)
+      .where(
+        and(eq(issues.cadence, window.cadence), eq(issues.windowKey, window.key)),
+      )
+      .limit(1);
+    if (!existing || existing.status === "sent") {
+      return { status: "already-sent", itemCount: 0, recipientCount: 0 };
+    }
+    issueId = existing.id;
   }
-  const issueId = claimed[0].id;
 
   const finish = async (
     status: "sent" | "skipped" | "failed",
