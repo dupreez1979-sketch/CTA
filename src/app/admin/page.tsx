@@ -1344,13 +1344,14 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
   }
   // Blocked sources never appear in the queue (belt-and-braces: ingest
   // also skips them, but this covers anything stored before a term was
-  // added).
-  for (const term of blocked) {
+  // added). The same terms are applied to the status counts below so the
+  // badge matches the list — otherwise a blocked-only queue reads "N
+  // pending" while the list is empty.
+  const blockedConds = blocked.map((term) => {
     const like = `%${term}%`;
-    conditions.push(
-      sql`not (coalesce(${feedItems.creator}, '') ilike ${like} or ${feedItems.postUrl} ilike ${like} or coalesce(${feedItems.rawTitle}, '') ilike ${like})`,
-    );
-  }
+    return sql`not (coalesce(${feedItems.creator}, '') ilike ${like} or ${feedItems.postUrl} ilike ${like} or coalesce(${feedItems.rawTitle}, '') ilike ${like})`;
+  });
+  conditions.push(...blockedConds);
 
   const orderExpr =
     rso === "published"
@@ -1387,7 +1388,12 @@ async function ReviewTab({ sp }: { sp: Record<string, string | undefined> }) {
           count: sql<number>`count(*)::int`,
         })
         .from(feedItems)
-        .where(inArray(feedItems.reviewStatus, [...REVIEW_STATUSES]))
+        .where(
+          and(
+            inArray(feedItems.reviewStatus, [...REVIEW_STATUSES]),
+            ...blockedConds,
+          ),
+        )
         .groupBy(feedItems.reviewStatus),
       queryStoryPool(params),
       getUsedStoryDates(),

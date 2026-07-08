@@ -261,7 +261,7 @@ export default function ShowcaseDraftEmail({
           >
             <Text style={{ margin: 0, fontSize: 12 }}>
               <Link
-                href={`${baseUrl}/admin?tab=presenters`}
+                href={`${baseUrl}/admin?tab=review#story-pool`}
                 style={{
                   fontFamily: FONT_BODY,
                   fontWeight: 700,
@@ -270,7 +270,7 @@ export default function ShowcaseDraftEmail({
                   textDecoration: "underline",
                 }}
               >
-                Open The Showcase builder
+                Open the story pool
               </Link>
             </Text>
           </Section>
