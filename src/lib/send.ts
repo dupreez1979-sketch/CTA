@@ -274,21 +274,29 @@ export async function sendIssue(window: IssueWindow): Promise<SendResult> {
   if (claimed.length > 0) {
     issueId = claimed[0].id;
   } else {
-    // This window already has a row. A delivered edition is never re-sent;
-    // but one previously "skipped" (empty at the time / no subscribers) or
-    // "failed" was never delivered, so allow a retry now that it may have
-    // content — this is what lets the cron or "Send now" recover it.
-    const [existing] = await db()
-      .select({ id: issues.id, status: issues.status })
-      .from(issues)
+    // This window already has a row. Only a window that was "skipped"
+    // (nothing was ever delivered — 0 items or 0 subscribers) may be retried,
+    // and only via this single atomic UPDATE so two concurrent/overlapping
+    // runs can never both send. A row that is "sending" (a send in flight),
+    // "sent", or "failed" (which may have partially delivered) is left alone —
+    // that guard is what stops the daily going out twice when the scheduled
+    // function fires more than once. "Send now" can still recover a skipped
+    // edition; only one caller wins the flip.
+    const retried = await db()
+      .update(issues)
+      .set({ status: "sending", sentAt: null, itemCount: 0, recipientCount: 0 })
       .where(
-        and(eq(issues.cadence, window.cadence), eq(issues.windowKey, window.key)),
+        and(
+          eq(issues.cadence, window.cadence),
+          eq(issues.windowKey, window.key),
+          eq(issues.status, "skipped"),
+        ),
       )
-      .limit(1);
-    if (!existing || existing.status === "sent") {
+      .returning({ id: issues.id });
+    if (retried.length === 0) {
       return { status: "already-sent", itemCount: 0, recipientCount: 0 };
     }
-    issueId = existing.id;
+    issueId = retried[0].id;
   }
 
   const finish = async (
