@@ -262,7 +262,7 @@ export default function IntroEmail({ baseUrl }: IntroEmailProps) {
                     </Text>
                     <Text className="body-p" style={{ ...body(14.5), margin: "0 0 16px" }}>
                       The latest from the companies working together in the
-                      Alliance, grouped by company. Choose daily, weekly or
+                      Alliance, grouped by company. Choose weekly or
                       fortnightly.
                     </Text>
                     <Link

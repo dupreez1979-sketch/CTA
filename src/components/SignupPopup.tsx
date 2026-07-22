@@ -3,8 +3,8 @@
 import { useState } from "react";
 import PuzzleShape from "./PuzzleShape";
 
-type Freq = "Daily" | "Weekly" | "Fortnightly" | "Showcase only";
-const FREQS: Freq[] = ["Daily", "Weekly", "Fortnightly", "Showcase only"];
+type Freq = "Weekly" | "Fortnightly" | "Showcase only";
+const FREQS: Freq[] = ["Weekly", "Fortnightly", "Showcase only"];
 
 /**
  * The sign-up popup from the design handoff (SignupPopup.dc.html):

@@ -246,7 +246,6 @@ export default function IntroNewsletterEmail({
                       The news roundup, on the schedule you choose:
                     </Text>
                     <div>
-                      <Chip label="Daily" hex={COLORS.yellow} />
                       <Chip label="Weekly" hex={COLORS.purple} />
                       <Chip label="Fortnightly" hex={COLORS.mint} />
                     </div>

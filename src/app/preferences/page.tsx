@@ -5,8 +5,10 @@ import PuzzleShape from "@/components/PuzzleShape";
 
 export const dynamic = "force-dynamic";
 
+// "Daily" is no longer offered to new sign-ups. It is only shown here to
+// someone who is *currently* on daily (see cadenceOptions below), so existing
+// daily subscribers can keep it while no one else can newly choose it.
 const CADENCES = [
-  { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "fortnightly", label: "Fortnightly" },
   { value: "none", label: "Showcase only" },
@@ -107,7 +109,12 @@ export default async function PreferencesPage({
             <form action="/api/preferences" method="post">
               <input type="hidden" name="token" value={token} />
               <div className="pill-row" style={{ margin: "18px 0 16px" }}>
-                {CADENCES.map((c) => (
+                {[
+                  ...(subscriber.cadence === "daily"
+                    ? ([{ value: "daily", label: "Daily" }] as const)
+                    : []),
+                  ...CADENCES,
+                ].map((c) => (
                   <label key={c.value} className="pill pill-radio">
                     <input
                       type="radio"

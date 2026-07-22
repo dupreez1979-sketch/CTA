@@ -8,7 +8,10 @@ import { logInfo } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
-const CADENCES: SubscriberCadence[] = ["daily", "weekly", "fortnightly", "none"];
+// "daily" is no longer offered to new sign-ups (existing daily subscribers
+// keep it; see the preferences page). New self-serve subscriptions may only
+// choose weekly, fortnightly, or Showcase-only.
+const CADENCES: SubscriberCadence[] = ["weekly", "fortnightly", "none"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
