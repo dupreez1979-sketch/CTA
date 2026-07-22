@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const form = await request.formData();
   const action = String(form.get("action") ?? "");
+  const inclusionMode: "auto" | "manual" =
+    String(form.get("inclusionMode") ?? "") === "manual" ? "manual" : "auto";
   const redirect = (message: string) =>
     NextResponse.redirect(
       new URL(`/admin?tab=settings&message=${encodeURIComponent(message)}`, canonicalBase(request.url)),
@@ -38,6 +40,7 @@ export async function POST(request: NextRequest) {
         match: match || name.toLowerCase(),
         showsPageUrl: showsPageUrl || null,
         showsPageUrl2: showsPageUrl2 || null,
+        inclusionMode,
       })
       .onConflictDoNothing()
       .returning({ id: companies.id });
@@ -62,6 +65,7 @@ export async function POST(request: NextRequest) {
         match: match || name.toLowerCase(),
         showsPageUrl: showsPageUrl || null,
         showsPageUrl2: showsPageUrl2 || null,
+        inclusionMode,
       })
       .where(eq(companies.id, id));
     return redirect(`Updated ${name}`);

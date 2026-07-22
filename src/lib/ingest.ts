@@ -113,6 +113,11 @@ async function ingestOneFeed(
   firstError?: string;
 }> {
   const nameByKey = new Map(companies.map((c) => [c.key, c.name]));
+  // Companies set to "manual" have their social posts held for approval; the
+  // rest are included automatically (the default).
+  const modeByKey = new Map(
+    companies.map((c) => [c.key, c.inclusionMode ?? "auto"]),
+  );
   const items = await fetchFeed(feed.url, companies);
   if (items.length === 0) return { seen: 0, added: 0, remaining: 0, failed: 0 };
 
@@ -151,7 +156,12 @@ async function ingestOneFeed(
         .map((item) =>
           feed.mode === "review"
             ? ingestReviewItem(item, feed, companies, nameByKey)
-            : ingestItem(item, feed, nameByKey.get(item.companyKey) ?? null),
+            : ingestItem(
+                item,
+                feed,
+                nameByKey.get(item.companyKey) ?? null,
+                modeByKey.get(item.companyKey) === "manual",
+              ),
         ),
     );
     for (let j = 0; j < results.length; j++) {
@@ -174,11 +184,16 @@ async function ingestOneFeed(
   };
 }
 
-/** Trusted automatic feed: the item enters the story stream immediately. */
+/**
+ * Trusted automatic feed. For an "auto" company the item enters the story
+ * stream immediately (reviewStatus "auto"); for a "manual" company it is held
+ * as "pending" so it only becomes usable once approved in the Review queue.
+ */
 async function ingestItem(
   item: NormalisedItem,
   feed: Feed,
   companyDisplayName: string | null,
+  manual: boolean,
 ): Promise<void> {
   const [copy, imageUrl] = await Promise.all([
     generateCopy(item, companyDisplayName),
@@ -189,8 +204,11 @@ async function ingestItem(
     .values({
       guid: item.guid,
       feedId: feed.id,
-      reviewStatus: "auto",
+      reviewStatus: manual ? "pending" : "auto",
       companyKey: item.companyKey,
+      // Manual posts carry their company as the suggested key too, so the
+      // Review queue's company filter and grouping key on it.
+      ...(manual ? { suggestedCompanyKey: item.companyKey } : {}),
       postUrl: item.link,
       rawTitle: item.title,
       creator: item.creator,

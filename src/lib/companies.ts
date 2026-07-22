@@ -14,6 +14,12 @@ export interface Company {
   key: string;
   name: string;
   match: string[];
+  /**
+   * "auto" (default) includes the company's social posts immediately;
+   * "manual" holds them in the Review queue until approved. Optional here
+   * because DEFAULT_COMPANIES seed literals omit it (treated as "auto").
+   */
+  inclusionMode?: "auto" | "manual";
 }
 
 export const FALLBACK_COMPANY_KEY = "around-the-alliance";

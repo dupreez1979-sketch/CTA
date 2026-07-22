@@ -2911,7 +2911,10 @@ async function SettingsTab({
           link contains one of the <strong>match words</strong> (separate
           several with commas). Unmatched posts appear under &quot;Around
           the Alliance&quot;: if you spot one there, add the company here.
-          Changes apply to posts fetched from then on.
+          Changes apply to posts fetched from then on.{" "}
+          <strong>Inclusion</strong>: <strong>Auto</strong> adds a company&#39;s
+          posts straight away; <strong>Manual</strong> holds them in the Review
+          queue (Stories tab) until someone approves them.
         </HelpTip>
       </h2>
       <details>
@@ -2940,6 +2943,7 @@ async function SettingsTab({
               <th style={th}>Match words</th>
               <th style={th}>Shows page (for The Showcase)</th>
               <th style={th}>Second shows page (optional)</th>
+              <th style={th}>Inclusion</th>
               <th style={th}></th>
             </tr>
           </thead>
@@ -2985,6 +2989,17 @@ async function SettingsTab({
                     placeholder="e.g. installations page (optional)"
                     style={{ ...smallInput, width: "100%", minWidth: 200 }}
                   />
+                </td>
+                <td style={{ ...td, whiteSpace: "nowrap" }}>
+                  <select
+                    form={`co-${c.id}`}
+                    name="inclusionMode"
+                    defaultValue={c.inclusionMode}
+                    style={smallInput}
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="manual">Manual</option>
+                  </select>
                 </td>
                 <td style={{ ...td, whiteSpace: "nowrap" }}>
                   <button
@@ -3055,6 +3070,17 @@ async function SettingsTab({
             placeholder="https://…"
             style={{ ...inputStyle, width: "100%" }}
           />
+        </div>
+        <div style={{ minWidth: 140, flex: "0 1 140px" }}>
+          <label style={fieldLabel}>Inclusion</label>
+          <select
+            name="inclusionMode"
+            defaultValue="auto"
+            style={{ ...inputStyle, width: "100%" }}
+          >
+            <option value="auto">Auto</option>
+            <option value="manual">Manual</option>
+          </select>
         </div>
         <button type="submit" style={buttonStyle}>
           Add company

@@ -58,6 +58,12 @@ export const companies = pgTable(
     // (installations, activations) separately from their main season. Show
     // research looks through both pages.
     showsPageUrl2: text("shows_page_url_2"),
+    // "auto" = the company's social posts are included immediately (as now);
+    // "manual" = its posts arrive as "pending" and only become usable once a
+    // human approves them in the Review queue.
+    inclusionMode: text("inclusion_mode", { enum: ["auto", "manual"] })
+      .notNull()
+      .default("auto"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -33,6 +33,7 @@ export async function loadCompanies(): Promise<Company[]> {
     key: r.key,
     name: r.name,
     match: parseMatch(r.match),
+    inclusionMode: r.inclusionMode,
   }));
 }
 
