@@ -57,7 +57,7 @@ const MOBILE_STYLES = `
 }
 `;
 
-function Blocks({ blocks }: { blocks: Block[] }) {
+function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
   return (
     <>
       {blocks.map((b, i) => {
@@ -137,6 +137,27 @@ function Blocks({ blocks }: { blocks: Block[] }) {
                 ))}
               </tbody>
             </table>
+          );
+        }
+        if (b.type === "image") {
+          // Relative /api/img/... is absolutised against baseUrl; an external
+          // https URL is used as-is (email clients need absolute URLs).
+          const src = b.url.startsWith("/") ? `${baseUrl}${b.url}` : b.url;
+          return (
+            <Img
+              key={i}
+              src={src}
+              alt={b.alt}
+              width="100%"
+              style={{
+                display: "block",
+                width: "100%",
+                maxWidth: 600,
+                height: "auto",
+                borderRadius: 12,
+                margin: "6px 0 16px",
+              }}
+            />
           );
         }
         return (
@@ -271,7 +292,7 @@ export default function AllianceUpdateEmail({
               <Text className="intro-h" style={{ ...display(50, 0.9), margin: "0 0 20px" }}>
                 {heading}
               </Text>
-              <Blocks blocks={blocks} />
+              <Blocks blocks={blocks} baseUrl={baseUrl} />
             </Section>
 
             {/* Links + reminder: always shown, its own yellow band (same

@@ -60,6 +60,7 @@ import ConfirmSubmit from "@/components/ConfirmSubmit";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import HelpTip from "@/components/HelpTip";
 import TestSendButton from "@/components/TestSendButton";
+import ImageUploadButton from "@/components/ImageUploadButton";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 import AddShowModal from "@/components/AddShowModal";
 import ShowcaseAddModal from "@/components/ShowcaseAddModal";
@@ -3439,6 +3440,7 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
         />
         <label style={fieldLabel}>Content</label>
         <textarea
+          id="au-content"
           name="content"
           defaultValue={update.content}
           rows={18}
@@ -3454,11 +3456,19 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
             fontFamily: "var(--font-body)",
           }}
         />
+        <div style={{ margin: "8px 0 0" }}>
+          <ImageUploadButton
+            targetId="au-content"
+            style={{ ...smallButton, background: "var(--cta-white)" }}
+          />
+        </div>
         <p style={{ ...muted, fontSize: 12, margin: "6px 0 14px" }}>
           <strong>## Heading</strong> starts a section;{" "}
           <strong>### Sub heading</strong> is a smaller sub heading beneath it.
           Use <strong>-</strong> at the start of a line for bullet points, and
-          leave a blank line between paragraphs.
+          leave a blank line between paragraphs. Add a picture with{" "}
+          <strong>Add image</strong> above, or paste one as{" "}
+          <strong>![caption](image url)</strong> on its own line.
         </p>
         <button type="submit" style={buttonStyle}>
           Save draft

@@ -60,6 +60,19 @@ describe("parseAllianceContent", () => {
       { type: "list", items: ["a", "b"] },
     ]);
   });
+
+  it("reads a markdown image line as an image block", () => {
+    expect(parseAllianceContent("![A caption](/api/img/abc)")).toEqual([
+      { type: "image", alt: "A caption", url: "/api/img/abc" },
+    ]);
+    expect(
+      parseAllianceContent("## Heading\n![](https://x.test/p.jpg)\nAfter"),
+    ).toEqual([
+      { type: "heading", level: 1, text: "Heading" },
+      { type: "image", alt: "", url: "https://x.test/p.jpg" },
+      { type: "para", text: "After" },
+    ]);
+  });
 });
 
 describe("AllianceUpdateEmail", () => {
@@ -89,6 +102,23 @@ describe("AllianceUpdateEmail", () => {
     // Uses the yellow Links band, flowing into the blue footer.
     expect(html).toContain("cloud-cream-yellow.png");
     expect(html).toContain("cloud-yellow-blue.png");
+  });
+
+  it("renders inline images, absolutising relative /api/img URLs", async () => {
+    const html = await render(
+      React.createElement(AllianceUpdateEmail, {
+        subject: "With pictures",
+        baseUrl: "https://example.org",
+        groupEmail: "group@example.org",
+        blocks: parseAllianceContent(
+          "![](/api/img/abc)\n\n![](https://cdn.test/x.jpg)",
+        ),
+      }),
+    );
+    // Relative upload URL is made absolute against baseUrl…
+    expect(html).toContain("https://example.org/api/img/abc");
+    // …and an external URL is used verbatim.
+    expect(html).toContain("https://cdn.test/x.jpg");
   });
 
   it("falls back to a default heading when the subject is blank", async () => {
