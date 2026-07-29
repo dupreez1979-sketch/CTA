@@ -73,6 +73,22 @@ describe("parseAllianceContent", () => {
       { type: "para", text: "After" },
     ]);
   });
+
+  it("reads an optional width percentage and clamps it to 1–100", () => {
+    expect(parseAllianceContent("![c](/api/img/abc =50%)")).toEqual([
+      { type: "image", alt: "c", url: "/api/img/abc", width: 50 },
+    ]);
+    // Out-of-range clamps; no size stays undefined (full width).
+    expect(parseAllianceContent("![](/api/img/x =250%)")[0]).toMatchObject({
+      type: "image",
+      width: 100,
+    });
+    expect(parseAllianceContent("![](/api/img/x)")[0]).toEqual({
+      type: "image",
+      alt: "",
+      url: "/api/img/x",
+    });
+  });
 });
 
 describe("AllianceUpdateEmail", () => {

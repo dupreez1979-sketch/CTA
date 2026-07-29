@@ -143,16 +143,18 @@ function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
           // Relative /api/img/... is absolutised against baseUrl; an external
           // https URL is used as-is (email clients need absolute URLs).
           const src = b.url.startsWith("/") ? `${baseUrl}${b.url}` : b.url;
+          // Width as a percentage of the content column (default full width).
+          const w = b.width ? `${b.width}%` : "100%";
           return (
             <Img
               key={i}
               src={src}
               alt={b.alt}
-              width="100%"
+              width={w}
               style={{
                 display: "block",
-                width: "100%",
-                maxWidth: 600,
+                width: w,
+                maxWidth: b.width ? "100%" : 600,
                 height: "auto",
                 borderRadius: 12,
                 margin: "6px 0 16px",

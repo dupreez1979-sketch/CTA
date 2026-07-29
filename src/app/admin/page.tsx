@@ -3468,7 +3468,9 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
           Use <strong>-</strong> at the start of a line for bullet points, and
           leave a blank line between paragraphs. Add a picture with{" "}
           <strong>Add image</strong> above, or paste one as{" "}
-          <strong>![caption](image url)</strong> on its own line.
+          <strong>![caption](image url)</strong> on its own line. To make it
+          smaller, add a width: <strong>![](image url =50%)</strong> (100% is
+          full width).
         </p>
         <button type="submit" style={buttonStyle}>
           Save draft

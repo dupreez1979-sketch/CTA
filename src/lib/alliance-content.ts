@@ -6,6 +6,7 @@
  *   ### Sub heading       -> Heading 2 ( ### or deeper )
  *   - a point             -> a bullet ( -, * or • start a list item )
  *   ![caption](url)       -> an inline image (a line on its own)
+ *   ![caption](url =50%)  -> the same image at 50% width (1–100%, default 100)
  *   plain text            -> a paragraph (consecutive lines join with a space)
  *   (blank line)          -> separates blocks
  *
@@ -18,7 +19,7 @@ export type Block =
   | { type: "heading"; level: 1 | 2; text: string }
   | { type: "para"; text: string }
   | { type: "list"; items: string[] }
-  | { type: "image"; url: string; alt: string };
+  | { type: "image"; url: string; alt: string; width?: number };
 
 export function parseAllianceContent(input: string): Block[] {
   const lines = (input ?? "").replace(/\r\n?/g, "\n").split("\n");
@@ -49,14 +50,17 @@ export function parseAllianceContent(input: string): Block[] {
       flush();
       continue;
     }
-    // A line on its own that is a markdown image: ![caption](url).
-    const image = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    // A line on its own that is a markdown image, with an optional trailing
+    // width percentage: ![caption](url) or ![caption](url =50%).
+    const image = line.match(/^!\[([^\]]*)\]\(([^)]+?)(?:\s+=(\d{1,3})%)?\)$/);
     if (image) {
       flush();
+      const pct = image[3] ? Number(image[3]) : undefined;
       blocks.push({
         type: "image",
         alt: image[1].trim(),
         url: image[2].trim(),
+        ...(pct ? { width: Math.min(100, Math.max(1, pct)) } : {}),
       });
       continue;
     }
