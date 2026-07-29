@@ -89,6 +89,60 @@ describe("parseAllianceContent", () => {
       url: "/api/img/x",
     });
   });
+
+  it("reads an alignment keyword (left / center / right)", () => {
+    expect(parseAllianceContent("![](/api/img/x center)")[0]).toEqual({
+      type: "image",
+      alt: "",
+      url: "/api/img/x",
+      align: "center",
+    });
+    expect(parseAllianceContent("![](/api/img/x right)")[0]).toMatchObject({
+      align: "right",
+    });
+    // British spelling maps to "center".
+    expect(parseAllianceContent("![](/api/img/x centre)")[0]).toMatchObject({
+      align: "center",
+    });
+  });
+
+  it("reads a wrap keyword as a float (inline with text)", () => {
+    expect(parseAllianceContent("![](/api/img/x wrap-left)")[0]).toEqual({
+      type: "image",
+      alt: "",
+      url: "/api/img/x",
+      float: "left",
+    });
+    expect(parseAllianceContent("![](/api/img/x wrap-right)")[0]).toMatchObject({
+      float: "right",
+    });
+  });
+
+  it("parses width and alignment together, in any order", () => {
+    expect(parseAllianceContent("![](/api/img/x =50% right)")[0]).toEqual({
+      type: "image",
+      alt: "",
+      url: "/api/img/x",
+      width: 50,
+      align: "right",
+    });
+    expect(parseAllianceContent("![](/api/img/x right =50%)")[0]).toEqual({
+      type: "image",
+      alt: "",
+      url: "/api/img/x",
+      width: 50,
+      align: "right",
+    });
+    expect(
+      parseAllianceContent("![c](/api/img/x =40% wrap-left)")[0],
+    ).toEqual({
+      type: "image",
+      alt: "c",
+      url: "/api/img/x",
+      width: 40,
+      float: "left",
+    });
+  });
 });
 
 describe("AllianceUpdateEmail", () => {
@@ -135,6 +189,31 @@ describe("AllianceUpdateEmail", () => {
     expect(html).toContain("https://example.org/api/img/abc");
     // …and an external URL is used verbatim.
     expect(html).toContain("https://cdn.test/x.jpg");
+  });
+
+  it("aligns a block image and floats a wrapped image", async () => {
+    const centered = await render(
+      React.createElement(AllianceUpdateEmail, {
+        subject: "Centred",
+        baseUrl: "https://example.org",
+        groupEmail: "group@example.org",
+        blocks: parseAllianceContent("![](/api/img/c center)"),
+      }),
+    );
+    expect(centered).toContain("text-align:center");
+
+    const floated = await render(
+      React.createElement(AllianceUpdateEmail, {
+        subject: "Wrapped",
+        baseUrl: "https://example.org",
+        groupEmail: "group@example.org",
+        blocks: parseAllianceContent(
+          "![](/api/img/w =40% wrap-left)\n\nText that wraps beside the image.",
+        ),
+      }),
+    );
+    expect(floated).toContain("float:left");
+    expect(floated).toContain("40%");
   });
 
   it("falls back to a default heading when the subject is blank", async () => {

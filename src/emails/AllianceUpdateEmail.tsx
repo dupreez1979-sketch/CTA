@@ -70,6 +70,7 @@ function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
                 className="au-h"
                 style={{
                   ...display(23, 1),
+                  clear: "both",
                   margin: i === 0 ? "0 0 12px" : "26px 0 12px",
                   paddingBottom: 6,
                   borderBottom: `3px solid ${ACCENT}`,
@@ -86,6 +87,7 @@ function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
               className="au-h2"
               style={{
                 ...display(16, 1),
+                clear: "both",
                 color: ACCENT,
                 margin: i === 0 ? "0 0 8px" : "18px 0 8px",
               }}
@@ -143,23 +145,57 @@ function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
           // Relative /api/img/... is absolutised against baseUrl; an external
           // https URL is used as-is (email clients need absolute URLs).
           const src = b.url.startsWith("/") ? `${baseUrl}${b.url}` : b.url;
+          // Float: the image sits inline and following text wraps around it.
+          // Default to half width so the wrapped text has room beside it. The
+          // `align` attribute gives Outlook/legacy wrap; CSS float covers the
+          // rest.
+          if (b.float) {
+            const w = b.width ? `${b.width}%` : "50%";
+            return (
+              <Img
+                key={i}
+                src={src}
+                alt={b.alt}
+                width={w}
+                // Legacy `align` attribute gives Outlook the text wrap; not in
+                // React-Email's Img prop types, so pass it through.
+                {...({ align: b.float } as Record<string, string>)}
+                style={{
+                  float: b.float,
+                  width: w,
+                  maxWidth: "60%",
+                  height: "auto",
+                  borderRadius: 12,
+                  margin:
+                    b.float === "left"
+                      ? "4px 16px 8px 0"
+                      : "4px 0 8px 16px",
+                }}
+              />
+            );
+          }
           // Width as a percentage of the content column (default full width).
           const w = b.width ? `${b.width}%` : "100%";
+          // Block image on its own line; text-align positions it reliably
+          // across clients (left by default, or centre / right).
           return (
-            <Img
+            <div
               key={i}
-              src={src}
-              alt={b.alt}
-              width={w}
-              style={{
-                display: "block",
-                width: w,
-                maxWidth: b.width ? "100%" : 600,
-                height: "auto",
-                borderRadius: 12,
-                margin: "6px 0 16px",
-              }}
-            />
+              style={{ textAlign: b.align ?? "left", margin: "6px 0 16px" }}
+            >
+              <Img
+                src={src}
+                alt={b.alt}
+                width={w}
+                style={{
+                  display: "inline-block",
+                  width: w,
+                  maxWidth: b.width ? "100%" : 600,
+                  height: "auto",
+                  borderRadius: 12,
+                }}
+              />
+            </div>
           );
         }
         return (

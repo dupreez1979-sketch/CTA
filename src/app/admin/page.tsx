@@ -3470,7 +3470,10 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
           <strong>Add image</strong> above, or paste one as{" "}
           <strong>![caption](image url)</strong> on its own line. To make it
           smaller, add a width: <strong>![](image url =50%)</strong> (100% is
-          full width).
+          full width). Align it with <strong>left</strong>,{" "}
+          <strong>center</strong> or <strong>right</strong>, or wrap text around
+          it with <strong>wrap-left</strong> / <strong>wrap-right</strong>, e.g.{" "}
+          <strong>![](image url =40% wrap-left)</strong>.
         </p>
         <button type="submit" style={buttonStyle}>
           Save draft

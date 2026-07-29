@@ -7,6 +7,10 @@
  *   - a point             -> a bullet ( -, * or • start a list item )
  *   ![caption](url)       -> an inline image (a line on its own)
  *   ![caption](url =50%)  -> the same image at 50% width (1–100%, default 100)
+ *   ![](url center)       -> block image aligned left / center / right
+ *   ![](url =40% wrap-left)  -> image floats so following text wraps around it
+ *                              (wrap-left / wrap-right). Width + alignment can
+ *                              appear in any order after the URL.
  *   plain text            -> a paragraph (consecutive lines join with a space)
  *   (blank line)          -> separates blocks
  *
@@ -19,7 +23,17 @@ export type Block =
   | { type: "heading"; level: 1 | 2; text: string }
   | { type: "para"; text: string }
   | { type: "list"; items: string[] }
-  | { type: "image"; url: string; alt: string; width?: number };
+  | {
+      type: "image";
+      url: string;
+      alt: string;
+      /** Display width as a percent of the column (1–100). */
+      width?: number;
+      /** Block alignment when the image sits on its own line. */
+      align?: "left" | "center" | "right";
+      /** Float so following text wraps around the image ("inline with text"). */
+      float?: "left" | "right";
+    };
 
 export function parseAllianceContent(input: string): Block[] {
   const lines = (input ?? "").replace(/\r\n?/g, "\n").split("\n");
@@ -51,16 +65,34 @@ export function parseAllianceContent(input: string): Block[] {
       continue;
     }
     // A line on its own that is a markdown image, with an optional trailing
-    // width percentage: ![caption](url) or ![caption](url =50%).
-    const image = line.match(/^!\[([^\]]*)\]\(([^)]+?)(?:\s+=(\d{1,3})%)?\)$/);
+    // width percentage and/or alignment keyword in any order:
+    //   ![caption](url)                  ![caption](url =50%)
+    //   ![](url center)                  ![](url =40% wrap-left)
+    const image = line.match(/^!\[([^\]]*)\]\((\S+?)(\s+[^)]*)?\)$/);
     if (image) {
       flush();
-      const pct = image[3] ? Number(image[3]) : undefined;
+      const tail = image[3] ?? "";
+      const pctMatch = tail.match(/=(\d{1,3})%/);
+      const pct = pctMatch ? Number(pctMatch[1]) : undefined;
+      // wrap-* must be tested before the bare left/right so it wins.
+      const kw = tail
+        .match(/\b(wrap-left|wrap-right|centre|center|left|right)\b/i)?.[1]
+        .toLowerCase();
+      const float =
+        kw === "wrap-left" ? "left" : kw === "wrap-right" ? "right" : undefined;
+      const align =
+        kw === "left" || kw === "right"
+          ? (kw as "left" | "right")
+          : kw === "center" || kw === "centre"
+            ? "center"
+            : undefined;
       blocks.push({
         type: "image",
         alt: image[1].trim(),
         url: image[2].trim(),
         ...(pct ? { width: Math.min(100, Math.max(1, pct)) } : {}),
+        ...(align ? { align } : {}),
+        ...(float ? { float } : {}),
       });
       continue;
     }
