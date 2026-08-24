@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as React from "react";
 import { render } from "@react-email/render";
-import { parseAllianceContent } from "@/lib/alliance-content";
+import { parseAllianceContent, parseInline } from "@/lib/alliance-content";
 import AllianceUpdateEmail from "../src/emails/AllianceUpdateEmail";
 
 describe("parseAllianceContent", () => {
@@ -145,6 +145,32 @@ describe("parseAllianceContent", () => {
   });
 });
 
+describe("parseInline", () => {
+  it("returns a single text run when there is no link", () => {
+    expect(parseInline("just plain text")).toEqual([
+      { type: "text", text: "just plain text" },
+    ]);
+  });
+
+  it("splits a link out of the surrounding text", () => {
+    expect(parseInline("See the [website](https://x.test) today")).toEqual([
+      { type: "text", text: "See the " },
+      { type: "link", text: "website", url: "https://x.test" },
+      { type: "text", text: " today" },
+    ]);
+  });
+
+  it("handles a link at the start and multiple links", () => {
+    expect(
+      parseInline("[one](https://a.test) and [two](https://b.test)"),
+    ).toEqual([
+      { type: "link", text: "one", url: "https://a.test" },
+      { type: "text", text: " and " },
+      { type: "link", text: "two", url: "https://b.test" },
+    ]);
+  });
+});
+
 describe("AllianceUpdateEmail", () => {
   it("renders subject, headings and bullets without throwing", async () => {
     const html = await render(
@@ -189,6 +215,24 @@ describe("AllianceUpdateEmail", () => {
     expect(html).toContain("https://example.org/api/img/abc");
     // …and an external URL is used verbatim.
     expect(html).toContain("https://cdn.test/x.jpg");
+  });
+
+  it("renders inline links in paragraphs and bullets", async () => {
+    const html = await render(
+      React.createElement(AllianceUpdateEmail, {
+        subject: "Links",
+        baseUrl: "https://example.org",
+        groupEmail: "group@example.org",
+        blocks: parseAllianceContent(
+          "Visit the [our site](https://x.test) page.\n\n- Update your [preferences](/preferences)",
+        ),
+      }),
+    );
+    // External link href verbatim, with its visible text.
+    expect(html).toContain('href="https://x.test"');
+    expect(html).toContain("our site");
+    // Relative link is absolutised against baseUrl.
+    expect(html).toContain('href="https://example.org/preferences"');
   });
 
   it("aligns a block image and floats a wrapped image", async () => {

@@ -16,7 +16,7 @@ import {
 import { COLORS } from "../lib/tokens";
 import Cloud from "./Cloud";
 import { FONT_BODY, display, shapeUrl } from "./shared";
-import type { Block } from "../lib/alliance-content";
+import { parseInline, type Block } from "../lib/alliance-content";
 
 /**
  * The internal "Alliance Update" email: a hand-composed note sent to the
@@ -56,6 +56,37 @@ const MOBILE_STYLES = `
   .footer-link { font-size: 14px !important; }
 }
 `;
+
+/**
+ * Render paragraph/bullet text, turning `[text](url)` markdown links into
+ * styled <Link>s. Relative `/…` hrefs are absolutised against baseUrl (like
+ * images); a scheme-less host gets `https://` so clients don't treat it as
+ * relative.
+ */
+function inline(text: string, baseUrl: string, keyPrefix: string) {
+  return parseInline(text).map((seg, i) => {
+    if (seg.type === "text") return <React.Fragment key={`${keyPrefix}-${i}`}>{seg.text}</React.Fragment>;
+    const href = seg.url.startsWith("/")
+      ? `${baseUrl}${seg.url}`
+      : /^(https?:\/\/|mailto:)/i.test(seg.url)
+        ? seg.url
+        : `https://${seg.url}`;
+    return (
+      <Link
+        key={`${keyPrefix}-${i}`}
+        href={href}
+        style={{
+          color: ACCENT,
+          fontWeight: 600,
+          textDecoration: "none",
+          borderBottom: `2px solid ${ACCENT}`,
+        }}
+      >
+        {seg.text}
+      </Link>
+    );
+  });
+}
 
 function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
   return (
@@ -133,7 +164,7 @@ function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
                         paddingBottom: 6,
                       }}
                     >
-                      {item}
+                      {inline(item, baseUrl, `li-${i}-${j}`)}
                     </td>
                   </tr>
                 ))}
@@ -210,7 +241,7 @@ function Blocks({ blocks, baseUrl }: { blocks: Block[]; baseUrl: string }) {
               margin: "0 0 14px",
             }}
           >
-            {b.text}
+            {inline(b.text, baseUrl, `p-${i}`)}
           </Text>
         );
       })}

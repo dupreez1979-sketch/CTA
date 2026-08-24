@@ -117,3 +117,32 @@ export function parseAllianceContent(input: string): Block[] {
   flush();
   return blocks;
 }
+
+/** An inline run inside a paragraph or bullet: plain text or a link. */
+export type Inline =
+  | { type: "text"; text: string }
+  | { type: "link"; text: string; url: string };
+
+/**
+ * Split a paragraph/bullet string into text runs and markdown links
+ * `[link text](url)`. Pure and render-agnostic (the email template turns links
+ * into <a>). Text with no links returns a single text run.
+ */
+export function parseInline(input: string): Inline[] {
+  const out: Inline[] = [];
+  const re = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(input)) !== null) {
+    if (m.index > last) {
+      out.push({ type: "text", text: input.slice(last, m.index) });
+    }
+    out.push({ type: "link", text: m[1], url: m[2] });
+    last = m.index + m[0].length;
+  }
+  if (last < input.length) {
+    out.push({ type: "text", text: input.slice(last) });
+  }
+  if (out.length === 0) out.push({ type: "text", text: input });
+  return out;
+}

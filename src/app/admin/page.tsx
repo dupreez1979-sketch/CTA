@@ -3473,7 +3473,9 @@ async function AllianceUpdateEditor({ id }: { id: number }) {
           full width). Align it with <strong>left</strong>,{" "}
           <strong>center</strong> or <strong>right</strong>, or wrap text around
           it with <strong>wrap-left</strong> / <strong>wrap-right</strong>, e.g.{" "}
-          <strong>![](image url =40% wrap-left)</strong>.
+          <strong>![](image url =40% wrap-left)</strong>. Add a link inside a
+          paragraph or bullet with{" "}
+          <strong>[link text](https://url)</strong>.
         </p>
         <button type="submit" style={buttonStyle}>
           Save draft
