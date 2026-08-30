@@ -192,6 +192,14 @@ body {
   cursor: pointer;
 }
 
+.signup-note {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cta-ink);
+  margin: 0;
+}
+
 .check-row input {
   appearance: none;
   flex: 0 0 auto;

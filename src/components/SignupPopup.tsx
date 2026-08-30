@@ -3,23 +3,18 @@
 import { useState } from "react";
 import PuzzleShape from "./PuzzleShape";
 
-type Freq = "Weekly" | "Fortnightly" | "Showcase only";
-const FREQS: Freq[] = ["Weekly", "Fortnightly", "Showcase only"];
-
 /**
- * The sign-up popup from the design handoff (SignupPopup.dc.html):
- * form state (name/email/cadence pills) and a "YOU'RE IN!" confirmation
- * that echoes the chosen cadence. `onClose` is optional — the hosted page
- * renders the card without a close button; the iframe embed wires it to
- * a postMessage that dismisses the overlay.
+ * The sign-up popup from the design handoff (SignupPopup.dc.html): name/email
+ * fields and a "YOU'RE IN!" confirmation. Sign-ups are Showcase only for now —
+ * there is no cadence choice and no opt-out; every new subscriber receives The
+ * Showcase Edition. `onClose` is optional — the hosted page renders the card
+ * without a close button; the iframe embed wires it to a postMessage that
+ * dismisses the overlay.
  */
 export default function SignupPopup({ onClose }: { onClose?: () => void }) {
   const [submitted, setSubmitted] = useState(false);
-  const [freq, setFreq] = useState<Freq>("Weekly");
-  const [showcase, setShowcase] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const showcaseOnly = freq === "Showcase only";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,8 +30,9 @@ export default function SignupPopup({ onClose }: { onClose?: () => void }) {
           firstName: data.get("firstName"),
           lastName: data.get("lastName"),
           email: data.get("email"),
-          cadence: showcaseOnly ? "none" : freq.toLowerCase(),
-          showcase: showcaseOnly ? true : showcase,
+          // Showcase only for now: no recurring auto cadence.
+          cadence: "none",
+          showcase: true,
         }),
       });
       if (!res.ok) {
@@ -78,9 +74,8 @@ export default function SignupPopup({ onClose }: { onClose?: () => void }) {
             <h2 className="confirm-title">You&#39;re in!</h2>
           </div>
           <p className="confirm-copy">
-            {showcaseOnly
-              ? "Thanks for signing up. The Showcase Edition will land in your inbox whenever there is news about shows."
-              : `Thanks for signing up. Your first ${freq.toLowerCase()} dispatch will land in your inbox soon.`}
+            Thanks for signing up. The Showcase Edition will land in your inbox
+            whenever there is news about shows.
           </p>
           <button className="reset-link" onClick={() => setSubmitted(false)}>
             Sign up another address
@@ -115,33 +110,11 @@ export default function SignupPopup({ onClose }: { onClose?: () => void }) {
                 <input id="su-email" name="email" type="email" required />
               </div>
               <div className="field" style={{ gap: 10 }}>
-                <label>How often? *</label>
-                <div className="pill-row">
-                  {FREQS.map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      className="pill"
-                      aria-pressed={freq === f}
-                      onClick={() => setFreq(f)}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={showcaseOnly ? true : showcase}
-                    disabled={showcaseOnly}
-                    onChange={(e) => setShowcase(e.target.checked)}
-                  />
-                  <span>
-                    <strong>The Showcase Edition</strong>: news about shows
-                    and tours from the companies of the Alliance, sent as it
-                    happens. Untick if you would rather not receive it.
-                  </span>
-                </label>
+                <p className="signup-note">
+                  You&#39;ll receive <strong>The Showcase Edition</strong>: news
+                  about shows and tours from the companies of the Alliance, sent
+                  as it happens.
+                </p>
               </div>
             </div>
 
