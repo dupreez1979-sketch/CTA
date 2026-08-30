@@ -6,7 +6,10 @@ import {
   deleteEdition,
   duplicateEdition,
   getEdition,
+  pushEditionShowToRegistry,
+  refreshEditionShows,
   removeShowFromEdition,
+  updateEditionShow,
 } from "@/lib/presenter";
 import { showcaseRedirectUrl } from "@/lib/showcase-admin";
 
@@ -58,19 +61,61 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (action === "add-show" || action === "remove-show") {
+  // Push an edition's edited show details back to the Shows tab registry.
+  // Allowed on any edition status (it only reads the edition).
+  if (action === "push-show") {
+    const edition = await getEdition(id);
+    if (!edition) return redirect("That Showcase no longer exists", null);
+    const showId = Number(form.get("showId"));
+    if (!Number.isInteger(showId)) return redirect("Invalid input", id);
+    await pushEditionShowToRegistry(id, showId);
+    return redirect("Saved to the Shows tab", id);
+  }
+
+  if (
+    action === "add-show" ||
+    action === "remove-show" ||
+    action === "refresh-show" ||
+    action === "refresh-all-shows" ||
+    action === "update-show"
+  ) {
     const edition = await getEdition(id);
     if (!edition) return redirect("That Showcase no longer exists", null);
     if (edition.status === "sent" || edition.status === "sending")
       return redirect("A sent Showcase can't be changed", id);
+
+    if (action === "refresh-all-shows") {
+      await refreshEditionShows(id);
+      return redirect("All spotlight shows refreshed to the latest", id);
+    }
+
     const showId = Number(form.get("showId"));
     if (!Number.isInteger(showId)) return redirect("Invalid input", id);
+
     if (action === "add-show") {
       await addShowToEdition(id, showId);
       return redirect("Show added to this Showcase", id);
     }
-    await removeShowFromEdition(id, showId);
-    return redirect("Show removed from this Showcase", id);
+    if (action === "remove-show") {
+      await removeShowFromEdition(id, showId);
+      return redirect("Show removed from this Showcase", id);
+    }
+    if (action === "refresh-show") {
+      await refreshEditionShows(id, showId);
+      return redirect("Show refreshed to the latest", id);
+    }
+    // update-show: save an override for this edition only.
+    const val = (name: string) => String(form.get(name) ?? "").trim() || null;
+    const title = val("title");
+    if (!title) return redirect("A show needs a title", id);
+    await updateEditionShow(id, showId, {
+      title,
+      url: val("url"),
+      blurb: val("blurb"),
+      ageRange: val("ageRange"),
+      imageUrl: val("imageUrl"),
+    });
+    return redirect("Saved for this edition", id);
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

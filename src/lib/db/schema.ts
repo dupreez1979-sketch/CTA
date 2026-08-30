@@ -304,6 +304,17 @@ export const showcaseEditionShows = pgTable(
     // Order of the Spotlight grid within the edition. Gaps are fine: moves
     // swap with the next row by position order, not by adjacency.
     position: integer("position").notNull().default(0),
+    // Frozen snapshot of the registry show, taken when the show is added (and
+    // refreshable on demand). Render reads these instead of the live `shows`
+    // row so an edition is a fixed record. snapshotAt NULL = a legacy row from
+    // before snapshots existed: it falls back to the live show until refreshed.
+    title: text("title"),
+    companyKey: text("company_key"),
+    url: text("url"),
+    blurb: text("blurb"),
+    ageRange: text("age_range"),
+    imageUrl: text("image_url"),
+    snapshotAt: timestamp("snapshot_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("sc_edition_show_idx").on(t.editionId, t.showId)],
 );

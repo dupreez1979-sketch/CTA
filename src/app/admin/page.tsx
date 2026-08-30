@@ -5269,6 +5269,7 @@ async function EditionBuilder({
   const feedNameById = new Map(feedRows.map((f) => [f.id, f.name]));
   const companyName = (key: string) =>
     nameByKey.get(key) ?? "Around the Alliance";
+  const field: React.CSSProperties = { ...smallInput, width: "100%" };
   const showsPageByKey = new Map(
     companyRows.map((c) => [c.key, c.showsPageUrl ?? c.showsPageUrl2]),
   );
@@ -5552,13 +5553,23 @@ async function EditionBuilder({
           {editable ? "3 · " : ""}Spotlight shows in this Showcase
           <HelpTip title="Spotlight shows">
             The show grid at the bottom of this edition, two cards per row,
-            in the order shown.
+            in the order shown. Each show is a frozen snapshot taken when it was
+            added, so editing it on the Shows tab won&#39;t change this edition.
             {editable &&
-              " Use the ▲ ▼ arrows to reorder and Remove to take a show out of this edition."}
+              " Use the ▲ ▼ arrows to reorder and Remove to take a show out. Open Edit for this edition to tweak a show here only, Refresh to pull the latest from the Shows tab, or Save to Shows tab to push your edit back."}
           </HelpTip>
         </h2>
         {editable && (
-          <p style={{ marginTop: 0, marginBottom: 14 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginTop: 0,
+              marginBottom: 14,
+            }}
+          >
             <Link
               prefetch={false}
               href="/admin?tab=shows"
@@ -5571,7 +5582,20 @@ async function EditionBuilder({
             >
               Edit show details on the Shows tab →
             </Link>
-          </p>
+            {editionShows.length > 0 && (
+              <form action="/api/admin/showcase-edition" method="post">
+                <input type="hidden" name="anchor" value="edition-shows" />
+                <input type="hidden" name="action" value="refresh-all-shows" />
+                <input type="hidden" name="id" value={edition.id} />
+                <button
+                  type="submit"
+                  style={{ ...smallButton, background: "var(--cta-white)" }}
+                >
+                  Refresh all from Shows tab
+                </button>
+              </form>
+            )}
+          </div>
         )}
         {editable && editionShows.length % 2 === 1 && (
           <p
@@ -5599,33 +5623,168 @@ async function EditionBuilder({
           <div
             key={s.id}
             style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
               padding: "7px 0",
               borderBottom: "1px solid rgba(30,30,29,0.15)",
               fontSize: 13.5,
             }}
           >
-            <span style={{ flex: 1 }}>
-              <strong>{s.title}</strong>
-              {" · "}
-              {companyName(s.companyKey)}
-              {s.ageRange ? ` · ${s.ageRange}` : ""}
-            </span>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ flex: 1 }}>
+                <strong>{s.title}</strong>
+                {" · "}
+                {companyName(s.companyKey ?? "")}
+                {s.ageRange ? ` · ${s.ageRange}` : ""}
+                {!s.snapshotAt && (
+                  <span style={{ ...muted, marginLeft: 8, fontSize: 12 }}>
+                    (live — refresh to freeze)
+                  </span>
+                )}
+              </span>
+              {editable && (
+                <>
+                  <MoveButtons
+                    editionId={edition.id}
+                    itemId={s.id}
+                    kind="show"
+                  />
+                  <form action="/api/admin/showcase-edition" method="post">
+                    <input type="hidden" name="anchor" value="edition-shows" />
+                    <input type="hidden" name="action" value="remove-show" />
+                    <input type="hidden" name="id" value={edition.id} />
+                    <input type="hidden" name="showId" value={s.id} />
+                    <button type="submit" style={dangerButton}>
+                      Remove
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
             {editable && (
-              <>
-                <MoveButtons editionId={edition.id} itemId={s.id} kind="show" />
-                <form action="/api/admin/showcase-edition" method="post">
-                  <input type="hidden" name="anchor" value="edition-shows" />
-                  <input type="hidden" name="action" value="remove-show" />
-                  <input type="hidden" name="id" value={edition.id} />
-                  <input type="hidden" name="showId" value={s.id} />
-                  <button type="submit" style={dangerButton}>
-                    Remove
-                  </button>
-                </form>
-              </>
+              <details style={{ marginTop: 6 }}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: "var(--cta-ink)",
+                  }}
+                >
+                  Edit for this edition
+                </summary>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    padding: "10px 0 4px",
+                  }}
+                >
+                  <form
+                    action="/api/admin/showcase-edition"
+                    method="post"
+                    style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                  >
+                    <input type="hidden" name="anchor" value="edition-shows" />
+                    <input type="hidden" name="action" value="update-show" />
+                    <input type="hidden" name="id" value={edition.id} />
+                    <input type="hidden" name="showId" value={s.id} />
+                    <div>
+                      <label style={fieldLabel}>Title</label>
+                      <input
+                        type="text"
+                        name="title"
+                        defaultValue={s.title}
+                        required
+                        style={field}
+                      />
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 140px" }}>
+                        <label style={fieldLabel}>Age range</label>
+                        <input
+                          type="text"
+                          name="ageRange"
+                          defaultValue={s.ageRange ?? ""}
+                          placeholder="4 to 8"
+                          style={field}
+                        />
+                      </div>
+                      <div style={{ flex: "2 1 220px" }}>
+                        <label style={fieldLabel}>Show page link</label>
+                        <input
+                          type="url"
+                          name="url"
+                          defaultValue={s.url ?? ""}
+                          placeholder="https://…"
+                          style={field}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={fieldLabel}>Image link</label>
+                      <input
+                        type="url"
+                        name="imageUrl"
+                        defaultValue={s.imageUrl ?? ""}
+                        placeholder="https://…"
+                        style={field}
+                      />
+                    </div>
+                    <div>
+                      <label style={fieldLabel}>Blurb</label>
+                      <textarea
+                        name="blurb"
+                        rows={2}
+                        defaultValue={s.blurb ?? ""}
+                        style={{ ...field, resize: "vertical" }}
+                      />
+                    </div>
+                    <button type="submit" style={smallButton}>
+                      Save for this edition
+                    </button>
+                  </form>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <form action="/api/admin/showcase-edition" method="post">
+                      <input
+                        type="hidden"
+                        name="anchor"
+                        value="edition-shows"
+                      />
+                      <input type="hidden" name="action" value="refresh-show" />
+                      <input type="hidden" name="id" value={edition.id} />
+                      <input type="hidden" name="showId" value={s.id} />
+                      <button
+                        type="submit"
+                        style={{
+                          ...smallButton,
+                          background: "var(--cta-white)",
+                        }}
+                      >
+                        Refresh from Shows tab
+                      </button>
+                    </form>
+                    <form action="/api/admin/showcase-edition" method="post">
+                      <input
+                        type="hidden"
+                        name="anchor"
+                        value="edition-shows"
+                      />
+                      <input type="hidden" name="action" value="push-show" />
+                      <input type="hidden" name="id" value={edition.id} />
+                      <input type="hidden" name="showId" value={s.id} />
+                      <button
+                        type="submit"
+                        style={{
+                          ...smallButton,
+                          background: "var(--cta-white)",
+                        }}
+                      >
+                        Save to Shows tab
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </details>
             )}
           </div>
         ))}

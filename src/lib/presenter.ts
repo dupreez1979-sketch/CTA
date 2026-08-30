@@ -209,14 +209,99 @@ export async function getEditionCounts(): Promise<
   );
 }
 
-export async function getEditionShows(editionId: number): Promise<Show[]> {
+/**
+ * A Spotlight show as it appears in one edition: the frozen snapshot when the
+ * row has been snapshotted, else the live registry show (legacy rows). `id` is
+ * always the registry show id (the reorder/remove forms key on it).
+ */
+export interface EditionShow {
+  id: number;
+  companyKey: string | null;
+  title: string;
+  url: string | null;
+  blurb: string | null;
+  ageRange: string | null;
+  imageUrl: string | null;
+  /** When this row was snapshotted; null = legacy row rendering live. */
+  snapshotAt: Date | null;
+}
+
+/** The snapshot columns carried on a showcase_edition_shows row. */
+interface EditionShowSnapshot {
+  showId: number;
+  title: string | null;
+  companyKey: string | null;
+  url: string | null;
+  blurb: string | null;
+  ageRange: string | null;
+  imageUrl: string | null;
+  snapshotAt: Date | null;
+}
+
+/**
+ * Effective values for a Spotlight show: when `snapshotAt` is set the snapshot
+ * columns win verbatim (a snapshotted empty field stays empty — it must NOT
+ * fall back to the live show); otherwise (legacy row) use the live show. Pure,
+ * exported for tests.
+ */
+export function pickEditionShow(
+  snap: EditionShowSnapshot,
+  live: Pick<
+    Show,
+    "companyKey" | "title" | "url" | "blurb" | "ageRange" | "imageUrl"
+  > | null,
+): EditionShow {
+  if (snap.snapshotAt) {
+    return {
+      id: snap.showId,
+      companyKey: snap.companyKey,
+      title: snap.title ?? "",
+      url: snap.url,
+      blurb: snap.blurb,
+      ageRange: snap.ageRange,
+      imageUrl: snap.imageUrl,
+      snapshotAt: snap.snapshotAt,
+    };
+  }
+  return {
+    id: snap.showId,
+    companyKey: live?.companyKey ?? null,
+    title: live?.title ?? "",
+    url: live?.url ?? null,
+    blurb: live?.blurb ?? null,
+    ageRange: live?.ageRange ?? null,
+    imageUrl: live?.imageUrl ?? null,
+    snapshotAt: null,
+  };
+}
+
+export async function getEditionShows(editionId: number): Promise<EditionShow[]> {
   const rows = await db()
-    .select({ show: shows })
+    .select({
+      snap: {
+        showId: showcaseEditionShows.showId,
+        title: showcaseEditionShows.title,
+        companyKey: showcaseEditionShows.companyKey,
+        url: showcaseEditionShows.url,
+        blurb: showcaseEditionShows.blurb,
+        ageRange: showcaseEditionShows.ageRange,
+        imageUrl: showcaseEditionShows.imageUrl,
+        snapshotAt: showcaseEditionShows.snapshotAt,
+      },
+      live: {
+        companyKey: shows.companyKey,
+        title: shows.title,
+        url: shows.url,
+        blurb: shows.blurb,
+        ageRange: shows.ageRange,
+        imageUrl: shows.imageUrl,
+      },
+    })
     .from(showcaseEditionShows)
-    .innerJoin(shows, eq(showcaseEditionShows.showId, shows.id))
+    .leftJoin(shows, eq(showcaseEditionShows.showId, shows.id))
     .where(eq(showcaseEditionShows.editionId, editionId))
-    .orderBy(asc(showcaseEditionShows.position), asc(shows.title));
-  return rows.map((r) => r.show);
+    .orderBy(asc(showcaseEditionShows.position), asc(showcaseEditionShows.title));
+  return rows.map((r) => pickEditionShow(r.snap, r.live));
 }
 
 /**
@@ -279,14 +364,24 @@ export async function createEditionFromPool(): Promise<{
   }
 
   // Snapshot the active registry in the order the email always used
-  // (company, then title); the builder can reorder from there.
+  // (company, then title); the builder can reorder from there. Each show's
+  // details are frozen onto the edition row (refreshable later).
   const activeShows = await db()
-    .select({ id: shows.id })
+    .select({
+      id: shows.id,
+      title: shows.title,
+      companyKey: shows.companyKey,
+      url: shows.url,
+      blurb: shows.blurb,
+      ageRange: shows.ageRange,
+      imageUrl: shows.imageUrl,
+    })
     .from(shows)
     .leftJoin(companies, eq(companies.key, shows.companyKey))
     .where(eq(shows.status, "active"))
     .orderBy(asc(companies.name), asc(shows.title));
   if (activeShows.length > 0) {
+    const snapshotAt = new Date();
     await db()
       .insert(showcaseEditionShows)
       .values(
@@ -294,6 +389,13 @@ export async function createEditionFromPool(): Promise<{
           editionId: edition.id,
           showId: s.id,
           position: i,
+          title: s.title,
+          companyKey: s.companyKey,
+          url: s.url,
+          blurb: s.blurb,
+          ageRange: s.ageRange,
+          imageUrl: s.imageUrl,
+          snapshotAt,
         })),
       );
   }
@@ -338,6 +440,13 @@ export async function duplicateEdition(id: number): Promise<number | null> {
           editionId: copy.id,
           showId: s.showId,
           position: s.position,
+          title: s.title,
+          companyKey: s.companyKey,
+          url: s.url,
+          blurb: s.blurb,
+          ageRange: s.ageRange,
+          imageUrl: s.imageUrl,
+          snapshotAt: s.snapshotAt,
         })),
       );
   }
@@ -519,12 +628,100 @@ export async function addShowToEdition(
   editionId: number,
   showId: number,
 ): Promise<void> {
+  // Snapshot the show's current details onto the edition row so the edition is
+  // a frozen record (refreshable later). Sourced from `shows`, so a missing
+  // show inserts nothing.
   await db().execute(sql`
-    insert into ${showcaseEditionShows} (edition_id, show_id, position)
+    insert into ${showcaseEditionShows}
+      (edition_id, show_id, position, title, company_key, url, blurb, age_range, image_url, snapshot_at)
     select ${editionId}, ${showId},
       coalesce((select max(position) + 1 from ${showcaseEditionShows}
-                where edition_id = ${editionId}), 0)
+                where edition_id = ${editionId}), 0),
+      s.title, s.company_key, s.url, s.blurb, s.age_range, s.image_url, now()
+    from ${shows} s
+    where s.id = ${showId}
     on conflict do nothing
+  `);
+}
+
+/**
+ * Re-copy the live registry show(s) into an edition's snapshot columns. Pass a
+ * showId to refresh one, or omit it to refresh every show in the edition. Only
+ * editable (draft/failed) editions are touched.
+ */
+export async function refreshEditionShows(
+  editionId: number,
+  showId?: number,
+): Promise<void> {
+  await db().execute(sql`
+    update ${showcaseEditionShows} es
+    set title = s.title,
+        company_key = s.company_key,
+        url = s.url,
+        blurb = s.blurb,
+        age_range = s.age_range,
+        image_url = s.image_url,
+        snapshot_at = now()
+    from ${shows} s,
+         ${showcaseEditions} e
+    where es.show_id = s.id
+      and e.id = es.edition_id
+      and e.status in ('draft', 'failed')
+      and es.edition_id = ${editionId}
+      ${showId === undefined ? sql`` : sql`and es.show_id = ${showId}`}
+  `);
+}
+
+/** Override a Spotlight show's details for this edition only. */
+export async function updateEditionShow(
+  editionId: number,
+  showId: number,
+  fields: {
+    title: string | null;
+    url: string | null;
+    blurb: string | null;
+    ageRange: string | null;
+    imageUrl: string | null;
+  },
+): Promise<void> {
+  await db().execute(sql`
+    update ${showcaseEditionShows} es
+    set title = ${fields.title},
+        url = ${fields.url},
+        blurb = ${fields.blurb},
+        age_range = ${fields.ageRange},
+        image_url = ${fields.imageUrl},
+        snapshot_at = now()
+    from ${showcaseEditions} e
+    where e.id = es.edition_id
+      and e.status in ('draft', 'failed')
+      and es.edition_id = ${editionId}
+      and es.show_id = ${showId}
+  `);
+}
+
+/**
+ * Push an edition's snapshot of a show back into the registry `shows` row, so
+ * the Shows tab reflects the edited details. Allowed regardless of edition
+ * status (it only reads the edition).
+ */
+export async function pushEditionShowToRegistry(
+  editionId: number,
+  showId: number,
+): Promise<void> {
+  await db().execute(sql`
+    update ${shows} s
+    set title = coalesce(es.title, s.title),
+        url = es.url,
+        blurb = es.blurb,
+        age_range = es.age_range,
+        image_url = es.image_url,
+        updated_at = now()
+    from ${showcaseEditionShows} es
+    where es.show_id = s.id
+      and es.edition_id = ${editionId}
+      and es.show_id = ${showId}
+      and es.snapshot_at is not null
   `);
 }
 
@@ -764,7 +961,7 @@ export interface AssembledShowcase {
  */
 export function buildShowcaseProps(
   entries: { item: FeedItem; featured: boolean; social?: boolean }[],
-  showList: Show[],
+  showList: EditionShow[],
   nameByKey: Map<string, string>,
   baseUrl: string,
   dateLabel: string,
@@ -845,7 +1042,7 @@ export function buildShowcaseProps(
   // set with the ▲ ▼ arrows in the builder).
   const listings = showList.map((s) => ({
       title: decodeEntities(s.title),
-      company: companyNameFrom(nameByKey, s.companyKey),
+      company: companyNameFrom(nameByKey, s.companyKey ?? ""),
       blurb: clean(s.blurb),
       url: s.url,
       ageRange: s.ageRange,

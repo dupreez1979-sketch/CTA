@@ -169,6 +169,13 @@
       "when": 1783201000000,
       "tag": "0023_company-inclusion-mode",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783201100000,
+      "tag": "0024_edition-show-snapshot",
+      "breakpoints": true
     }
   ]
 }

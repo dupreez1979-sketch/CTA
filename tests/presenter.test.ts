@@ -3,10 +3,12 @@ import {
   buildShowcaseProps,
   hasRelativeTime,
   parseShowcaseListParams,
+  pickEditionShow,
   swapPositions,
+  type EditionShow,
 } from "@/lib/presenter";
 import { COPY_SCHEMA } from "@/lib/ai";
-import type { FeedItem, Show } from "@/lib/db/schema";
+import type { FeedItem } from "@/lib/db/schema";
 
 const BASE = "https://news.example.org";
 const NAMES = new Map([
@@ -68,7 +70,7 @@ function entry(overrides: Partial<FeedItem>, featured = false) {
   return { item: item(overrides), featured };
 }
 
-function show(overrides: Partial<Show>): Show {
+function show(overrides: Partial<EditionShow>): EditionShow {
   const id = nextId++;
   return {
     id,
@@ -78,9 +80,7 @@ function show(overrides: Partial<Show>): Show {
     blurb: null,
     ageRange: null,
     imageUrl: null,
-    status: "active",
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    snapshotAt: new Date(),
     ...overrides,
   };
 }
@@ -378,5 +378,106 @@ describe("COPY_SCHEMA showcase classification", () => {
       "high",
     ]);
     expect(COPY_SCHEMA.properties.showTitle.type).toEqual(["string", "null"]);
+  });
+});
+
+describe("pickEditionShow", () => {
+  const live = {
+    companyKey: "monkey-baa",
+    title: "Live Title",
+    url: "https://live.test",
+    blurb: "Live blurb",
+    ageRange: "6 to 10",
+    imageUrl: "https://live.test/img.jpg",
+  };
+
+  it("uses the snapshot verbatim when snapshotAt is set", () => {
+    const got = pickEditionShow(
+      {
+        showId: 42,
+        title: "Frozen Title",
+        companyKey: "terrapin",
+        url: "https://frozen.test",
+        blurb: "Frozen blurb",
+        ageRange: "4 to 8",
+        imageUrl: "https://frozen.test/img.jpg",
+        snapshotAt: new Date("2026-07-01T00:00:00Z"),
+      },
+      live,
+    );
+    expect(got).toEqual({
+      id: 42,
+      companyKey: "terrapin",
+      title: "Frozen Title",
+      url: "https://frozen.test",
+      blurb: "Frozen blurb",
+      ageRange: "4 to 8",
+      imageUrl: "https://frozen.test/img.jpg",
+      snapshotAt: new Date("2026-07-01T00:00:00Z"),
+    });
+  });
+
+  it("keeps a snapshotted empty field empty (no fallback to live)", () => {
+    const got = pickEditionShow(
+      {
+        showId: 7,
+        title: "Frozen",
+        companyKey: "terrapin",
+        url: null,
+        blurb: null,
+        ageRange: null,
+        imageUrl: null,
+        snapshotAt: new Date("2026-07-01T00:00:00Z"),
+      },
+      live,
+    );
+    expect(got.blurb).toBeNull();
+    expect(got.url).toBeNull();
+    expect(got.imageUrl).toBeNull();
+  });
+
+  it("falls back to the live show for a legacy row (snapshotAt null)", () => {
+    const got = pickEditionShow(
+      {
+        showId: 9,
+        title: null,
+        companyKey: null,
+        url: null,
+        blurb: null,
+        ageRange: null,
+        imageUrl: null,
+        snapshotAt: null,
+      },
+      live,
+    );
+    expect(got).toEqual({
+      id: 9,
+      companyKey: "monkey-baa",
+      title: "Live Title",
+      url: "https://live.test",
+      blurb: "Live blurb",
+      ageRange: "6 to 10",
+      imageUrl: "https://live.test/img.jpg",
+      snapshotAt: null,
+    });
+  });
+
+  it("tolerates a missing live show on a legacy row", () => {
+    const got = pickEditionShow(
+      {
+        showId: 5,
+        title: null,
+        companyKey: null,
+        url: null,
+        blurb: null,
+        ageRange: null,
+        imageUrl: null,
+        snapshotAt: null,
+      },
+      null,
+    );
+    expect(got.id).toBe(5);
+    expect(got.title).toBe("");
+    expect(got.companyKey).toBeNull();
   });
 });
