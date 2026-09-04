@@ -28,3 +28,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 .samples/
+design/banner-parts.zip
